@@ -1,15 +1,16 @@
-# dice_pool_display.gd - Visual dice pool
+# dice_pool_display.gd - Displays available dice from player's pool
 extends HBoxContainer
 
 # ============================================================================
-# CONSTANTS
+# EXPORTS
 # ============================================================================
-const DIE_VISUAL_SCENE = preload("res://scenes/ui/components/die_visual.tscn")
+@export var die_visual_scene: PackedScene = null
+
 
 # ============================================================================
 # STATE
 # ============================================================================
-var player: Player = null
+var dice_pool = null  # PlayerDicePool reference (accept any type for flexibility)
 var die_visuals: Array[Control] = []
 
 # ============================================================================
@@ -18,130 +19,96 @@ var die_visuals: Array[Control] = []
 
 func _ready():
 	print("🎲 DicePoolDisplay _ready")
-	
-	# Don't block input to children
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	# Clear any pre-existing children
-	for child in get_children():
-		print("  ⚠️ Removing pre-existing child: %s" % child.name)
-		child.queue_free()
-	
-	print("  - mouse_filter: %s" % mouse_filter)
+	print("  - mouse_filter: %d" % mouse_filter)
 
-func initialize(p_player: Player):
-	"""Initialize with player"""
+func initialize(pool):
+	"""Initialize with dice pool"""
 	print("🎲 DicePoolDisplay.initialize() called")
-	player = p_player
+	dice_pool = pool
 	
-	if not player:
-		print("  ❌ Player is null!")
+	if not dice_pool:
+		print("  ⚠️ WARNING: dice_pool is null!")
 		return
 	
-	if not player.dice_pool:
-		print("  ❌ Player has no dice pool!")
-		return
-	
-	print("  ✅ Player dice pool has %d dice" % player.dice_pool.available_dice.size())
+	print("  ✅ Player dice pool has %d dice" % dice_pool.available_dice.size())
 	
 	# Connect to dice rolled signal
-	if not player.dice_pool.dice_rolled.is_connected(_on_dice_rolled):
-		player.dice_pool.dice_rolled.connect(_on_dice_rolled)
-		print("  ✅ Connected to dice_rolled signal")
+	if dice_pool.has_signal("dice_rolled"):
+		if not dice_pool.dice_rolled.is_connected(refresh):
+			dice_pool.dice_rolled.connect(refresh)
+			print("  ✅ Connected to dice_rolled signal")
 	
-	# Display current dice
+	# Initial display
 	refresh()
 
 # ============================================================================
-# PUBLIC API
+# DISPLAY
 # ============================================================================
 
 func refresh():
-	"""Refresh displayed dice"""
+	"""Refresh the dice display"""
 	print("🎲 DicePoolDisplay.refresh() called")
 	
-	# Clear existing visuals
-	for visual in die_visuals:
-		if is_instance_valid(visual):
-			visual.queue_free()
-	die_visuals.clear()
-	
-	# Clear container children
-	for child in get_children():
-		child.queue_free()
-	
-	if not player or not player.dice_pool:
-		print("  ❌ No player or dice pool")
+	if not dice_pool:
+		print("  ⚠️ Cannot refresh: dice_pool is null")
 		return
 	
-	var available = player.dice_pool.available_dice
+	# Clear existing visuals
+	clear_display()
+	
+	# Create visuals for available dice
+	var available = dice_pool.available_dice
 	print("  📊 Displaying %d available dice" % available.size())
 	
-	if available.size() == 0:
-		print("  ⚠️ No dice available to display!")
-		var empty_label = Label.new()
-		empty_label.text = "No dice available"
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		add_child(empty_label)
-		return
-	
-	# Create visual for each available die
 	for i in range(available.size()):
 		var die = available[i]
 		print("    Creating visual for die %d: %s" % [i, die.get_display_name()])
-		
 		var visual = create_die_visual(die)
 		if visual:
 			add_child(visual)
 			die_visuals.append(visual)
 			print("      ✅ Added to scene tree")
-		else:
-			print("      ❌ Failed to create visual")
 	
 	print("  ✅ Total visuals in tree: %d" % get_child_count())
+
+func clear_display():
+	"""Remove all die visuals"""
+	for visual in die_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	die_visuals.clear()
 	
-	# Verify after one frame
-	await get_tree().process_frame
-	print("  🔍 Post-frame verification:")
-	for i in range(get_child_count()):
-		var child = get_child(i)
-		if child.has_method("initialize"):
-			print("    - Die %d: visible=%s, mouse_filter=%s, has_die_data=%s" % [
-				i, 
-				child.visible, 
-				child.mouse_filter,
-				child.die_data != null
-			])
+	# Also clear any remaining children
+	for child in get_children():
+		child.queue_free()
 
 func create_die_visual(die: DieData) -> Control:
-	"""Create visual for a die"""
-	if not DIE_VISUAL_SCENE:
-		print("    ❌ DIE_VISUAL_SCENE not loaded!")
+	"""Create a visual representation of a die"""
+	# Check if scene is set
+	if not die_visual_scene:
+		print("  ❌ ERROR: die_visual_scene not set in Inspector!")
 		return null
 	
-	var visual = DIE_VISUAL_SCENE.instantiate()
+	var visual = die_visual_scene.instantiate()
 	
-	if not visual:
-		print("    ❌ Failed to instantiate scene")
-		return null
-	
-	# CRITICAL: Initialize with die data BEFORE adding to tree
+	# Initialize it
+	print("    🔧 Calling initialize() on visual...")
 	if visual.has_method("initialize"):
-		print("    🔧 Calling initialize() on visual...")
-		visual.initialize(die)
+		visual.initialize(die, true)  # true = can drag
 		print("      ✅ Initialized with %s" % die.get_display_name())
 	else:
-		print("    ❌ Visual has no initialize() method!")
-		visual.queue_free()
-		return null
+		print("      ⚠️ WARNING: DieVisual has no initialize method")
 	
 	return visual
 
+
 # ============================================================================
-# SIGNAL HANDLERS
+# UTILITY
 # ============================================================================
 
-func _on_dice_rolled(dice: Array):
-	"""Dice were rolled"""
-	print("🎲 Dice rolled signal received: %d dice" % dice.size())
-	refresh()
+func get_die_visual_at_position(pos: Vector2) -> Control:
+	"""Get die visual at a specific position"""
+	for visual in die_visuals:
+		if visual and visual.get_global_rect().has_point(pos):
+			return visual
+	return null

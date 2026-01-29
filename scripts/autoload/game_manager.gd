@@ -94,111 +94,25 @@ func initialize_player():
 	player_created.emit(player)
 
 func add_starting_items():
-	"""Add starting equipment with combat actions"""
+	"""Add starting equipment with affix rolls"""
 	
-	# Iron Sword - basic attack
-	var iron_sword = {
-		"name": "Iron Sword",
-		"slot": "Main Hand",
-		"stats": {"strength": 5},
-		"dice": [DieData.DieType.D6],
-		"dice_tags": ["physical", "slashing"],
-		"description": "A basic iron sword",
-		"actions": [
-			{
-				"name": "Slash",
-				"description": "[color=yellow]Physical Attack[/color]\n+5 base damage\nRequires physical die",
-				"icon": null,  # TODO: Add icon texture
-				"die_slots": 1,
-				"action_type": ActionField.ActionType.ATTACK,
-				"base_damage": 5,
-				"damage_multiplier": 1.0,
-				"required_tags": ["physical"],
-				"restricted_tags": []
-			}
-		]
-	}
-	player.add_to_inventory(iron_sword)
+	# Load item resources
+	var iron_sword = load("res://resources/items/iron_sword.tres")
+	var flaming_greatsword = load("res://resources/items/flaming_greatsword.tres")
 	
-	# Flaming Greatsword - powerful multi-die attack
-	var flaming_greatsword = {
-		"name": "Flaming Greatsword",
-		"slot": "Main Hand",
-		"stats": {"strength": 12},
-		"dice": [DieData.DieType.D8, DieData.DieType.D8, DieData.DieType.D6],
-		"dice_tags": ["physical", "fire", "slashing"],
-		"description": "A massive blade wreathed in flames",
-		"actions": [
-			{
-				"name": "Flame Strike",
-				"description": "[color=orange]Fire Attack[/color]\n+10 base damage\n1.5x multiplier\nUse up to 2 dice",
-				"icon": null,
-				"die_slots": 2,
-				"action_type": ActionField.ActionType.ATTACK,
-				"base_damage": 10,
-				"damage_multiplier": 1.5,
-				"required_tags": [],
-				"restricted_tags": []
-			},
-			{
-				"name": "Inferno Slash",
-				"description": "[color=red]Massive Fire Attack[/color]\n+15 base damage\n2x multiplier\nRequires fire die\nUse up to 3 dice",
-				"icon": null,
-				"die_slots": 3,
-				"action_type": ActionField.ActionType.SPECIAL,
-				"base_damage": 15,
-				"damage_multiplier": 2.0,
-				"required_tags": ["fire"],
-				"restricted_tags": []
-			}
-		]
-	}
-	player.add_to_inventory(flaming_greatsword)
+	# Roll affixes and add to inventory
+	if iron_sword:
+		iron_sword.roll_affixes()
+		var sword_dict = iron_sword.to_dict()
+		player.add_to_inventory(sword_dict)
+		print("✅ Added Iron Sword to inventory")
 	
-	# Plate Armor - defensive action
-	var plate_armor = {
-		"name": "Plate Armor",
-		"slot": "Torso",
-		"stats": {"armor": 10},
-		"description": "Heavy steel armor",
-		"actions": [
-			{
-				"name": "Brace",
-				"description": "[color=cyan]Defense[/color]\nGain block equal to die value\n+5 bonus block",
-				"icon": null,
-				"die_slots": 1,
-				"action_type": ActionField.ActionType.DEFEND,
-				"base_damage": 5,  # Bonus block
-				"damage_multiplier": 1.0,
-				"required_tags": [],
-				"restricted_tags": []
-			}
-		]
-	}
-	player.add_to_inventory(plate_armor)
+	if flaming_greatsword:
+		flaming_greatsword.roll_affixes()
+		var gs_dict = flaming_greatsword.to_dict()
+		player.add_to_inventory(gs_dict)
+		print("✅ Added Flaming Greatsword to inventory")
 	
-	# Health Potion - healing consumable
-	var health_potion = {
-		"name": "Health Potion",
-		"type": "Consumable",
-		"effect": "heal",
-		"amount": 50,
-		"description": "Restores 50 HP",
-		"actions": [
-			{
-				"name": "Drink Potion",
-				"description": "[color=green]Heal[/color]\nRestore HP equal to die value\n+20 bonus healing\nConsumes item",
-				"icon": null,
-				"die_slots": 1,
-				"action_type": ActionField.ActionType.HEAL,
-				"base_damage": 20,  # Bonus healing
-				"damage_multiplier": 1.0,
-				"required_tags": [],
-				"restricted_tags": []
-			}
-		]
-	}
-	player.add_to_inventory(health_potion)
 
 # ============================================================================
 # SCENE MANAGEMENT

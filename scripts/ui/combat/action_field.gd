@@ -357,3 +357,53 @@ func _on_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if is_ready_to_confirm():
 			action_selected.emit(self)
+
+func configure_from_dict(action_data: Dictionary):
+	"""Configure this action field from a dictionary"""
+	print("🔧 Configuring ActionField with: %s" % action_data.get("name", "Unknown"))
+	
+	action_name = action_data.get("name", "Action")
+	action_description = action_data.get("description", "")
+	action_icon = action_data.get("icon", null)
+	action_category = action_data.get("category", ActionCategory.ITEM)
+	action_type = action_data.get("action_type", ActionType.ATTACK)
+	die_slots = action_data.get("die_slots", 1)
+	base_damage = action_data.get("base_damage", 0)
+	damage_multiplier = action_data.get("damage_multiplier", 1.0)
+	required_tags = action_data.get("required_tags", [])
+	restricted_tags = action_data.get("restricted_tags", [])
+	source = action_data.get("source", "")
+	
+	print("  Set action_name to: %s" % action_name)
+	
+	# Refresh UI to show new values
+	if is_node_ready():
+		refresh_ui()
+	else:
+		print("  ⚠️ Nodes not ready yet, will refresh on _ready")
+
+func refresh_ui():
+	"""Refresh visual elements to match current properties"""
+	print("🔄 Refreshing ActionField UI for: %s" % action_name)
+	
+	if name_label:
+		name_label.text = action_name
+		print("  ✓ Name label updated: %s" % action_name)
+	else:
+		print("  ⚠️ name_label is null!")
+	
+	if description_label:
+		description_label.text = action_description
+	
+	if icon_rect:
+		icon_rect.texture = action_icon
+	
+	# Recreate die slots if count changed
+	if die_slot_panels.size() != die_slots:
+		print("  🔄 Recreating %d die slots..." % die_slots)
+		for child in die_slots_grid.get_children():
+			child.queue_free()
+		die_slot_panels.clear()
+		placed_dice.clear()
+		dice_visuals.clear()
+		create_die_slots()

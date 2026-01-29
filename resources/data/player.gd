@@ -199,22 +199,28 @@ func consume_mana(amount: int) -> bool:
 # ============================================================================
 
 func equip_item(item: Dictionary, slot: String = "") -> bool:
-	"""Equip an item"""
 	var target_slot = slot if slot != "" else item.get("slot", "")
 	
-	if target_slot == "":
-		return false
-	
-	# Handle heavy weapons
-	if item.has("is_heavy") and item.is_heavy:
+	# Handle heavy weapons (two-handed)
+	if item.get("is_heavy", false):
+		# Return off-hand to inventory if equipped
+		if equipment["Off Hand"] != null:
+			var offhand = equipment["Off Hand"]
+			equipment["Off Hand"] = null
+			inventory.append(offhand)
+			print("  Returned off-hand to inventory: %s" % offhand.get("name", "Unknown"))
+		
+		# Return main hand to inventory if equipped
 		if equipment["Main Hand"] != null:
 			unequip_item("Main Hand")
-		if equipment["Off Hand"] != null:
-			unequip_item("Off Hand")
+		
+		# Equip heavy weapon to both slots (reference same item)
 		equipment["Main Hand"] = item
-		equipment["Off Hand"] = item
+		equipment["Off Hand"] = item  # Same reference marks as occupied
+		print("  Equipped heavy weapon: %s" % item.get("name", "Unknown"))
 	else:
-		# Unequip current
+		# Normal single-slot equip
+		# Unequip current item in slot
 		if equipment[target_slot] != null:
 			unequip_item(target_slot)
 		equipment[target_slot] = item
@@ -222,7 +228,7 @@ func equip_item(item: Dictionary, slot: String = "") -> bool:
 	# Remove from inventory
 	inventory.erase(item)
 	
-	# Apply dice
+	# Apply item dice
 	apply_item_dice(item)
 	
 	equipment_changed.emit(target_slot, item)
@@ -230,23 +236,23 @@ func equip_item(item: Dictionary, slot: String = "") -> bool:
 	return true
 
 func unequip_item(slot: String) -> bool:
-	"""Unequip item"""
 	if equipment[slot] == null:
 		return false
 	
 	var item = equipment[slot]
 	
-	# Remove dice
+	# Remove item dice
 	remove_item_dice(item)
 	
 	# Handle heavy weapons
-	if item.has("is_heavy") and item.is_heavy:
+	if item.get("is_heavy", false):
 		equipment["Main Hand"] = null
 		equipment["Off Hand"] = null
+		print("  Unequipped heavy weapon from both hands")
 	else:
 		equipment[slot] = null
 	
-	# Add to inventory
+	# Add to inventory (only once for heavy weapons)
 	if not inventory.has(item):
 		inventory.append(item)
 	

@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 ResponsiveUI="*res://scripts/autoload/responsive_ui_controller.gd"
 ThemeManager="*res://scripts/ui/theme_manager.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
+AffixPool="*res://scripts/autoload/affix_pool.gd"
 
 [display]
 

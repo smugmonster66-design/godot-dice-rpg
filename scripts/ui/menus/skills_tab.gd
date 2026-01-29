@@ -87,9 +87,15 @@ func setup_tree_tabs():
 			var tree_panel = create_skill_tree_panel(tree)
 			if tree_panel:
 				tree_panel.name = tree_name
-				tree_tabs.add_child(tree_panel)
-				tree_panels[tree_name] = tree_panel
-				print("  ✓ Created tab: %s" % tree_name)
+				# Only add if not already a child
+				if tree_panel.get_parent() == null:
+					tree_tabs.add_child(tree_panel)
+					tree_panels[tree_name] = tree_panel
+					print("  ✓ Created tab: %s" % tree_name)
+				else:
+					# Already exists, just store reference
+					tree_panels[tree_name] = tree_panel
+					print("  ✓ Reusing existing tab: %s" % tree_name)
 
 func create_skill_tree_panel(tree):
 	"""Create a panel from scene (called once per tree)"""

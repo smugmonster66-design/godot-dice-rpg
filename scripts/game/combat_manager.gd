@@ -41,17 +41,23 @@ func _ready():
 	turn_changed.emit(current_state)
 
 func initialize_combat(p_player: Player):
-	"""Initialize combat with player"""
+	"""Initialize combat with player data"""
 	print("⚔️ Initializing combat with player")
 	player = p_player
 	
-	# Connect player signals
-	if not player.hp_changed.is_connected(_on_player_hp_changed):
-		player.hp_changed.connect(_on_player_hp_changed)
-		print("  ✅ Connected hp_changed signal")
+	# DEBUG: Check player equipment
+	print("  🔍 Player equipment check:")
+	for slot in player.equipment:
+		if player.equipment[slot] != null:
+			var item = player.equipment[slot]
+			print("    %s: %s" % [slot, item.get("name")])
+			if item.has("actions"):
+				print("      Has %d actions!" % item.get("actions").size())
 	
-	if not player.player_died.is_connected(_on_player_died):
-		player.player_died.connect(_on_player_died)
+	# Connect to player events
+	if player.hp_changed.connect(_on_player_hp_changed) == OK:
+		print("  ✅ Connected hp_changed signal")
+	if player.player_died.connect(_on_player_died) == OK:
 		print("  ✅ Connected player_died signal")
 	
 	# Sync player to visual combatant
