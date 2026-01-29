@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://c1e43xmo8a6mj"]
+
+[ext_resource type="Script" uid="uid://ds7slbhppb4ic" path="res://menu_test.gd" id="1_6d51h"]
+[ext_resource type="Script" uid="uid://cids66pnijm6v" path="res://scripts/ui/menus/player_menu_mobile.gd" id="2_swvxw"]
+
+[node name="MenuTest" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_6d51h")
+
+[node name="PlayerMenuMobile" type="Control" parent="."]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("2_swvxw")

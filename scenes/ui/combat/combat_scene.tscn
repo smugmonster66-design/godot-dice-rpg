@@ -1,0 +1,75 @@
+[gd_scene load_steps=5 format=3 uid="uid://g0owjvxkkmha"]
+
+[ext_resource type="Script" uid="uid://0iq7cbeuaa3f" path="res://scripts/game/combat_manager.gd" id="1_ik0t7"]
+[ext_resource type="PackedScene" uid="uid://ois4nkcx0waa" path="res://scenes/combatant.tscn" id="2_m17q1"]
+[ext_resource type="PackedScene" uid="uid://4ahxkdbgy447" path="res://scenes/ui/combat/action_field.tscn" id="2_ofoda"]
+[ext_resource type="Script" path="res://scripts/data/dice_pool.gd" id="4_45s2o"]
+
+[node name="CombatScene" type="Node2D"]
+script = ExtResource("1_ik0t7")
+
+[node name="PlayerCombantant" parent="." instance=ExtResource("2_m17q1")]
+position = Vector2(297, 492)
+
+[node name="Enemy1" parent="." instance=ExtResource("2_m17q1")]
+position = Vector2(259, 104)
+
+[node name="ActionFields" type="Container" parent="."]
+offset_left = 300.0
+offset_top = 300.0
+offset_right = 340.0
+offset_bottom = 340.0
+
+[node name="ActionField" parent="ActionFields" instance=ExtResource("2_ofoda")]
+layout_mode = 2
+
+[node name="ActionButtons" type="Container" parent="."]
+custom_minimum_size = Vector2(300, 400)
+offset_left = 249.0
+offset_top = 384.0
+offset_right = 549.0
+offset_bottom = 784.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ActionButtons"]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ActionButtons/VBoxContainer"]
+layout_mode = 2
+
+[node name="ConfirmButton" type="Button" parent="ActionButtons/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Confirm"
+
+[node name="CancelButton" type="Button" parent="ActionButtons/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Cancel
+"
+
+[node name="EndTurnButton" type="Button" parent="."]
+offset_left = 277.0
+offset_top = 423.0
+offset_right = 367.0
+offset_bottom = 454.0
+text = "END TURN"
+
+[node name="CombatUI" type="CanvasLayer" parent="."]
+
+[node name="MarginContainer" type="MarginContainer" parent="CombatUI"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CombatUI/MarginContainer"]
+layout_mode = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CombatUI/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="CenterArea" type="Control" parent="CombatUI/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="DicePoolDisplay" type="HBoxContainer" parent="CombatUI/MarginContainer/VBoxContainer"]
+layout_mode = 2
+script = ExtResource("4_45s2o")
+
+[node name="BottomBar" type="HBoxContainer" parent="CombatUI/MarginContainer/VBoxContainer"]
+layout_mode = 2

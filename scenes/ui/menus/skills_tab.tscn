@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3 uid="uid://u4538t4heese"]
+
+[ext_resource type="Script" uid="uid://b6e5135cvd8vj" path="res://scripts/ui/menus/skills_tab.gd" id="1_l3cke"]
+[ext_resource type="PackedScene" uid="uid://ceql2fiwmegxn" path="res://scenes/skill_tree_panel.tscn" id="2_5ah0g"]
+
+[node name="Skills" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_l3cke")
+skill_tree_panel_scene = ExtResource("2_5ah0g")
+metadata/_tab_index = 1
+
+[node name="VBox" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(400, 600)
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_constants/separation = 10
+
+[node name="SkillPointsLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "Available Skill Points: 0"
+
+[node name="ClassLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "Class: None"
+
+[node name="TreeTabs" type="TabContainer" parent="VBox"]
+custom_minimum_size = Vector2(400, 600)
+layout_mode = 2
+size_flags_vertical = 3
+clip_tabs = false
+
+[node name="ResetButton" type="Button" parent="VBox"]
+layout_mode = 2
+text = "Reset Skills"

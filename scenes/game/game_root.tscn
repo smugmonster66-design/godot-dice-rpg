@@ -1,0 +1,15 @@
+[gd_scene load_steps=5 format=3 uid="uid://b2w217jydc2gl"]
+
+[ext_resource type="Script" uid="uid://d3dwgupowhnbi" path="res://scripts/autoload/game_manager.gd" id="1_pevc5"]
+[ext_resource type="PackedScene" uid="uid://dg4shmm2jhcnd" path="res://scenes/game/combat_scene.tscn" id="2_n6w2t"]
+[ext_resource type="Script" uid="uid://0iq7cbeuaa3f" path="res://scripts/game/combat_manager.gd" id="3_bca70"]
+[ext_resource type="PackedScene" uid="uid://cx781vq4omutw" path="res://scenes/game/map_scene.tscn" id="4_0krdv"]
+
+[node name="GameRoot" type="Node"]
+script = ExtResource("1_pevc5")
+
+[node name="MapScene" parent="." instance=ExtResource("4_0krdv")]
+
+[node name="CombatScene" parent="." instance=ExtResource("2_n6w2t")]
+visible = false
+script = ExtResource("3_bca70")

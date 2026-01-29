@@ -1,0 +1,19 @@
+[gd_scene load_steps=6 format=3 uid="uid://dg4shmm2jhcnd"]
+
+[ext_resource type="Script" uid="uid://0iq7cbeuaa3f" path="res://scripts/game/combat_manager.gd" id="1_c5idb"]
+[ext_resource type="PackedScene" uid="uid://bik83fyvffly2" path="res://scenes/entities/enemy_combatant.tscn" id="1_h0ifw"]
+[ext_resource type="PackedScene" uid="uid://c2m3pot6xne0s" path="res://scenes/entities/player_combatant.tscn" id="2_v0jgu"]
+[ext_resource type="PackedScene" uid="uid://0uycurmcavjg" path="res://scenes/ui/combat/combat_ui.tscn" id="3_c5idb"]
+[ext_resource type="Script" uid="uid://d1imaich82oxv" path="res://scripts/ui/combat/combat_ui.gd" id="4_v0jgu"]
+
+[node name="CombatScene" type="Node2D"]
+script = ExtResource("1_c5idb")
+
+[node name="EnemyCombatant" parent="." instance=ExtResource("1_h0ifw")]
+max_health = 30
+
+[node name="PlayerCombatant" parent="." instance=ExtResource("2_v0jgu")]
+max_health = 25
+
+[node name="CombatUILayer" parent="." instance=ExtResource("3_c5idb")]
+script = ExtResource("4_v0jgu")

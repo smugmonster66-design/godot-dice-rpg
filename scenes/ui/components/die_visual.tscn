@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctpamire6rmbu"]
+
+[ext_resource type="Script" uid="uid://dtbkqbsfd8dmb" path="res://scripts/ui/components/die_visual.gd" id="1_fgpu3"]
+
+[node name="DieVisual" type="PanelContainer"]
+script = ExtResource("1_fgpu3")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="TypeLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "D6"
+
+[node name="ValueLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "3"
+
+[node name="TagsLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2

@@ -1,0 +1,33 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Dice RPG Game 2026"
+run/main_scene="uid://cx781vq4omutw"
+config/features=PackedStringArray("4.5", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+ResponsiveUI="*res://scripts/autoload/responsive_ui_controller.gd"
+ThemeManager="*res://scripts/ui/theme_manager.gd"
+GameManager="*res://scripts/autoload/game_manager.gd"
+
+[display]
+
+window/size/viewport_width=430
+window/size/viewport_height=932
+window/stretch/mode="viewport"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="mobile"

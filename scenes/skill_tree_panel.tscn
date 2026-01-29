@@ -1,0 +1,43 @@
+[gd_scene load_steps=3 format=3 uid="uid://ceql2fiwmegxn"]
+
+[ext_resource type="Script" uid="uid://yhxaxow1i558" path="res://scripts/ui/menus/skill_tree_panel.gd" id="1_6y5yv"]
+[ext_resource type="PackedScene" uid="uid://cnid0nr71q8nk" path="res://scenes/ui/components/skill_button.tscn" id="2_tsn0u"]
+
+[node name="SkillTreePanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_6y5yv")
+skill_button_scene = ExtResource("2_tsn0u")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="TreeNameLabel" type="Label" parent="VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Skill Tree"
+horizontal_alignment = 1
+
+[node name="TreeDescLabel" type="Label" parent="VBox"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+text = "This is a skill tree description."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="SkillGrid" type="VBoxContainer" parent="VBox/ScrollContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
