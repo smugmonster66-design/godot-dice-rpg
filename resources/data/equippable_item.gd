@@ -156,29 +156,22 @@ func get_stats_dict() -> Dictionary:
 
 func get_action_data() -> Dictionary:
 	"""Get action data with affix modifications"""
-	if not grants_action:
+	if not grants_action or not action:
+		print("⚠️ Cannot get action data: grants_action=%s, action=%s" % [grants_action, action])
 		return {}
 	
-	var action = {
-		"name": action_name,
-		"description": action_description,
-		"icon": action_icon,
-		"die_slots": die_slots,
-		"action_type": action_type,
-		"base_damage": base_damage,
-		"damage_multiplier": damage_multiplier,
-		"required_tags": required_die_tags.duplicate(),
-		"restricted_tags": restricted_die_tags.duplicate(),
-		"category": ActionField.ActionCategory.ITEM,
-		"source": get_display_name()
-	}
+	# Create a copy of the action's data
+	var action_data = action.to_dict()
+	action_data["source"] = get_display_name()
+	
+	print("✅ Action data created: %s" % str(action_data))
 	
 	# Apply affix modifications to action
 	for affix in applied_affixes:
-		action["base_damage"] += affix.base_damage_bonus
-		action["damage_multiplier"] *= affix.damage_multiplier
+		action_data["base_damage"] += affix.base_damage_bonus
+		action_data["damage_multiplier"] *= affix.damage_multiplier
 	
-	return action
+	return action_data
 
 func get_all_actions() -> Array[Dictionary]:
 	"""Get all actions (base + affix-granted)"""

@@ -40,14 +40,18 @@ func add_item_actions():
 	if not player:
 		return
 	
+	print("📋 Scanning equipped items for actions...")
 	for slot in player.equipment:
 		var item = player.equipment[slot]
 		if item and item.has("actions"):
+			print("  Found item with actions: %s" % item.get("name"))
 			for action_data in item.actions:
+				print("    Action data: %s" % str(action_data))
 				var action = action_data.duplicate()
 				action["source"] = item.get("name", "Unknown Item")
 				action["category"] = ActionField.ActionCategory.ITEM
 				item_actions.append(action)
+				print("    ✅ Added action: %s from %s" % [action.get("name", "NO NAME"), action.get("source")])
 
 func add_skill_actions():
 	"""Add actions from learned skills"""

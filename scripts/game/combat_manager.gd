@@ -1,34 +1,32 @@
-# combat_manager.gd - Combat scene orchestrator
+# combat_manager.gd - Manages combat flow and state
 extends Node2D
-
-# ============================================================================
-# ENUMS
-# ============================================================================
-enum CombatState {
-	PLAYER_TURN,
-	AI_TURN,
-	ANIMATION_PLAYING,
-	GAME_OVER
-}
-
-# ============================================================================
-# STATE
-# ============================================================================
-var current_state: CombatState = CombatState.PLAYER_TURN
-var player: Player = null
-var selected_action_field: Control = null
 
 # ============================================================================
 # NODE REFERENCES
 # ============================================================================
-@onready var player_combatant = $PlayerCombatant
-@onready var enemy_combatant = $EnemyCombatant
-@onready var combat_ui = $CombatUILayer
+# Make these optional - we'll find them dynamically
+var player_combatant = null
+var enemy_combatant = null
+var combat_ui = null
+
+# ============================================================================
+# STATE
+# ============================================================================
+var player: Player = null
+var current_turn: String = "player"  # "player" or "enemy"
+
+enum CombatState {
+	PLAYER_TURN,
+	ENEMY_TURN,
+	TRANSITIONING,
+	ENDED
+}
+
+var combat_state: CombatState = CombatState.PLAYER_TURN
 
 # ============================================================================
 # SIGNALS
 # ============================================================================
-signal turn_changed(new_state: CombatState)
 signal combat_ended(player_won: bool)
 
 # ============================================================================
@@ -37,15 +35,71 @@ signal combat_ended(player_won: bool)
 
 func _ready():
 	print("⚔️ CombatManager _ready")
+	
+	# Find nodes dynamically
+	find_combat_nodes()
+	
+	# Setup connections
 	setup_connections()
-	turn_changed.emit(current_state)
+
+func find_combat_nodes():
+	"""Find combat nodes in the scene tree"""
+	print("🔍 Finding combat nodes...")
+	
+	# Find combatants
+	player_combatant = find_child("PlayerCombantant", true, false)
+	if not player_combatant:
+		player_combatant = find_child("PlayerCombatant", true, false)  # Try alternate spelling
+	
+	enemy_combatant = find_child("Enemy1", true, false)
+	if not enemy_combatant:
+		enemy_combatant = find_child("EnemyCombatant", true, false)  # Try alternate name
+	
+	# Find UI
+	combat_ui = find_child("CombatUILayer", true, false)
+	if not combat_ui:
+		combat_ui = find_child("CombatUI", true, false)  # Try alternate name
+	
+	# Report findings
+	print("  Player Combatant: %s" % ("Found" if player_combatant else "❌ NOT FOUND"))
+	print("  Enemy Combatant: %s" % ("Found" if enemy_combatant else "❌ NOT FOUND"))
+	print("  Combat UI: %s" % ("Found" if combat_ui else "❌ NOT FOUND"))
+
+func setup_connections():
+	"""Setup signal connections"""
+	print("⚔️ Setting up connections...")
+	
+	# Connect combatant signals if they exist
+	if player_combatant and player_combatant.has_signal("hp_changed"):
+		if player_combatant.hp_changed.connect(_on_player_hp_changed) == OK:
+			print("  ✅ Player combatant connected")
+	else:
+		print("  ⚠️ Player combatant not found or missing hp_changed signal")
+	
+	if enemy_combatant and enemy_combatant.has_signal("hp_changed"):
+		if enemy_combatant.hp_changed.connect(_on_enemy_hp_changed) == OK:
+			print("  ✅ Enemy combatant connected")
+	else:
+		print("  ⚠️ Enemy combatant not found or missing hp_changed signal")
+	
+	# Connect combat UI signals
+	if combat_ui:
+		if combat_ui.has_signal("action_confirmed"):
+			if combat_ui.action_confirmed.connect(_on_action_confirmed) == OK:
+				print("  ✅ Combat UI action_confirmed connected")
+		
+		if combat_ui.has_signal("turn_ended"):
+			if combat_ui.turn_ended.connect(_on_turn_ended) == OK:
+				print("  ✅ Combat UI turn_ended connected")
+	else:
+		print("  ⚠️ Combat UI not found")
 
 func initialize_combat(p_player: Player):
 	"""Initialize combat with player data"""
 	print("⚔️ Initializing combat with player")
 	player = p_player
 	
-	# DEBUG: Check player equipment
+	# Check player equipment
 	print("  🔍 Player equipment check:")
 	for slot in player.equipment:
 		if player.equipment[slot] != null:
@@ -55,64 +109,40 @@ func initialize_combat(p_player: Player):
 				print("      Has %d actions!" % item.get("actions").size())
 	
 	# Connect to player events
-	if player.hp_changed.connect(_on_player_hp_changed) == OK:
-		print("  ✅ Connected hp_changed signal")
-	if player.player_died.connect(_on_player_died) == OK:
-		print("  ✅ Connected player_died signal")
+	if player.has_signal("hp_changed"):
+		if player.hp_changed.connect(_on_player_hp_changed) == OK:
+			print("  ✅ Connected hp_changed signal")
 	
-	# Sync player to visual combatant
+	if player.has_signal("player_died"):
+		if player.player_died.connect(_on_player_died) == OK:
+			print("  ✅ Connected player_died signal")
+	
+	# Sync player data to combatant
 	sync_player_to_combatant()
 	
-	# CRITICAL: Roll dice pool for combat
-	if player.dice_pool:
-		print("  🎲 Rolling player dice pool...")
-		player.dice_pool.roll_all_dice()
-		print("  🎲 Player has %d dice available" % player.dice_pool.get_available_count())
-	else:
-		print("  ⚠️ WARNING: Player has no dice pool!")
+	# Roll player dice
+	print("  🎲 Rolling player dice pool...")
+	player.dice_pool.roll_all_dice()
+	print("  🎲 Player has %d dice available" % player.dice_pool.available_dice.size())
 	
 	# Initialize UI
-	if combat_ui and combat_ui.has_method("initialize_ui"):
+	if combat_ui:
 		print("  🎮 Initializing combat UI...")
 		combat_ui.initialize_ui(player, enemy_combatant)
 		print("  ✅ Combat UI initialized")
-	else:
-		print("  ⚠️ WARNING: Combat UI not found or missing initialize_ui method!")
 	
 	print("⚔️ Combat initialization complete")
-
-func setup_connections():
-	"""Connect signals"""
-	print("⚔️ Setting up connections...")
 	
-	if player_combatant:
-		if not player_combatant.health_changed.is_connected(_on_player_combatant_health_changed):
-			player_combatant.health_changed.connect(_on_player_combatant_health_changed)
-		print("  ✅ Player combatant connected")
-	
-	if enemy_combatant:
-		if not enemy_combatant.died.is_connected(_on_enemy_died):
-			enemy_combatant.died.connect(_on_enemy_died)
-		print("  ✅ Enemy combatant connected")
-	
-	if combat_ui:
-		if combat_ui.has_signal("action_confirmed"):
-			if not combat_ui.action_confirmed.is_connected(_on_action_confirmed):
-				combat_ui.action_confirmed.connect(_on_action_confirmed)
-			print("  ✅ Combat UI action_confirmed connected")
-		
-		if combat_ui.has_signal("turn_ended"):
-			if not combat_ui.turn_ended.is_connected(_on_turn_ended):
-				combat_ui.turn_ended.connect(_on_turn_ended)
-			print("  ✅ Combat UI turn_ended connected")
+	# Connect to combat_ended for cleanup
+	if not combat_ended.is_connected(_on_combat_ended):
+		combat_ended.connect(_on_combat_ended)
+		print("  🎯 Connected to combat_ended signal")
 
 func sync_player_to_combatant():
-	"""Sync player data to visual"""
-	if player_combatant:
-		player_combatant.max_health = player.max_hp
-		player_combatant.current_health = player.current_hp
-		if player_combatant.has_method("update_health_display"):
-			player_combatant.update_health_display()
+	"""Sync player stats to combatant"""
+	if player and player_combatant:
+		player_combatant.current_health = player.current_health
+		player_combatant.max_health = player.max_health
 		print("  ✅ Synced player to combatant")
 
 # ============================================================================
@@ -120,160 +150,219 @@ func sync_player_to_combatant():
 # ============================================================================
 
 func _on_action_confirmed(action_data: Dictionary):
-	"""Execute confirmed action"""
-	print("⚔️ Executing action: %s" % action_data.get("type", "unknown"))
+	"""Execute a confirmed action"""
+	var action_name = action_data.get("name", "Unknown")
+	var action_type = action_data.get("action_type", 0)
+	var base_damage = action_data.get("base_damage", 0)
+	var damage_multiplier = action_data.get("damage_multiplier", 1.0)
+	var placed_dice = action_data.get("placed_dice", [])
+	var source = action_data.get("source", "Unknown")
 	
-	var action_type = action_data.get("type")
-	var value = action_data.get("value", 0)
-	var die = action_data.get("die")
+	print("⚔️ Executing action: %s" % action_name)
+	print("  Source: %s" % source)
+	print("  Base Damage: %d" % base_damage)
+	print("  Multiplier: %.1fx" % damage_multiplier)
+	print("  Dice used: %d" % placed_dice.size())
 	
+	# Calculate total damage
+	var total_damage = calculate_action_damage(action_data)
+	
+	# Execute based on action type
 	match action_type:
-		0:  # ATTACK
-			execute_attack(player, enemy_combatant, value)
-		1:  # DEFEND
-			execute_defend(player, value)
-		2:  # HEAL
-			execute_heal(player, value)
+		0: # ATTACK
+			execute_attack(total_damage, action_name, source)
+		1: # DEFEND
+			execute_defend(action_data)
+		2: # HEAL
+			execute_heal(total_damage, action_name)
+		3: # SPECIAL
+			execute_special(action_data)
+		_:
+			print("  ⚠️ Unknown action type: %d" % action_type)
+
+func calculate_action_damage(action_data: Dictionary) -> int:
+	"""Calculate total damage from action and dice"""
+	var base_damage = action_data.get("base_damage", 0)
+	var damage_multiplier = action_data.get("damage_multiplier", 1.0)
+	var placed_dice: Array = action_data.get("placed_dice", [])
 	
-	# Consume die
-	if die and player.dice_pool:
-		player.dice_pool.consume_die(die)
-		if combat_ui and combat_ui.has_method("refresh_dice_pool"):
-			combat_ui.refresh_dice_pool()
+	# Sum all dice values
+	var dice_total = 0
+	for die in placed_dice:
+		if die is DieData:
+			dice_total += die.value
+			print("    Die: %s = %d" % [die.get_display_name(), die.value])
 	
-	check_combat_end()
+	# Calculate: (dice_total * multiplier) + base_damage
+	var total = int((dice_total * damage_multiplier) + base_damage)
+	
+	print("  💥 Damage Calculation:")
+	print("    Dice Total: %d" % dice_total)
+	print("    × Multiplier: %.1f = %d" % [damage_multiplier, int(dice_total * damage_multiplier)])
+	print("    + Base Damage: %d" % base_damage)
+	print("    = TOTAL: %d" % total)
+	
+	return total
+
+func execute_attack(damage: int, action_name: String, source: String):
+	"""Execute an attack action"""
+	print("  ⚔️ %s attacks with %s for %d damage!" % [source, action_name, damage])
+	
+	# Apply damage to enemy
+	if enemy_combatant:
+		enemy_combatant.take_damage(damage)
+		print("    ✅ Enemy took %d damage" % damage)
+		
+		# Update UI
+		if combat_ui and combat_ui.has_method("update_enemy_health"):
+			combat_ui.update_enemy_health(enemy_combatant.current_hp, enemy_combatant.max_hp)
+		
+		# Check if enemy died
+		if enemy_combatant.current_hp <= 0:
+			print("    ☠️ Enemy defeated!")
+			end_combat(true)  # Player wins
+	else:
+		print("    ❌ No enemy to attack!")
+
+func execute_defend(action_data: Dictionary):
+	"""Execute a defend action (reduce incoming damage)"""
+	var armor_bonus = action_data.get("base_damage", 5)  # Use base_damage as armor value
+	print("  🛡️ Defending! Gained %d temporary armor" % armor_bonus)
+	
+	# TODO: Implement temporary armor system
+	# For now, just log it
+
+func execute_heal(heal_amount: int, action_name: String):
+	"""Execute a healing action"""
+	print("  💚 %s heals for %d HP!" % [action_name, heal_amount])
+	
+	if player_combatant and player_combatant.has_method("heal"):
+		var old_hp = player_combatant.current_hp
+		player_combatant.heal(heal_amount)
+		var healed = player_combatant.current_hp - old_hp
+		print("    ✅ Healed %d HP" % healed)
+		
+		# Update UI
+		if combat_ui and combat_ui.has_method("update_player_health"):
+			combat_ui.update_player_health(player_combatant.current_hp, player_combatant.max_hp)
+
+func execute_special(action_data: Dictionary):
+	"""Execute a special action"""
+	var action_name = action_data.get("name", "Special")
+	print("  ✨ Special action: %s" % action_name)
+	# TODO: Implement special action effects
 
 func _on_turn_ended():
-	"""End current turn"""
+	"""Handle turn end"""
 	print("⚔️ Turn ended")
-	end_turn()
-
-func end_turn():
-	"""Switch turns"""
-	if current_state == CombatState.PLAYER_TURN:
-		current_state = CombatState.AI_TURN
+	
+	if combat_state == CombatState.PLAYER_TURN:
+		# Switch to enemy turn
+		combat_state = CombatState.ENEMY_TURN
+		current_turn = "enemy"
 		print("  → AI turn")
-		await get_tree().create_timer(0.5).timeout
-		execute_ai_turn()
-	else:
-		current_state = CombatState.PLAYER_TURN
+		start_enemy_turn()
+	elif combat_state == CombatState.ENEMY_TURN:
+		# Switch back to player turn
+		combat_state = CombatState.PLAYER_TURN
+		current_turn = "player"
 		print("  → Player turn")
-		
-		# Roll new dice
-		if player and player.dice_pool:
-			player.dice_pool.roll_all_dice()
-			if combat_ui and combat_ui.has_method("refresh_dice_pool"):
-				combat_ui.refresh_dice_pool()
-		
-		turn_changed.emit(current_state)
+		start_player_turn()
 
-func execute_ai_turn():
-	"""AI's turn logic"""
+func start_player_turn():
+	"""Start player's turn"""
+	# Roll new dice
+	if player and player.dice_pool:
+		player.dice_pool.roll_all_dice()
+	
+	# Refresh UI
+	if combat_ui and combat_ui.has_method("refresh_dice_pool"):
+		combat_ui.refresh_dice_pool()
+
+func start_enemy_turn():
+	"""Start enemy's turn (AI)"""
 	print("🤖 AI thinking...")
+	
+	# Simple AI: just attack
 	await get_tree().create_timer(1.0).timeout
 	
-	var action_value = randi_range(1, 6)
+	print("🤖 AI attacks!")
+	var damage = randi_range(1, 6)  # Random damage for now
 	
-	if randf() < 0.7:
-		print("🤖 AI attacks!")
-		await get_tree().create_timer(0.5).timeout
-		execute_attack(enemy_combatant, player, action_value)
-	else:
-		print("🤖 AI heals!")
-		await get_tree().create_timer(0.5).timeout
-		execute_heal(enemy_combatant, action_value)
-	
-	await get_tree().create_timer(0.5).timeout
-	check_combat_end()
-	
-	if current_state != CombatState.GAME_OVER:
-		await get_tree().create_timer(1.0).timeout
-		end_turn()
-
-# ============================================================================
-# COMBAT ACTIONS
-# ============================================================================
-
-func execute_attack(attacker, target, dice_value: int):
-	"""Execute attack"""
-	var damage = dice_value
-	
-	# Add bonuses if attacker is player
-	if attacker == player:
-		damage += player.get_physical_damage_bonus()
+	if player_combatant and player_combatant.has_method("take_damage"):
+		player_combatant.take_damage(damage)
 		
-		# Crit check
-		if randf() * 100 < player.get_crit_chance():
-			damage = int(damage * 1.5)
-			print("💥 CRITICAL HIT!")
+		# Update UI
+		if combat_ui and combat_ui.has_method("update_player_health"):
+			combat_ui.update_player_health(player_combatant.current_hp, player_combatant.max_hp)
+		
+		# Check if player died
+		if player_combatant.current_hp <= 0:
+			print("    ☠️ Player defeated!")
+			end_combat(false)  # Player lost
+			return
 	
-	print("%s attacks for %d damage" % [attacker.name if attacker is Node else "Player", damage])
-	
-	# Apply damage
-	if target == player:
-		player.take_damage(damage, false)
-		sync_player_to_combatant()
-		if player_combatant.has_method("flash_damage"):
-			player_combatant.flash_damage()
-	elif target is Node and target.has_method("take_damage"):
-		target.take_damage(damage)
-
-func execute_defend(defender, dice_value: int):
-	"""Execute defend"""
-	if defender == player:
-		player.add_status_effect("block", dice_value)
-		print("🛡️ Player gains %d Block" % dice_value)
-
-func execute_heal(healer, dice_value: int):
-	"""Execute heal"""
-	var heal_amount = dice_value
-	
-	if healer == player:
-		heal_amount += int(player.get_total_stat("intellect") * 0.5)
-		player.heal(heal_amount)
-		sync_player_to_combatant()
-		if player_combatant.has_method("flash_heal"):
-			player_combatant.flash_heal()
-	elif healer is Node and healer.has_method("heal"):
-		healer.heal(heal_amount)
-	
-	print("💚 Healed for %d" % heal_amount)
+	# End enemy turn
+	await get_tree().create_timer(1.0).timeout
+	_on_turn_ended()
 
 # ============================================================================
 # COMBAT END
 # ============================================================================
 
-func check_combat_end():
-	"""Check if combat should end"""
-	if player and player.current_hp <= 0:
-		current_state = CombatState.GAME_OVER
-		combat_ended.emit(false)
-		print("💀 Player defeated")
-	elif enemy_combatant.current_health <= 0:
-		current_state = CombatState.GAME_OVER
-		combat_ended.emit(true)
-		print("🎉 Enemy defeated")
+func end_combat(player_won: bool):
+	"""End combat with result"""
+	print("\n=== Combat Ended ===")
+	combat_state = CombatState.ENDED
+	
+	if player_won:
+		print("🎉 Victory! Player wins!")
+		# TODO: Show victory screen, give rewards
+	else:
+		print("💀 Defeat! Player lost!")
+		# TODO: Show defeat screen
+	
+	# Emit signal
+	combat_ended.emit(player_won)
+	
+	# Return to map after delay
+	await get_tree().create_timer(2.0).timeout
+	
+	# Return to map scene
+	if GameManager and GameManager.has_method("load_map_scene"):
+		GameManager.load_map_scene()
+	else:
+		print("⚠️ GameManager.load_map_scene() not found")
+
+func _on_combat_ended(player_won: bool):
+	"""Cleanup after combat ends"""
+	print("🧹 Cleaning up combat...")
+	
+	# Sync combatant HP back to player
+	if player and player_combatant:
+		player.current_hp = player_combatant.current_hp
 
 # ============================================================================
-# SIGNAL HANDLERS
+# HEALTH CHANGE HANDLERS
 # ============================================================================
 
 func _on_player_hp_changed(current: int, maximum: int):
 	"""Player HP changed"""
-	sync_player_to_combatant()
+	# Sync to player resource
+	if player:
+		player.current_hp = current
+	
+	# Update UI
+	if combat_ui and combat_ui.has_method("update_player_health"):
+		combat_ui.update_player_health(current, maximum)
+
+func _on_enemy_hp_changed(current: int, maximum: int):
+	"""Enemy HP changed"""
+	# Update UI
+	if combat_ui and combat_ui.has_method("update_enemy_health"):
+		combat_ui.update_enemy_health(current, maximum)
 
 func _on_player_died():
 	"""Player died"""
-	current_state = CombatState.GAME_OVER
-	combat_ended.emit(false)
-
-func _on_enemy_died():
-	"""Enemy died"""
-	current_state = CombatState.GAME_OVER
-	combat_ended.emit(true)
-
-func _on_player_combatant_health_changed(new_health: int, max_health: int):
-	"""Visual combatant health changed - sync back to player"""
-	if player and player.current_hp != new_health:
-		player.current_hp = new_health
-		player.hp_changed.emit(player.current_hp, player.max_hp)
+	print("💀 Player has died!")
+	end_combat(false)

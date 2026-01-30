@@ -94,7 +94,7 @@ func create_die_visual(die: DieData) -> Control:
 	# Initialize it
 	print("    🔧 Calling initialize() on visual...")
 	if visual.has_method("initialize"):
-		visual.initialize(die, true)  # true = can drag
+		visual.initialize(die)  # true = can drag
 		print("      ✅ Initialized with %s" % die.get_display_name())
 	else:
 		print("      ⚠️ WARNING: DieVisual has no initialize method")

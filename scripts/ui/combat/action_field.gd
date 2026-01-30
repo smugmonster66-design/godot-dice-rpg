@@ -135,6 +135,15 @@ func setup_ui():
 	description_label.add_theme_font_size_override("normal_font_size", 10)
 	vbox.add_child(description_label)
 	
+	# CRITICAL: Set all children to IGNORE so drops work
+	for child in get_children():
+		if child is Control:
+			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for grandchild in child.get_children():
+			if grandchild is Control:
+				grandchild.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	
 	print("✅ ActionField UI created: %s" % action_name)
 
 func create_die_slots():
@@ -170,11 +179,9 @@ func create_die_slots():
 		die_slot_panels.append(slot_panel)
 
 func setup_drop_target():
-	"""Enable this field to accept dropped dice"""
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	
-	# Connect GUI input for clicking
-	gui_input.connect(_on_gui_input)
+	"""Setup this node as a drop target for dice"""
+	#mouse_filter = Control.MOUSE_FILTER_STOP  # CRITICAL: Must intercept mouse events
+	print("🎯 ActionField '%s' set up as drop target (mouse_filter: %d)" % [action_name, mouse_filter])
 
 # ============================================================================
 # DRAG AND DROP
@@ -183,6 +190,7 @@ func setup_drop_target():
 func _can_drop_data(_at_position: Vector2, data) -> bool:
 	"""Check if this field can accept the dropped die"""
 	if not data is Dictionary or not data.has("die"):
+		print("  ❌ Not a die")
 		return false
 	
 	# Check if we have available slots
@@ -190,6 +198,11 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 		return false
 	
 	var die: DieData = data.get("die")
+	
+	# Check if we have available slots
+	if placed_dice.size() >= die_slots:
+		print("  ❌ All slots full (%d/%d)" % [placed_dice.size(), die_slots])
+		return false
 	
 	# Check required tags
 	if required_tags.size() > 0:
@@ -199,17 +212,21 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 				has_required = true
 				break
 		if not has_required:
+			print("  ❌ Missing required tag")
 			return false
 	
 	# Check restricted tags
 	for tag in restricted_tags:
 		if die.has_tag(tag):
+			print("  ❌ Has restricted tag: %s" % tag)
 			return false
 	
+	print("  ✅ Can accept die!")
 	return true
 
 func _drop_data(_at_position: Vector2, data):
 	"""Handle die being dropped on this field"""
+	print("✅ ActionField received drop: %s" % action_name)
 	if not data is Dictionary or not data.has("die"):
 		return
 	
@@ -217,6 +234,25 @@ func _drop_data(_at_position: Vector2, data):
 	var visual: Control = data.get("visual")
 	
 	add_die(die, visual)
+
+
+func get_action_data() -> Dictionary:
+	"""Get action data with placed dice"""
+	var data = {
+		"name": action_name,
+		"description": action_description,
+		"action_type": action_type,
+		"category": action_category,
+		"base_damage": base_damage,
+		"damage_multiplier": damage_multiplier,
+		"placed_dice": placed_dice.duplicate(),
+		"source": source
+	}
+	
+	print("📋 ActionField.get_action_data(): %s" % str(data))
+	return data
+
+
 
 # ============================================================================
 # DIE MANAGEMENT
@@ -254,6 +290,8 @@ func add_die(die: DieData, visual: Control = null):
 			visual.set_dragging_enabled(false)
 	
 	print("✅ Added %s to %s (%d/%d slots)" % [die.get_display_name(), action_name, placed_dice.size(), die_slots])
+	
+	action_selected.emit(self)
 	
 	# Dim icon when dice are placed
 	update_icon_state()
