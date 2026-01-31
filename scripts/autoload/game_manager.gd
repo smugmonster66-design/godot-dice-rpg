@@ -8,6 +8,12 @@ const COMBAT_SCENE = preload("res://scenes/game/combat_scene.tscn")
 const MAP_SCENE = preload("res://scenes/game/map_scene.tscn")
 
 # ============================================================================
+# STARTING ITEMS CONFIGURATION
+# ============================================================================
+@export_group("Starting Items")
+@export var starting_items: Array[EquippableItem] = []
+
+# ============================================================================
 # GAME STATE
 # ============================================================================
 var player: Player = null
@@ -97,28 +103,31 @@ func initialize_player():
 	player_created.emit(player)
 
 func add_starting_items():
-	"""Add starting equipment with affix rolls"""
+	"""Add starting equipment from Inspector-configured array"""
+	print("🎒 Adding starting items...")
 	
-	# Load item resources
-	var iron_sword = load("res://resources/items/iron_sword.tres")
-	var flaming_greatsword = load("res://resources/items/flaming_greatsword.tres")
+	if starting_items.size() == 0:
+		print("  ⚠️  No starting items configured in Inspector")
+		return
 	
-	# Roll affixes using the global pool
-	if iron_sword:
-		iron_sword.roll_affixes(AffixPool)
-		var sword_dict = iron_sword.to_dict()
-		# Store the actual affix objects
-		sword_dict["item_affixes"] = iron_sword.get_all_affixes()
-		player.add_to_inventory(sword_dict)
-		print("✅ Added Iron Sword to inventory")
+	for item_template in starting_items:
+		if not item_template:
+			print("  ⚠️  Null item in starting_items array - skipping")
+			continue
+		
+		# Initialize affixes (rolls or uses manual)
+		item_template.initialize_affixes(AffixPool)
+		
+		# Convert to dictionary
+		var item_dict = item_template.to_dict()
+		item_dict["item_affixes"] = item_template.get_all_affixes()
+		
+		# Add to player inventory
+		player.add_to_inventory(item_dict)
+		
+		print("  ✅ Added %s (%s) to inventory" % [item_template.item_name, item_template.get_rarity_name()])
 	
-	if flaming_greatsword:
-		flaming_greatsword.roll_affixes(AffixPool)
-		var gs_dict = flaming_greatsword.to_dict()
-		# Store the actual affix objects
-		gs_dict["item_affixes"] = flaming_greatsword.get_all_affixes()
-		player.add_to_inventory(gs_dict)
-		print("✅ Added Flaming Greatsword to inventory")
+	print("🎒 Finished adding %d starting items" % starting_items.size())
 
 # ============================================================================
 # SCENE MANAGEMENT

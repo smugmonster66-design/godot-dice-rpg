@@ -1,4 +1,4 @@
-# equippable_item.gd - Equipment with manual or random affix assignment
+# equippable_item.gd - Equipment with affix tables for rolling
 extends Resource
 class_name EquippableItem
 
@@ -34,15 +34,30 @@ enum EquipSlot {
 @export var equip_slot: EquipSlot = EquipSlot.MAIN_HAND
 
 # ============================================================================
-# AFFIX SYSTEM
+# AFFIX SYSTEM - TABLES
 # ============================================================================
-@export_group("Affixes")
+@export_group("Affix Tables")
 
-# Manual affix assignment (optional - overrides random rolling)
-# Leave these empty to use random rolling instead
+# Assign affix tables to each slot
+# Items will roll from these tables based on rarity
+@export var first_affix_table: AffixTable = null
+@export var second_affix_table: AffixTable = null
+@export var third_affix_table: AffixTable = null
+
+# ============================================================================
+# AFFIX SYSTEM - MANUAL OVERRIDE
+# ============================================================================
+@export_group("Manual Affixes (Override)")
+
+# Manual affix assignment (optional - overrides table rolling)
+# Leave these empty to use table rolling instead
 @export var manual_first_affix: Affix = null
 @export var manual_second_affix: Affix = null
 @export var manual_third_affix: Affix = null
+
+# LEGENDARY ONLY: Fourth unique affix
+@export_subgroup("Legendary Unique Affix")
+@export var unique_affix: Affix = null
 
 # Runtime affixes (populated either manually or by rolling)
 var item_affixes: Array[Affix] = []
@@ -106,10 +121,11 @@ func get_slot_name() -> String:
 # AFFIX MANAGEMENT
 # ============================================================================
 
-func initialize_affixes(affix_pool):
-	"""Initialize affixes - use manual if set, otherwise roll randomly
+func initialize_affixes(affix_pool = null):
+	"""Initialize affixes - use manual if set, otherwise roll from tables
 	
-	Call this when creating an item instance (e.g., in GameManager)
+	Args:
+		affix_pool: Legacy parameter, no longer used (kept for compatibility)
 	"""
 	item_affixes.clear()
 	
@@ -117,7 +133,11 @@ func initialize_affixes(affix_pool):
 	if manual_first_affix or manual_second_affix or manual_third_affix:
 		_use_manual_affixes()
 	else:
-		_roll_random_affixes(affix_pool)
+		_roll_from_tables()
+	
+	# LEGENDARY: Always add unique affix if present
+	if rarity == Rarity.LEGENDARY and unique_affix:
+		_add_unique_affix()
 
 func _use_manual_affixes():
 	"""Use manually assigned affixes from Inspector"""
@@ -136,50 +156,65 @@ func _use_manual_affixes():
 		item_affixes.append(copy)
 		print("  ✓ Using manual affix 3: %s" % manual_third_affix.affix_name)
 
-func _roll_random_affixes(affix_pool):
-	"""Roll random affixes from the three-tier pools
+func _roll_from_tables():
+	"""Roll random affixes from assigned affix tables
 	
-	Rarity determines which pools to roll from:
+	Rarity determines which tables to roll from:
 	- COMMON: No affixes
-	- UNCOMMON: Roll 1 from First pool
-	- RARE: Roll 1 from First, 1 from Second
-	- EPIC: Roll 1 from First, 1 from Second, 1 from Third
-	- LEGENDARY: Roll 1 from each pool (all three)
+	- UNCOMMON: Roll 1 from first_affix_table
+	- RARE: Roll 1 from first_affix_table, 1 from second_affix_table
+	- EPIC: Roll from all three tables
+	- LEGENDARY: Roll from all three tables + unique affix
 	"""
 	var num_affixes = get_affix_count_for_rarity()
 	
 	if num_affixes >= 1:
-		_roll_from_pool(affix_pool, 1, "First")
+		_roll_from_table(first_affix_table, "First")
 	
 	if num_affixes >= 2:
-		_roll_from_pool(affix_pool, 2, "Second")
+		_roll_from_table(second_affix_table, "Second")
 	
 	if num_affixes >= 3:
-		_roll_from_pool(affix_pool, 3, "Third")
+		_roll_from_table(third_affix_table, "Third")
 	
 	print("✨ Rolled %d affixes for %s" % [item_affixes.size(), item_name])
 
-func _roll_from_pool(affix_pool, tier: int, tier_name: String):
-	"""Roll one affix from a specific tier pool"""
-	var pool = affix_pool.get_affix_pool(equip_slot, tier)
-	
-	if pool.size() == 0:
-		print("  ⚠️ No affixes in %s pool for %s" % [tier_name, get_slot_name()])
+func _roll_from_table(table: AffixTable, tier_name: String):
+	"""Roll one affix from a specific affix table"""
+	if not table:
+		print("  ⚠️ No %s affix table assigned for %s" % [tier_name, item_name])
 		return
 	
-	var affix = pool.pick_random()
-	var affix_copy = affix.duplicate_with_source(item_name, "item")
-	item_affixes.append(affix_copy)
-	print("  🎲 Rolled %s affix: %s" % [tier_name, affix.affix_name])
+	if not table.is_valid():
+		print("  ⚠️ %s affix table is empty for %s" % [tier_name, item_name])
+		return
+	
+	var affix = table.get_random_affix()
+	if affix:
+		var affix_copy = affix.duplicate_with_source(item_name, "item")
+		item_affixes.append(affix_copy)
+		print("  🎲 Rolled %s affix: %s (from table: %s)" % [tier_name, affix.affix_name, table.table_name])
+	else:
+		print("  ❌ Failed to roll from %s table" % tier_name)
+
+func _add_unique_affix():
+	"""Add the unique legendary affix (4th affix)"""
+	if not unique_affix:
+		print("  ⚠️ LEGENDARY item missing unique affix!")
+		return
+	
+	var copy = unique_affix.duplicate_with_source(item_name, "item")
+	item_affixes.append(copy)
+	print("  ⭐ Added UNIQUE affix: %s" % unique_affix.affix_name)
 
 func get_affix_count_for_rarity() -> int:
-	"""Get number of affixes to roll based on rarity"""
+	"""Get number of affixes to roll based on rarity (excludes unique affix)"""
 	match rarity:
 		Rarity.COMMON: return 0
 		Rarity.UNCOMMON: return 1
 		Rarity.RARE: return 2
 		Rarity.EPIC: return 3
-		Rarity.LEGENDARY: return 3  # Still 3, just better pools
+		Rarity.LEGENDARY: return 3  # + unique affix = 4 total
 		_: return 0
 
 func get_all_affixes() -> Array[Affix]:
@@ -190,7 +225,7 @@ func get_all_affixes() -> Array[Affix]:
 # BACKWARD COMPATIBILITY
 # ============================================================================
 
-func roll_affixes(affix_pool):
+func roll_affixes(affix_pool = null):
 	"""Legacy function - calls initialize_affixes for compatibility"""
 	initialize_affixes(affix_pool)
 
