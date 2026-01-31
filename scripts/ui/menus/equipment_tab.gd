@@ -1,5 +1,5 @@
 # equipment_tab.gd - Equipment management tab
-# Self-registers with parent, emits signals upward
+# Uses existing scene structure, no programmatic UI creation
 extends Control
 
 # ============================================================================
@@ -14,22 +14,15 @@ signal item_unequipped(slot: String)
 # STATE
 # ============================================================================
 var player: Player = null
+var selected_slot: String = ""
+var selected_item: Dictionary = {}
 
-# Equipment slot buttons (discovered dynamically)
+# Equipment slot containers (discovered from scene)
 var slot_buttons: Dictionary = {}
 
 # UI references
 var equipment_grid: GridContainer
-var item_popup: Control
-
-# ============================================================================
-# EQUIPMENT SLOTS LAYOUT
-# ============================================================================
-const SLOT_LAYOUT = [
-	["", "Head", ""],
-	["Main Hand", "Torso", "Off Hand"],
-	["Gloves", "Boots", "Accessory"]
-]
+var item_details_panel: PanelContainer
 
 # ============================================================================
 # INITIALIZATION
@@ -37,150 +30,55 @@ const SLOT_LAYOUT = [
 
 func _ready():
 	add_to_group("menu_tabs")  # Self-register
+	add_to_group("player_menu_tab_content")  # Register as tab content
+	await get_tree().process_frame
 	_discover_ui_elements()
-	_setup_equipment_slots()
-	_create_item_popup()
 	print("⚔️ EquipmentTab: Ready")
 
 func _discover_ui_elements():
-	"""Discover UI elements via self-registration groups"""
-	await get_tree().process_frame  # Let children register themselves
-	
+	"""Discover UI elements from existing scene"""
 	# Find equipment grid by group
 	var grids = get_tree().get_nodes_in_group("equipment_grid")
 	if grids.size() > 0:
 		equipment_grid = grids[0]
 		print("  ✓ Equipment grid registered")
+		_discover_equipment_slots()
+	else:
+		print("  ⚠️ No equipment_grid found - add EquipmentGrid to group 'equipment_grid'")
 	
-	# Create grid if not found
-	if not equipment_grid:
-		var vbox = VBoxContainer.new()
-		vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-		add_child(vbox)
-		
-		var label = Label.new()
-		label.text = "Equipment"
-		label.add_theme_font_size_override("font_size", 18)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(label)
-		
-		equipment_grid = GridContainer.new()
-		equipment_grid.name = "EquipmentGrid"
-		equipment_grid.columns = 3
-		equipment_grid.add_theme_constant_override("h_separation", 20)
-		equipment_grid.add_theme_constant_override("v_separation", 20)
-		vbox.add_child(equipment_grid)
+	# Find or create item details panel
+	var panels = get_tree().get_nodes_in_group("equipment_details_panel")
+	if panels.size() > 0:
+		item_details_panel = panels[0]
+		print("  ✓ Equipment details panel registered")
+	else:
+		print("  ⚠️ No equipment details panel found in scene")
 
-func _setup_equipment_slots():
-	"""Create equipment slot buttons"""
+func _discover_equipment_slots():
+	"""Find all equipment slot containers that exist in the scene"""
 	if not equipment_grid:
 		return
 	
-	# Clear existing
-	for child in equipment_grid.get_children():
-		child.queue_free()
-	slot_buttons.clear()
+	# Find all VBoxContainer children that are slot containers
+	var containers = equipment_grid.find_children("*Slot", "VBoxContainer", false, false)
 	
-	# Create slots based on layout
-	for row in SLOT_LAYOUT:
-		for slot_name in row:
-			if slot_name == "":
-				# Empty spacer
-				var spacer = Control.new()
-				spacer.custom_minimum_size = Vector2(100, 100)
-				equipment_grid.add_child(spacer)
-			else:
-				var slot_container = _create_equipment_slot(slot_name)
-				slot_buttons[slot_name] = slot_container
-				equipment_grid.add_child(slot_container)
-
-func _create_equipment_slot(slot_name: String) -> Control:
-	"""Create a single equipment slot button"""
-	var container = VBoxContainer.new()
-	container.custom_minimum_size = Vector2(100, 120)
-	container.add_to_group("equipment_slots")  # Self-identify
-	
-	# Slot button
-	var button = Button.new()
-	button.name = "SlotButton"
-	button.custom_minimum_size = Vector2(100, 100)
-	button.text = "Empty"
-	button.pressed.connect(_on_slot_clicked.bind(slot_name))
-	container.add_child(button)
-	
-	# Label
-	var label = Label.new()
-	label.text = slot_name
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 10)
-	container.add_child(label)
-	
-	return container
-
-func _create_item_popup():
-	"""Create popup for item details"""
-	item_popup = Control.new()
-	item_popup.name = "ItemPopup"
-	item_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
-	item_popup.mouse_filter = Control.MOUSE_FILTER_STOP
-	item_popup.hide()
-	add_child(item_popup)
-	
-	# Semi-transparent overlay
-	var overlay = ColorRect.new()
-	overlay.color = Color(0, 0, 0, 0.7)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.gui_input.connect(_on_overlay_input)
-	item_popup.add_child(overlay)
-	
-	# Centered panel
-	var panel = PanelContainer.new()
-	panel.name = "Panel"
-	panel.custom_minimum_size = Vector2(300, 400)
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	item_popup.add_child(panel)
-	
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBox"
-	vbox.add_theme_constant_override("separation", 10)
-	panel.add_child(vbox)
-	
-	# Item name
-	var name_label = Label.new()
-	name_label.name = "ItemName"
-	name_label.add_theme_font_size_override("font_size", 18)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(name_label)
-	
-	# Item image
-	var image_rect = TextureRect.new()
-	image_rect.name = "ItemImage"
-	image_rect.custom_minimum_size = Vector2(100, 100)
-	image_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	image_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	vbox.add_child(image_rect)
-	
-	# Description
-	var desc_label = RichTextLabel.new()
-	desc_label.name = "ItemDescription"
-	desc_label.bbcode_enabled = true
-	desc_label.fit_content = true
-	desc_label.custom_minimum_size = Vector2(0, 80)
-	vbox.add_child(desc_label)
-	
-	# Stats
-	var stats_label = RichTextLabel.new()
-	stats_label.name = "ItemStats"
-	stats_label.bbcode_enabled = true
-	stats_label.fit_content = true
-	stats_label.custom_minimum_size = Vector2(0, 60)
-	vbox.add_child(stats_label)
-	
-	# Unequip button
-	var unequip_btn = Button.new()
-	unequip_btn.name = "UnequipButton"
-	unequip_btn.text = "Unequip"
-	vbox.add_child(unequip_btn)
+	for container in containers:
+		# Extract slot name: "Head Slot" -> "Head", "MainHand Slot" -> "Main Hand"
+		var slot_name = container.name.replace(" Slot", "")
+		
+		# Handle MainHand/OffHand naming
+		if slot_name == "MainHand":
+			slot_name = "Main Hand"
+		elif slot_name == "OffHand":
+			slot_name = "Off Hand"
+		
+		slot_buttons[slot_name] = container
+		
+		# Connect button signal
+		var button = container.get_node_or_null("SlotButton")
+		if button:
+			button.pressed.connect(_on_slot_clicked.bind(slot_name))
+			print("  ✓ Discovered equipment slot: %s" % slot_name)
 
 # ============================================================================
 # PUBLIC API
@@ -192,7 +90,7 @@ func set_player(p_player: Player):
 	
 	# Connect to player equipment signals
 	if player:
-		if not player.equipment_changed.is_connected(_on_player_equipment_changed):
+		if player.has_signal("equipment_changed") and not player.equipment_changed.is_connected(_on_player_equipment_changed):
 			player.equipment_changed.connect(_on_player_equipment_changed)
 	
 	refresh()
@@ -202,11 +100,16 @@ func refresh():
 	if not player:
 		return
 	
+	print("⚔️ EquipmentTab: Refreshing - checking all slots")
+	
 	for slot_name in slot_buttons:
 		_update_equipment_slot(slot_name)
+	
+	_update_item_details()
 
 func on_external_data_change():
 	"""Called when other tabs modify player data"""
+	print("⚔️ EquipmentTab: External data changed - refreshing")
 	refresh()
 
 # ============================================================================
@@ -217,41 +120,63 @@ func _update_equipment_slot(slot_name: String):
 	"""Update a single slot's display"""
 	var slot_container = slot_buttons.get(slot_name)
 	if not slot_container:
+		print("  ⚠️ No slot container found for: %s" % slot_name)
 		return
 	
-	var button = slot_container.get_node("SlotButton")
+	var button = slot_container.get_node_or_null("SlotButton")
 	if not button:
+		print("  ⚠️ No button found in slot: %s" % slot_name)
 		return
 	
 	var item = player.equipment.get(slot_name)
 	
 	if item:
 		# Show equipped item
+		print("  ⚔️ Slot %s has item: %s" % [slot_name, item.get("name", "?")])
 		_apply_item_visual(button, item)
 	else:
 		# Empty slot
+		print("  ⚔️ Slot %s is empty" % slot_name)
 		_apply_empty_visual(button)
 
 func _apply_item_visual(button: Button, item: Dictionary):
 	"""Apply item visual to button"""
+	# Clear any previous styling
+	button.text = ""
+	button.icon = null
+	
 	if item.has("icon") and item.icon:
+		# Show item icon
 		button.icon = item.icon
-		button.text = ""
+		button.expand_icon = true
 	else:
-		button.text = ""
+		# Show colored placeholder with item initial
 		var stylebox = StyleBoxFlat.new()
 		stylebox.bg_color = _get_item_color(item)
+		stylebox.set_corner_radius_all(4)
 		button.add_theme_stylebox_override("normal", stylebox)
+		button.add_theme_stylebox_override("hover", stylebox)
+		button.add_theme_stylebox_override("pressed", stylebox)
+		
+		# Show first letter of item name
+		var item_name = item.get("name", "?")
+		button.text = item_name[0] if item_name.length() > 0 else "?"
+		button.add_theme_font_size_override("font_size", 24)
 
 func _apply_empty_visual(button: Button):
 	"""Apply empty slot visual"""
 	button.icon = null
 	button.text = "Empty"
+	button.add_theme_font_size_override("font_size", 12)
+	
 	var stylebox = StyleBoxFlat.new()
-	stylebox.bg_color = Color(0.2, 0.2, 0.2)
+	stylebox.bg_color = Color(0.2, 0.2, 0.2, 0.5)
 	stylebox.border_color = Color(0.4, 0.4, 0.4)
 	stylebox.set_border_width_all(2)
+	stylebox.set_corner_radius_all(4)
 	button.add_theme_stylebox_override("normal", stylebox)
+	button.add_theme_stylebox_override("hover", stylebox)
+	button.add_theme_stylebox_override("pressed", stylebox)
 
 func _get_item_color(item: Dictionary) -> Color:
 	"""Get color based on item slot type"""
@@ -265,50 +190,99 @@ func _get_item_color(item: Dictionary) -> Color:
 		"Accessory": return Color(0.6, 0.3, 0.6)
 		_: return Color(0.5, 0.5, 0.5)
 
-func _show_item_popup(item: Dictionary, slot_name: String):
-	"""Display popup with item details"""
-	if not item_popup:
+func _update_item_details():
+	"""Update the item details panel"""
+	if not item_details_panel:
 		return
 	
-	var panel = item_popup.get_node("Panel")
-	var vbox = panel.get_node("VBox")
+	# Find UI elements
+	var name_labels = item_details_panel.find_children("*Name*", "Label", true, false)
+	var image_rects = item_details_panel.find_children("*Image*", "TextureRect", true, false)
+	var desc_labels = item_details_panel.find_children("*Desc*", "Label", true, false)
+	var affix_containers = item_details_panel.find_children("*Affix*", "VBoxContainer", true, false)
+	var unequip_buttons = item_details_panel.find_children("*Unequip*", "Button", true, false)
 	
-	# Set item data
-	var name_label = vbox.get_node("ItemName")
-	name_label.text = item.get("name", "Unknown")
+	# Handle no item selected
+	if selected_item.is_empty():
+		if name_labels.size() > 0:
+			name_labels[0].text = "No Item Selected"
+		if image_rects.size() > 0:
+			image_rects[0].texture = null
+		if desc_labels.size() > 0:
+			desc_labels[0].text = "Select an equipped item to view details"
+		if affix_containers.size() > 0:
+			for child in affix_containers[0].get_children():
+				child.queue_free()
+		if unequip_buttons.size() > 0:
+			unequip_buttons[0].hide()
+		return
 	
-	var image_rect = vbox.get_node("ItemImage")
-	if item.has("icon") and item.icon:
-		image_rect.texture = item.icon
-	else:
-		var img = Image.create(100, 100, false, Image.FORMAT_RGBA8)
-		img.fill(_get_item_color(item))
-		image_rect.texture = ImageTexture.create_from_image(img)
+	# Show item details
+	if name_labels.size() > 0:
+		var display_name = selected_item.get("display_name", selected_item.get("name", "Unknown"))
+		name_labels[0].text = display_name
 	
-	var desc_label = vbox.get_node("ItemDescription")
-	desc_label.text = item.get("description", "")
+	if image_rects.size() > 0:
+		if selected_item.has("icon") and selected_item.icon:
+			image_rects[0].texture = selected_item.icon
+		else:
+			# Create colored placeholder
+			var img = Image.create(100, 100, false, Image.FORMAT_RGBA8)
+			img.fill(_get_item_color(selected_item))
+			image_rects[0].texture = ImageTexture.create_from_image(img)
 	
-	var stats_label = vbox.get_node("ItemStats")
-	var stats_text = ""
-	if item.has("stats"):
-		stats_text = "[b]Stats:[/b]\n"
-		for stat in item.stats:
-			stats_text += "  %s: [color=green]+%d[/color]\n" % [stat.capitalize(), item.stats[stat]]
-	stats_label.text = stats_text
+	if desc_labels.size() > 0:
+		desc_labels[0].text = selected_item.get("description", "")
 	
-	# Setup unequip button
-	var unequip_btn = vbox.get_node("UnequipButton")
-	# Disconnect old connections
-	for connection in unequip_btn.pressed.get_connections():
-		unequip_btn.pressed.disconnect(connection.callable)
-	unequip_btn.pressed.connect(_on_unequip_pressed.bind(slot_name))
+	# Show affixes
+	if affix_containers.size() > 0:
+		var affix_container = affix_containers[0]
+		
+		# Clear existing
+		for child in affix_container.get_children():
+			child.queue_free()
+		
+		# Add affixes
+		if selected_item.has("affixes") and selected_item.affixes is Array:
+			for i in range(min(4, selected_item.affixes.size())):
+				var affix = selected_item.affixes[i]
+				_create_affix_display(affix_container, affix)
 	
-	item_popup.show()
+	# Show unequip button
+	if unequip_buttons.size() > 0:
+		unequip_buttons[0].show()
 
-func _hide_item_popup():
-	"""Hide the item popup"""
-	if item_popup:
-		item_popup.hide()
+func _create_affix_display(container: VBoxContainer, affix: Dictionary):
+	"""Create a display for a single affix"""
+	var affix_panel = PanelContainer.new()
+	
+	# Style the affix panel
+	var stylebox = StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.2, 0.2, 0.25, 0.8)
+	stylebox.border_color = Color(0.4, 0.4, 0.5)
+	stylebox.set_border_width_all(1)
+	stylebox.set_corner_radius_all(4)
+	affix_panel.add_theme_stylebox_override("panel", stylebox)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	affix_panel.add_child(vbox)
+	
+	# Affix name
+	var name_label = Label.new()
+	name_label.text = affix.get("display_name", affix.get("name", "Unknown Affix"))
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))  # Gold
+	vbox.add_child(name_label)
+	
+	# Affix description
+	var desc_label = Label.new()
+	desc_label.text = affix.get("description", "")
+	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc_label)
+	
+	container.add_child(affix_panel)
 
 # ============================================================================
 # SIGNAL HANDLERS
@@ -316,31 +290,35 @@ func _hide_item_popup():
 
 func _on_slot_clicked(slot_name: String):
 	"""Equipment slot clicked"""
-	if not player:
-		return
+	selected_slot = slot_name
 	
+	# Get item from slot (might be null)
 	var item = player.equipment.get(slot_name)
-	if item:
-		_show_item_popup(item, slot_name)
+	
+	if item != null:
+		selected_item = item
+		print("⚔️ Clicked slot: %s - Item: %s" % [slot_name, selected_item.get("name", "?")])
+	else:
+		selected_item = {}
+		print("⚔️ Clicked slot: %s - Empty" % slot_name)
+	
+	_update_item_details()
 
-func _on_unequip_pressed(slot_name: String):
-	"""Unequip button pressed in popup"""
-	if not player:
+func _on_unequip_pressed():
+	"""Unequip button pressed"""
+	if selected_slot.is_empty() or not player:
 		return
 	
-	if player.unequip_item(slot_name):
-		item_unequipped.emit(slot_name)  # Bubble up
-		data_changed.emit()  # Bubble up
-		_hide_item_popup()
+	print("⚔️ Unequipping from slot: %s" % selected_slot)
+	
+	if player.unequip_item(selected_slot):
+		item_unequipped.emit(selected_slot)
+		data_changed.emit()  # Bubble up to notify other tabs
+		selected_item = {}
+		selected_slot = ""
 		refresh()
-		print("✅ Unequipped: %s" % slot_name)
-
-func _on_overlay_input(event: InputEvent):
-	"""Popup overlay clicked"""
-	if event is InputEventMouseButton and event.pressed:
-		_hide_item_popup()
+		print("✅ Unequipped successfully")
 
 func _on_player_equipment_changed(_slot: String, _item):
 	"""Player equipment changed (bubbled from Player)"""
 	refresh()
-	data_changed.emit()  # Bubble further up
