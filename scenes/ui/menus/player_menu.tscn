@@ -87,6 +87,7 @@ size_flags_vertical = 3
 [node name="Character" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
 layout_mode = 2
 script = ExtResource("2_f0r6v")
+metadata/tab_name = "Character"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Character"]
 layout_mode = 0
@@ -126,11 +127,13 @@ metadata/ui_role = "\"stats_container\""
 
 [node name="Skills" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"] instance=ExtResource("3_s5lmw")]
 layout_mode = 2
+metadata/tab_name = "Skills"
 
 [node name="Equipment" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
 visible = false
 layout_mode = 2
 script = ExtResource("4_fbi1g")
+metadata/tab_name = "Equipment"
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Equipment"]
 layout_mode = 0
@@ -222,37 +225,23 @@ layout_mode = 2
 text = "Accessory"
 
 [node name="Inventory" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
-visible = false
 layout_mode = 2
 script = ExtResource("5_ldd5v")
+metadata/tab_name = "Inventory"
 
-[node name="MainLayout" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="MainVBox" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
 
-[node name="InventoryArea" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/InventoryArea"]
-custom_minimum_size = Vector2(700, 400)
-layout_mode = 2
-horizontal_scroll_mode = 0
-
-[node name="ItemGrid" type="GridContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/InventoryArea/ScrollContainer" groups=["inventory_grid"]]
-layout_mode = 2
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 10
-columns = 5
-
-[node name="CategorySidebar" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout"]
+[node name="MainLayout" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox"]
 layout_mode = 2
 
-[node name="AllButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="CategorySidebar" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+
+[node name="AllButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
@@ -260,67 +249,119 @@ button_group = ExtResource("7_stsf8")
 text = "All"
 metadata/category_name = "All"
 
-[node name="HeadButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="HeadButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Head"
 metadata/category_name = "Head"
 
-[node name="TorsoButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="TorsoButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Torso"
 metadata/category_name = "Torso"
 
-[node name="GlovesButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="GlovesButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Gloves"
 metadata/category_name = "Gloves"
 
-[node name="BootsButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="BootsButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Boots"
 metadata/category_name = "Boots"
 
-[node name="MainHandButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="MainHandButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Main Hand"
 metadata/category_name = "Main Hand"
 
-[node name="OffHandButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="OffHandButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Off Hand"
 metadata/category_name = "Off Hand"
 
-[node name="AccessoryButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="AccessoryButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Accessory"
 metadata/category_name = "Accessory"
 
-[node name="ConsumableButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
+[node name="ConsumableButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/CategorySidebar" groups=["inventory_category_button"]]
 layout_mode = 2
 toggle_mode = true
 button_group = ExtResource("7_stsf8")
 text = "Consumable"
 metadata/category_name = "Consumable"
 
-[node name="InventoryDetailsPanel" type="PanelContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory" groups=["inventory_details_panel"]]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+[node name="InventoryArea" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/InventoryArea"]
+custom_minimum_size = Vector2(700, 400)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ItemGrid" type="GridContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/MainLayout/InventoryArea/ScrollContainer" groups=["inventory_grid"]]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 5
+
+[node name="InventoryDetailsPanel" type="PanelContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox" groups=["inventory_details_panel"]]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DetailsVBox" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ItemName" type="Label" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+layout_mode = 2
+text = "No Item Selected"
+horizontal_alignment = 1
+
+[node name="ItemImage" type="TextureRect" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+stretch_mode = 5
+
+[node name="ItemDescription" type="Label" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="AffixesContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+layout_mode = 2
+
+[node name="ActionButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="UseButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
+layout_mode = 2
+text = "Use"
+
+[node name="EquipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
+layout_mode = 2
+text = "Equip"
 
 [node name="Quests" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
 visible = false
 layout_mode = 2
+metadata/tab_name = "Quests"

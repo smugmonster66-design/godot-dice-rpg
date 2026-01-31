@@ -78,8 +78,6 @@ func _setup_details_panel():
 			button.pressed.connect(_on_use_item_pressed)
 		elif "equip" in btn_name:
 			button.pressed.connect(_on_equip_item_pressed)
-		elif "drop" in btn_name:
-			button.pressed.connect(_on_drop_item_pressed)
 
 # ============================================================================
 # PUBLIC API
@@ -199,38 +197,103 @@ func _update_item_details():
 	if not item_details_panel:
 		return
 	
-	# Find labels in details panel
-	var name_labels = item_details_panel.find_children("*Name*", "Label", true, false)
-	var desc_labels = item_details_panel.find_children("*Desc*", "Label", true, false)
-	var action_buttons = item_details_panel.find_children("*Button*", "HBoxContainer", true, false)
+	# Find UI elements in details panel
+	var name_labels = item_details_panel.find_children("ItemName", "Label", true, false)
+	var image_rects = item_details_panel.find_children("ItemImage", "TextureRect", true, false)
+	var desc_labels = item_details_panel.find_children("ItemDescription", "Label", true, false)
+	var affixes_container = item_details_panel.find_children("AffixesContainer", "VBoxContainer", true, false)
+	var action_containers = item_details_panel.find_children("ActionButtons", "HBoxContainer", true, false)
 	
 	if selected_item.is_empty():
+		# No item selected
 		if name_labels.size() > 0:
 			name_labels[0].text = "No Item Selected"
+		if image_rects.size() > 0:
+			image_rects[0].texture = null
 		if desc_labels.size() > 0:
 			desc_labels[0].text = ""
-		if action_buttons.size() > 0:
-			action_buttons[0].hide()
+		if affixes_container.size() > 0:
+			for child in affixes_container[0].get_children():
+				child.queue_free()
+		if action_containers.size() > 0:
+			action_containers[0].hide()
 		return
 	
-	# Show item details
+	# Show item name
 	if name_labels.size() > 0:
 		name_labels[0].text = selected_item.get("name", "Unknown")
 	
+	# Show item image
+	if image_rects.size() > 0:
+		if selected_item.has("icon") and selected_item.icon:
+			image_rects[0].texture = selected_item.icon
+		else:
+			# Create colored placeholder
+			var img = Image.create(100, 100, false, Image.FORMAT_RGBA8)
+			img.fill(_get_item_type_color(selected_item))
+			image_rects[0].texture = ImageTexture.create_from_image(img)
+	
+	# Show item description
 	if desc_labels.size() > 0:
 		desc_labels[0].text = selected_item.get("description", "")
 	
-	# Update button visibility
-	if action_buttons.size() > 0:
-		action_buttons[0].show()
+	# Show affixes
+	if affixes_container.size() > 0:
+		var affix_vbox = affixes_container[0]
 		
-		var buttons = action_buttons[0].find_children("*", "Button", false, false)
+		# Clear existing affixes
+		for child in affix_vbox.get_children():
+			child.queue_free()
+		
+		# Add affix displays
+		if selected_item.has("affixes") and selected_item.affixes.size() > 0:
+			for affix in selected_item.affixes:
+				var affix_panel = _create_affix_display(affix)
+				affix_vbox.add_child(affix_panel)
+	
+	# Update action buttons visibility
+	if action_containers.size() > 0:
+		action_containers[0].show()
+		
+		var buttons = action_containers[0].find_children("*", "Button", false, false)
 		for btn in buttons:
 			var btn_name = btn.name.to_lower()
 			if "use" in btn_name:
 				btn.visible = selected_item.get("type", "") == "Consumable"
 			elif "equip" in btn_name:
 				btn.visible = selected_item.has("slot")
+
+func _create_affix_display(affix) -> PanelContainer:
+	"""Create a visual display for a single affix"""
+	var panel = PanelContainer.new()
+	
+	# Style the panel
+	var stylebox = StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.2, 0.2, 0.3, 0.5)
+	stylebox.set_corner_radius_all(4)
+	panel.add_theme_stylebox_override("panel", stylebox)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	panel.add_child(vbox)
+	
+	# Affix name
+	var name_label = Label.new()
+	var prefix_suffix = " (Prefix)" if affix.get("is_prefix", true) else " (Suffix)"
+	name_label.text = affix.get("display_name", "Unknown") + prefix_suffix
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_color_override("font_color", Color(0.8, 0.6, 1.0))  # Purple tint
+	vbox.add_child(name_label)
+	
+	# Affix description
+	var desc_label = Label.new()
+	desc_label.text = affix.get("description", "")
+	desc_label.add_theme_font_size_override("font_size", 11)
+	desc_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc_label)
+	
+	return panel
 
 # ============================================================================
 # SIGNAL HANDLERS
@@ -294,15 +357,3 @@ func _on_equip_item_pressed():
 		selected_item = {}
 		refresh()
 		print("✅ Equipped: %s" % selected_item.get("name", ""))
-
-func _on_drop_item_pressed():
-	"""Drop item button pressed"""
-	if selected_item.is_empty() or not player:
-		return
-	
-	player.inventory.erase(selected_item)
-	print("🗑️ Dropped: %s" % selected_item.get("name", ""))
-	
-	selected_item = {}
-	data_changed.emit()  # Bubble up
-	refresh()
