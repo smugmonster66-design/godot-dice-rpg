@@ -36,6 +36,7 @@ grow_vertical = 2
 
 [node name="TabButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
 layout_mode = 2
+alignment = 1
 
 [node name="CharacterButton" type="Button" parent="PanelContainer/VBoxContainer/TabButtons" groups=["menu_tab_buttons", "player_menu_tab_button"]]
 layout_mode = 2

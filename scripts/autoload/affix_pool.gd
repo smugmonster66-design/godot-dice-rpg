@@ -1,13 +1,40 @@
-# affix_pool.gd - Automatically loads all affix .tres files from directories
+# affix_pool.gd - Automatically loads affixes organized by slot and tier
 extends Node
 
-# Affix pools by slot type
-var head_affixes: Array[Affix] = []
-var torso_affixes: Array[Affix] = []
-var gloves_affixes: Array[Affix] = []
-var boots_affixes: Array[Affix] = []
-var weapon_affixes: Array[Affix] = []
-var accessory_affixes: Array[Affix] = []
+# Three-tier affix pools per slot
+# First tier: Common/basic affixes (always available)
+# Second tier: Uncommon/better affixes
+# Third tier: Rare/powerful affixes
+
+# HEAD AFFIXES
+var head_affixes_first: Array[Affix] = []
+var head_affixes_second: Array[Affix] = []
+var head_affixes_third: Array[Affix] = []
+
+# TORSO AFFIXES
+var torso_affixes_first: Array[Affix] = []
+var torso_affixes_second: Array[Affix] = []
+var torso_affixes_third: Array[Affix] = []
+
+# GLOVES AFFIXES
+var gloves_affixes_first: Array[Affix] = []
+var gloves_affixes_second: Array[Affix] = []
+var gloves_affixes_third: Array[Affix] = []
+
+# BOOTS AFFIXES
+var boots_affixes_first: Array[Affix] = []
+var boots_affixes_second: Array[Affix] = []
+var boots_affixes_third: Array[Affix] = []
+
+# WEAPON AFFIXES
+var weapon_affixes_first: Array[Affix] = []
+var weapon_affixes_second: Array[Affix] = []
+var weapon_affixes_third: Array[Affix] = []
+
+# ACCESSORY AFFIXES
+var accessory_affixes_first: Array[Affix] = []
+var accessory_affixes_second: Array[Affix] = []
+var accessory_affixes_third: Array[Affix] = []
 
 # Master lookup - all affixes by name for dynamic access
 var affixes_by_name: Dictionary = {}
@@ -18,26 +45,43 @@ func _ready():
 	print("✨ Affix Pool ready - loaded %d total affixes" % affixes_by_name.size())
 
 func _load_all_affixes():
-	"""Automatically load all .tres affixes from directory structure"""
-	_load_affixes_from_directory("res://resources/affixes/head/", head_affixes, "Head")
-	_load_affixes_from_directory("res://resources/affixes/torso/", torso_affixes, "Torso")
-	_load_affixes_from_directory("res://resources/affixes/gloves/", gloves_affixes, "Gloves")
-	_load_affixes_from_directory("res://resources/affixes/boots/", boots_affixes, "Boots")
-	_load_affixes_from_directory("res://resources/affixes/weapons/", weapon_affixes, "Weapons")
-	_load_affixes_from_directory("res://resources/affixes/accessories/", accessory_affixes, "Accessories")
+	"""Load affixes from three-tier directory structure"""
+	# Head
+	_load_affixes_from_directory("res://resources/affixes/head/first/", head_affixes_first, "Head-First")
+	_load_affixes_from_directory("res://resources/affixes/head/second/", head_affixes_second, "Head-Second")
+	_load_affixes_from_directory("res://resources/affixes/head/third/", head_affixes_third, "Head-Third")
+	
+	# Torso
+	_load_affixes_from_directory("res://resources/affixes/torso/first/", torso_affixes_first, "Torso-First")
+	_load_affixes_from_directory("res://resources/affixes/torso/second/", torso_affixes_second, "Torso-Second")
+	_load_affixes_from_directory("res://resources/affixes/torso/third/", torso_affixes_third, "Torso-Third")
+	
+	# Gloves
+	_load_affixes_from_directory("res://resources/affixes/gloves/first/", gloves_affixes_first, "Gloves-First")
+	_load_affixes_from_directory("res://resources/affixes/gloves/second/", gloves_affixes_second, "Gloves-Second")
+	_load_affixes_from_directory("res://resources/affixes/gloves/third/", gloves_affixes_third, "Gloves-Third")
+	
+	# Boots
+	_load_affixes_from_directory("res://resources/affixes/boots/first/", boots_affixes_first, "Boots-First")
+	_load_affixes_from_directory("res://resources/affixes/boots/second/", boots_affixes_second, "Boots-Second")
+	_load_affixes_from_directory("res://resources/affixes/boots/third/", boots_affixes_third, "Boots-Third")
+	
+	# Weapons
+	_load_affixes_from_directory("res://resources/affixes/weapons/first/", weapon_affixes_first, "Weapons-First")
+	_load_affixes_from_directory("res://resources/affixes/weapons/second/", weapon_affixes_second, "Weapons-Second")
+	_load_affixes_from_directory("res://resources/affixes/weapons/third/", weapon_affixes_third, "Weapons-Third")
+	
+	# Accessories
+	_load_affixes_from_directory("res://resources/affixes/accessories/first/", accessory_affixes_first, "Accessories-First")
+	_load_affixes_from_directory("res://resources/affixes/accessories/second/", accessory_affixes_second, "Accessories-Second")
+	_load_affixes_from_directory("res://resources/affixes/accessories/third/", accessory_affixes_third, "Accessories-Third")
 
 func _load_affixes_from_directory(dir_path: String, target_array: Array[Affix], category_name: String):
-	"""Load all .tres affix files from a directory
-	
-	Args:
-		dir_path: Path to directory containing affix .tres files
-		target_array: Array to populate with loaded affixes
-		category_name: Name for logging (e.g., "Weapons")
-	"""
+	"""Load all .tres affix files from a directory"""
 	var dir = DirAccess.open(dir_path)
 	
 	if not dir:
-		print("  ⚠️  Directory not found: %s" % dir_path)
+		# Silently skip missing directories (not all tiers may exist yet)
 		return
 	
 	dir.list_dir_begin()
@@ -45,7 +89,6 @@ func _load_affixes_from_directory(dir_path: String, target_array: Array[Affix], 
 	var loaded_count = 0
 	
 	while file_name != "":
-		# Only process .tres files
 		if file_name.ends_with(".tres"):
 			var full_path = dir_path + file_name
 			var affix = load(full_path)
@@ -56,76 +99,98 @@ func _load_affixes_from_directory(dir_path: String, target_array: Array[Affix], 
 				loaded_count += 1
 				print("    ✓ %s: %s" % [category_name, affix.affix_name])
 			else:
-				print("    ✗ Failed to load or not an Affix: %s" % file_name)
+				print("    ✗ Failed to load: %s" % file_name)
 		
 		file_name = dir.get_next()
 	
 	dir.list_dir_end()
 	
 	if loaded_count > 0:
-		print("  📦 %s affixes: %d loaded" % [category_name, loaded_count])
+		print("  📦 %s: %d affixes" % [category_name, loaded_count])
 
 # ============================================================================
-# QUERY FUNCTIONS
+# QUERY FUNCTIONS - THREE POOLS PER SLOT
+# ============================================================================
+
+func get_affix_pool(slot: EquippableItem.EquipSlot, tier: int) -> Array[Affix]:
+	"""Get affix pool for a specific slot and tier
+	
+	Args:
+		slot: Equipment slot enum
+		tier: 1 = First, 2 = Second, 3 = Third
+	
+	Returns:
+		Array of affixes for that slot/tier combination
+	"""
+	match slot:
+		EquippableItem.EquipSlot.HEAD:
+			match tier:
+				1: return head_affixes_first
+				2: return head_affixes_second
+				3: return head_affixes_third
+		
+		EquippableItem.EquipSlot.TORSO:
+			match tier:
+				1: return torso_affixes_first
+				2: return torso_affixes_second
+				3: return torso_affixes_third
+		
+		EquippableItem.EquipSlot.GLOVES:
+			match tier:
+				1: return gloves_affixes_first
+				2: return gloves_affixes_second
+				3: return gloves_affixes_third
+		
+		EquippableItem.EquipSlot.BOOTS:
+			match tier:
+				1: return boots_affixes_first
+				2: return boots_affixes_second
+				3: return boots_affixes_third
+		
+		EquippableItem.EquipSlot.MAIN_HAND, EquippableItem.EquipSlot.OFF_HAND, EquippableItem.EquipSlot.HEAVY:
+			match tier:
+				1: return weapon_affixes_first
+				2: return weapon_affixes_second
+				3: return weapon_affixes_third
+		
+		EquippableItem.EquipSlot.ACCESSORY:
+			match tier:
+				1: return accessory_affixes_first
+				2: return accessory_affixes_second
+				3: return accessory_affixes_third
+	
+	return []
+
+# ============================================================================
+# BACKWARD COMPATIBILITY
 # ============================================================================
 
 func get_affixes_for_slot(slot: EquippableItem.EquipSlot) -> Array[Affix]:
-	"""Get available affixes for equipment slot"""
-	match slot:
-		EquippableItem.EquipSlot.HEAD:
-			return head_affixes
-		EquippableItem.EquipSlot.TORSO:
-			return torso_affixes
-		EquippableItem.EquipSlot.GLOVES:
-			return gloves_affixes
-		EquippableItem.EquipSlot.BOOTS:
-			return boots_affixes
-		EquippableItem.EquipSlot.MAIN_HAND, EquippableItem.EquipSlot.OFF_HAND, EquippableItem.EquipSlot.HEAVY:
-			return weapon_affixes
-		EquippableItem.EquipSlot.ACCESSORY:
-			return accessory_affixes
-		_:
-			return []
+	"""Get ALL affixes for a slot (combines all three tiers)
+	
+	For backward compatibility with existing code
+	"""
+	var all_affixes: Array[Affix] = []
+	all_affixes.append_array(get_affix_pool(slot, 1))
+	all_affixes.append_array(get_affix_pool(slot, 2))
+	all_affixes.append_array(get_affix_pool(slot, 3))
+	return all_affixes
+
+# ============================================================================
+# DYNAMIC ACCESS
+# ============================================================================
 
 func get_affix_by_name(affix_name: String) -> Affix:
-	"""Get a specific affix by name for dynamic access
-	
-	Returns:
-		Affix resource if found, null otherwise
-	"""
+	"""Get a specific affix by name"""
 	return affixes_by_name.get(affix_name, null)
 
 func has_affix(affix_name: String) -> bool:
-	"""Check if an affix exists in the pool"""
+	"""Check if an affix exists"""
 	return affixes_by_name.has(affix_name)
 
 func get_all_affixes() -> Array[Affix]:
-	"""Get all loaded affixes (for debugging/tools)"""
-	var all_affixes: Array[Affix] = []
-	all_affixes.append_array(head_affixes)
-	all_affixes.append_array(torso_affixes)
-	all_affixes.append_array(gloves_affixes)
-	all_affixes.append_array(boots_affixes)
-	all_affixes.append_array(weapon_affixes)
-	all_affixes.append_array(accessory_affixes)
-	return all_affixes
-
-func get_affixes_by_category(category: String) -> Array[Affix]:
-	"""Get all affixes that have a specific category tag
-	
-	Example: get_affixes_by_category("damage_bonus")
-	"""
+	"""Get all loaded affixes"""
 	var result: Array[Affix] = []
-	
 	for affix in affixes_by_name.values():
-		if affix.has_category(category):
-			result.append(affix)
-	
+		result.append(affix)
 	return result
-
-func print_all_affixes():
-	"""Debug: Print all loaded affixes"""
-	print("=== All Loaded Affixes ===")
-	for affix_name in affixes_by_name:
-		var affix = affixes_by_name[affix_name]
-		print("  %s: %s (categories: %s)" % [affix_name, affix.description, affix.categories])
