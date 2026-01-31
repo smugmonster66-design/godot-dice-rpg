@@ -26,7 +26,14 @@ class_name Skill
 # ============================================================================
 # PREREQUISITES
 # ============================================================================
-@export var prerequisites: Array[SkillPrerequisite] = []
+# Simple prerequisite system - just store skill names and required ranks
+@export var prerequisite_skills: Array[String] = []  # Skill names required
+@export var prerequisite_ranks: Array[int] = []  # Minimum rank for each skill
+
+# Example:
+# prerequisite_skills = ["Power Strike", "Weapon Mastery"]
+# prerequisite_ranks = [3, 1]
+# Means: Requires Power Strike rank 3+ AND Weapon Mastery rank 1+
 
 # ============================================================================
 # EFFECTS (Affixes Granted)
@@ -123,10 +130,16 @@ func is_maxed() -> bool:
 	"""Check if skill is at max rank"""
 	return current_rank >= max_ranks
 
-# ============================================================================
-# PREREQUISITE HELPER
-# ============================================================================
-
-class SkillPrerequisite extends Resource:
-	@export var skill_name: String = ""
-	@export var required_rank: int = 1
+func get_prerequisites_text() -> String:
+	"""Get human-readable prerequisite text"""
+	if prerequisite_skills.size() == 0:
+		return "None"
+	
+	var parts = []
+	for i in range(prerequisite_skills.size()):
+		if i < prerequisite_ranks.size():
+			parts.append("%s (Rank %d)" % [prerequisite_skills[i], prerequisite_ranks[i]])
+		else:
+			parts.append(prerequisite_skills[i])
+	
+	return ", ".join(parts)

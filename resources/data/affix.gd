@@ -34,13 +34,19 @@ var source_type: String = ""  # e.g., "item", "skill", "consumable", "buff"
 # EFFECT DATA
 # ============================================================================
 # The value/data used by the effect function
-@export var effect_value: Variant = null
+# Use the appropriate field based on affix type:
+
+# For simple numeric bonuses/multipliers (most common)
+@export var effect_number: float = 0.0
+
+# For complex effects that need multiple values
+@export var effect_data: Dictionary = {}
 
 # Examples:
-# - For stat bonus: effect_value = 5 (adds 5 to stat)
-# - For multiplier: effect_value = 1.2 (multiplies by 1.2)
-# - For new action: effect_value = Action resource
-# - For dice: effect_value = [6, 6] (grants 2d6)
+# - Stat bonus: effect_number = 5.0
+# - Multiplier: effect_number = 1.2
+# - Multi-stat: effect_data = {"strength": 3, "agility": 2}
+# - Max HP/Mana: effect_data = {"max_hp": 20}
 
 # ============================================================================
 # EFFECT APPLICATION
@@ -49,12 +55,13 @@ var source_type: String = ""  # e.g., "item", "skill", "consumable", "buff"
 func apply_effect() -> Variant:
 	"""Apply this affix's effect and return the result
 	
-	The return value depends on the category:
-	- Bonuses/Multipliers: returns number to add/multiply
-	- Actions: returns Action resource
-	- Dice: returns Array of die values
+	Returns effect_number if set, otherwise effect_data
 	"""
-	return effect_value
+	if effect_number != 0.0:
+		return effect_number
+	elif effect_data.size() > 0:
+		return effect_data
+	return 0.0
 
 func can_stack_with(other_affix: Affix) -> bool:
 	"""Check if this affix can stack with another
