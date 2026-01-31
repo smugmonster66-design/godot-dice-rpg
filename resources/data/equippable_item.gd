@@ -99,7 +99,7 @@ func get_slot_name() -> String:
 # AFFIX MANAGEMENT
 # ============================================================================
 
-func roll_affixes(affix_pool: AffixPoolAutoload):
+func roll_affixes(affix_pool: Node):
 	"""Roll random affixes from the global pool for this item's slot
 	
 	Args:

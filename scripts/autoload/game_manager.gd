@@ -1,4 +1,4 @@
-# game_manager.gd - Main game orchestrator (UPDATED)
+# game_manager.gd - Main game orchestrator
 extends Node
 
 # ============================================================================
@@ -73,8 +73,11 @@ func initialize_player():
 	add_child(player.dice_pool)
 	print("  ✅ Dice pool added to scene tree")
 	
-	# Set up starting class
-	var warrior = PlayerClass.create_warrior()
+	# Create simple warrior class (no skills yet - add via .tres files later)
+	var warrior = PlayerClass.new("Warrior", "strength")
+	warrior.stat_bonuses["strength"] = 5
+	warrior.stat_bonuses["armor"] = 3
+	
 	player.add_class("Warrior", warrior)
 	player.switch_class("Warrior")
 	
@@ -102,9 +105,9 @@ func add_starting_items():
 	
 	# Roll affixes using the global pool
 	if iron_sword:
-		iron_sword.roll_affixes(AffixPool)  # Pass the autoload
+		iron_sword.roll_affixes(AffixPool)
 		var sword_dict = iron_sword.to_dict()
-		# ADD: Store the actual affix objects
+		# Store the actual affix objects
 		sword_dict["item_affixes"] = iron_sword.get_all_affixes()
 		player.add_to_inventory(sword_dict)
 		print("✅ Added Iron Sword to inventory")
@@ -112,175 +115,88 @@ func add_starting_items():
 	if flaming_greatsword:
 		flaming_greatsword.roll_affixes(AffixPool)
 		var gs_dict = flaming_greatsword.to_dict()
-		# ADD: Store the actual affix objects
+		# Store the actual affix objects
 		gs_dict["item_affixes"] = flaming_greatsword.get_all_affixes()
 		player.add_to_inventory(gs_dict)
-		print("✅ Added Flaming Greatsword to inventory")	
+		print("✅ Added Flaming Greatsword to inventory")
 
 # ============================================================================
 # SCENE MANAGEMENT
 # ============================================================================
 
 func load_map_scene():
-	"""Load or restore map scene"""
-	print("\n=== Loading Map Scene ===")
+	"""Load the map exploration scene"""
+	print("🗺️ Loading map scene...")
 	
-	# Hide combat
-	if combat_scene_instance and is_instance_valid(combat_scene_instance):
-		combat_scene_instance.hide()
-		combat_scene_instance.process_mode = Node.PROCESS_MODE_DISABLED
-	
-	# Show or create map
-	if map_scene_instance and is_instance_valid(map_scene_instance):
-		print("  Restoring map scene")
+	if map_scene_instance:
 		map_scene_instance.show()
-		map_scene_instance.process_mode = Node.PROCESS_MODE_INHERIT
+		current_scene = map_scene_instance
 	else:
-		print("  Creating new map scene")
 		map_scene_instance = MAP_SCENE.instantiate()
 		get_tree().root.add_child(map_scene_instance)
+		current_scene = map_scene_instance
 		
+		# Initialize after adding to tree
 		if map_scene_instance.has_method("initialize_map"):
 			map_scene_instance.initialize_map(player)
 		
+		# Connect signals
 		if map_scene_instance.has_signal("start_combat"):
 			map_scene_instance.start_combat.connect(_on_start_combat)
 	
-	current_scene = map_scene_instance
-	scene_changed.emit(current_scene)
-	print("Map scene active\n")
+	scene_changed.emit(map_scene_instance)
 
 func load_combat_scene():
-	"""Load or restore combat scene"""
-	print("\n=== Loading Combat Scene ===")
+	"""Load the combat scene"""
+	print("⚔️ Loading combat scene...")
 	
-	# Hide map
-	if map_scene_instance and is_instance_valid(map_scene_instance):
-		map_scene_instance.hide()
-		map_scene_instance.process_mode = Node.PROCESS_MODE_DISABLED
-	
-	# Reset player combat status
-	player.reset_combat_status()
-	
-	# Show or create combat
-	if combat_scene_instance and is_instance_valid(combat_scene_instance):
-		print("  Reusing combat scene")
+	if combat_scene_instance:
 		combat_scene_instance.show()
-		combat_scene_instance.process_mode = Node.PROCESS_MODE_INHERIT
-		
-		# CRITICAL: Initialize combat
-		if combat_scene_instance.has_method("initialize_combat"):
-			print("  🎯 Calling initialize_combat...")
-			combat_scene_instance.initialize_combat(player)
-		else:
-			print("  ⚠️ ERROR: Combat scene missing initialize_combat method!")
+		current_scene = combat_scene_instance
 	else:
-		print("  Creating new combat scene")
 		combat_scene_instance = COMBAT_SCENE.instantiate()
 		get_tree().root.add_child(combat_scene_instance)
+		current_scene = combat_scene_instance
 		
-		# Wait for combat scene to be ready
-		await get_tree().process_frame
-		
-		# CRITICAL: Initialize combat
+		# Initialize after adding to tree
 		if combat_scene_instance.has_method("initialize_combat"):
-			print("  🎯 Calling initialize_combat...")
 			combat_scene_instance.initialize_combat(player)
-		else:
-			print("  ⚠️ ERROR: Combat scene missing initialize_combat method!")
 		
-		# Connect combat ended signal
+		# Connect signals
 		if combat_scene_instance.has_signal("combat_ended"):
 			combat_scene_instance.combat_ended.connect(_on_combat_ended)
-			print("  🎯 Connected to combat_ended signal")
 	
-	current_scene = combat_scene_instance
-	scene_changed.emit(current_scene)
-	print("Combat scene active\n")
+	# Hide map
+	if map_scene_instance:
+		map_scene_instance.hide()
+	
+	scene_changed.emit(combat_scene_instance)
 
 # ============================================================================
 # SIGNAL HANDLERS
 # ============================================================================
 
 func _on_start_combat():
-	"""Player initiated combat"""
-	print("\n>>> Starting combat <<<")
+	"""Handle start combat from map"""
+	print("🎮 Starting combat...")
 	load_combat_scene()
 
-func _on_combat_ended(player_won: bool):
-	"""Combat ended - prepare results and show summary"""
-	print("\n=== Combat Ended ===")
+func _on_combat_ended(results: Dictionary):
+	"""Handle combat ended"""
+	print("🎮 Combat ended")
+	last_combat_results = results
 	
-	# Prepare combat results
-	last_combat_results = {
-		"victory": player_won,
-		"xp_gained": 0,
-		"loot": []
-	}
+	# Hide combat scene
+	if combat_scene_instance:
+		combat_scene_instance.hide()
 	
-	if player_won:
-		print("🎉 VICTORY!")
-		# Award XP
-		var xp_gained = 100
-		last_combat_results["xp_gained"] = xp_gained
+	# Show map scene
+	if map_scene_instance:
+		map_scene_instance.show()
+		current_scene = map_scene_instance
 		
-		if player.active_class:
-			player.active_class.gain_experience(xp_gained)
-			print("  Awarded %d XP" % xp_gained)
-			print("  Player is now level %d" % player.active_class.level)
-		
-		# Generate loot
-		last_combat_results["loot"] = generate_loot()
-		for item in last_combat_results["loot"]:
-			player.add_to_inventory(item)
-			print("  Looted: %s" % item.get("name", "Unknown"))
-	else:
-		print("💀 DEFEAT!")
-		# Restore HP
-		var restored_hp = int(player.max_hp * 0.5)
-		player.current_hp = restored_hp
-		player.hp_changed.emit(player.current_hp, player.max_hp)
-		print("  HP restored to %d (50%%)" % restored_hp)
+		# Show post-combat summary if available
+		if map_scene_instance.has_method("show_post_combat_summary"):
+			map_scene_instance.show_post_combat_summary(results)
 	
-	# Return to map and show summary
-	load_map_scene()
-	
-	# Wait a frame for map to fully load
-	await get_tree().process_frame
-	
-	# Show post-combat summary
-	if map_scene_instance and map_scene_instance.has_method("show_post_combat_summary"):
-		map_scene_instance.show_post_combat_summary(last_combat_results)
-
-func generate_loot() -> Array:
-	"""Generate random loot (placeholder)"""
-	var loot = []
-	
-	# Example: random potion
-	if randf() > 0.5:
-		loot.append({
-			"name": "Health Potion",
-			"type": "Consumable",
-			"effect": "heal",
-			"amount": 50,
-			"description": "Restores 50 HP"
-		})
-	
-	return loot
-
-# ============================================================================
-# DEBUG
-# ============================================================================
-
-func _input(event):
-	if OS.is_debug_build():
-		if event.is_action_pressed("ui_text_completion_replace"):  # F5
-			if player:
-				player.heal(50)
-				print("DEBUG: Healed 50 HP")
-		
-		if event.is_action_pressed("ui_text_completion_accept"):  # F6
-			if current_scene == map_scene_instance:
-				load_combat_scene()
-			else:
-				load_map_scene()
+	scene_changed.emit(map_scene_instance)

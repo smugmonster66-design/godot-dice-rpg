@@ -39,9 +39,14 @@ class_name Skill
 # EFFECTS (Affixes Granted)
 # ============================================================================
 # Affixes granted per rank
-# Structure: Array of Arrays, where each inner array is affixes for that rank
-# Example: [[rank1_affixes], [rank2_affixes], [rank3_affixes]]
-@export var affixes_per_rank: Array = []
+# Each rank can grant multiple affixes
+# Rank 1 affixes in rank_1_affixes, Rank 2 in rank_2_affixes, etc.
+
+@export var rank_1_affixes: Array[Affix] = []
+@export var rank_2_affixes: Array[Affix] = []
+@export var rank_3_affixes: Array[Affix] = []
+@export var rank_4_affixes: Array[Affix] = []
+@export var rank_5_affixes: Array[Affix] = []
 
 # ============================================================================
 # SKILL MANAGEMENT
@@ -76,34 +81,31 @@ func get_current_affixes() -> Array[Affix]:
 	"""
 	var affixes: Array[Affix] = []
 	
-	for rank in range(current_rank):
-		if rank < affixes_per_rank.size():
-			var rank_affixes = affixes_per_rank[rank]
-			if rank_affixes is Array:
-				for affix in rank_affixes:
-					if affix is Affix:
-						# Create copy with source tracking
-						var affix_copy = affix.duplicate_with_source(
-							"%s - %s Rank %d" % [player_class, skill_name, rank + 1],
-							"skill"
-						)
-						affixes.append(affix_copy)
+	for rank in range(1, current_rank + 1):
+		var rank_affixes = _get_affixes_for_rank_internal(rank)
+		for affix in rank_affixes:
+			# Create copy with source tracking
+			var affix_copy = affix.duplicate_with_source(
+				"%s - %s Rank %d" % [player_class, skill_name, rank],
+				"skill"
+			)
+			affixes.append(affix_copy)
 	
 	return affixes
 
 func get_affixes_for_rank(rank: int) -> Array[Affix]:
 	"""Get affixes granted at a specific rank (1-indexed)"""
-	var affixes: Array[Affix] = []
-	var rank_index = rank - 1
-	
-	if rank_index >= 0 and rank_index < affixes_per_rank.size():
-		var rank_affixes = affixes_per_rank[rank_index]
-		if rank_affixes is Array:
-			for affix in rank_affixes:
-				if affix is Affix:
-					affixes.append(affix)
-	
-	return affixes
+	return _get_affixes_for_rank_internal(rank)
+
+func _get_affixes_for_rank_internal(rank: int) -> Array[Affix]:
+	"""Internal helper to get affixes for a specific rank"""
+	match rank:
+		1: return rank_1_affixes
+		2: return rank_2_affixes
+		3: return rank_3_affixes
+		4: return rank_4_affixes
+		5: return rank_5_affixes
+		_: return []
 
 # ============================================================================
 # UTILITY

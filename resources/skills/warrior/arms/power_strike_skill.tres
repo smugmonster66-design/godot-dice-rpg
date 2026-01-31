@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Skill" load_steps=4 format=3 uid="uid://b6ltffnxm7t0a"]
+
+[ext_resource type="Script" uid="uid://c8ianog20smkw" path="res://resources/data/affix.gd" id="1_1ualm"]
+[ext_resource type="Script" uid="uid://bihlk626mjq1f" path="res://resources/data/skill.gd" id="1_4rv53"]
+[ext_resource type="Resource" uid="uid://tb0maitivbxt" path="res://resources/affixes/sharp_affix.tres" id="2_aghhl"]
+
+[resource]
+script = ExtResource("1_4rv53")
+skill_name = "Power Strike"
+description = "Increases your damage."
+max_ranks = 3
+player_class = "Warrior"
+subclass = "Arms"
+rank_1_affixes = Array[ExtResource("1_1ualm")]([ExtResource("2_aghhl")])
+rank_2_affixes = Array[ExtResource("1_1ualm")]([ExtResource("2_aghhl")])
+rank_3_affixes = Array[ExtResource("1_1ualm")]([ExtResource("2_aghhl")])
+metadata/_custom_type_script = "uid://bihlk626mjq1f"
