@@ -100,19 +100,22 @@ func add_starting_items():
 	var iron_sword = load("res://resources/items/iron_sword.tres")
 	var flaming_greatsword = load("res://resources/items/flaming_greatsword.tres")
 	
-	# Roll affixes and add to inventory
+	# Roll affixes using the global pool
 	if iron_sword:
-		iron_sword.roll_affixes()
+		iron_sword.roll_affixes(AffixPool)  # Pass the autoload
 		var sword_dict = iron_sword.to_dict()
+		# ADD: Store the actual affix objects
+		sword_dict["item_affixes"] = iron_sword.get_all_affixes()
 		player.add_to_inventory(sword_dict)
 		print("✅ Added Iron Sword to inventory")
 	
 	if flaming_greatsword:
-		flaming_greatsword.roll_affixes()
+		flaming_greatsword.roll_affixes(AffixPool)
 		var gs_dict = flaming_greatsword.to_dict()
+		# ADD: Store the actual affix objects
+		gs_dict["item_affixes"] = flaming_greatsword.get_all_affixes()
 		player.add_to_inventory(gs_dict)
-		print("✅ Added Flaming Greatsword to inventory")
-	
+		print("✅ Added Flaming Greatsword to inventory")	
 
 # ============================================================================
 # SCENE MANAGEMENT

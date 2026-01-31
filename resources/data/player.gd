@@ -97,13 +97,21 @@ func _init():
 # ============================================================================
 
 func get_total_stat(stat_name: String) -> int:
-	"""Get total stat including bonuses"""
-	var base_value = get(stat_name) if stat_name in self else 0
-	var equipment_bonus = get_equipment_stat_bonus(stat_name)
-	var class_bonus = 0
+	"""Calculate total stat using affix pool system"""
+	# Get base value from player property (strength, agility, intellect, luck)
+	var base = get(stat_name) if stat_name in self else 0
+	
+	# Add equipment bonuses (old system - keep for compatibility)
+	base += get_equipment_stat_bonus(stat_name)
+	
+	# Add class bonuses
 	if active_class:
-		class_bonus = active_class.get_stat_bonus(stat_name)
-	return base_value + equipment_bonus + class_bonus
+		base += active_class.get_stat_bonus(stat_name)
+	
+	# Apply affixes (bonuses then multipliers)
+	var final_value = affix_manager.calculate_stat(base, stat_name)
+	
+	return int(final_value)
 
 func get_equipment_stat_bonus(stat_name: String) -> int:
 	"""Get stat bonus from equipment"""
@@ -142,6 +150,8 @@ func recalculate_stats():
 		max_mana = new_max_mana
 		current_mana = min(current_mana, max_mana)
 		mana_changed.emit(current_mana, max_mana)
+
+var affix_manager: AffixPoolManager = AffixPoolManager.new()
 
 # ============================================================================
 # HEALTH & MANA
@@ -228,6 +238,8 @@ func equip_item(item: Dictionary, slot: String = "") -> bool:
 	# Remove from inventory
 	inventory.erase(item)
 	
+	_add_item_affixes(item)
+	
 	# Apply item dice
 	apply_item_dice(item)
 	
@@ -240,6 +252,8 @@ func unequip_item(slot: String) -> bool:
 		return false
 	
 	var item = equipment[slot]
+	
+	_remove_item_affixes(item)
 	
 	# Remove item dice
 	remove_item_dice(item)
@@ -402,3 +416,52 @@ func add_to_inventory(item: Dictionary):
 func remove_from_inventory(item: Dictionary):
 	"""Remove item from inventory"""
 	inventory.erase(item)
+
+
+func _add_item_affixes(item: Dictionary):
+	"""Add all affixes from an item to the affix pool"""
+	var item_name = item.get("name", "Unknown Item")
+	
+	if item.has("item_affixes") and item.item_affixes is Array:
+		for affix in item.item_affixes:
+			if affix is Affix:
+				affix_manager.add_affix(affix)
+
+func _remove_item_affixes(item: Dictionary):
+	"""Remove all affixes from an item from the affix pool"""
+	var item_name = item.get("name", "Unknown Item")
+	affix_manager.remove_affixes_by_source(item_name)
+
+func learn_skill(skill: Skill) -> bool:
+	"""Learn a skill (adds its affixes to pool)"""
+	if not skill.can_rank_up():
+		return false
+	
+	skill.rank_up()
+	
+	# Get affixes for the new rank
+	var new_affixes = skill.get_affixes_for_rank(skill.current_rank)
+	
+	# Add them to the pool
+	for affix in new_affixes:
+		affix_manager.add_affix(affix)
+	
+	recalculate_stats()
+	return true
+
+func unlearn_skill_rank(skill: Skill) -> bool:
+	"""Remove one rank from a skill (removes that rank's affixes)"""
+	if skill.current_rank <= 0:
+		return false
+	
+	# Remove affixes from current rank
+	var source_name = "%s - %s Rank %d" % [
+		skill.player_class,
+		skill.skill_name,
+		skill.current_rank
+	]
+	affix_manager.remove_affixes_by_source(source_name)
+	
+	skill.rank_down()
+	recalculate_stats()
+	return true
