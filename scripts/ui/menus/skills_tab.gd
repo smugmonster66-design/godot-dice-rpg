@@ -1,180 +1,259 @@
-# skills_tab.gd - Scene-based skills tab (no dynamic UI creation!)
+# skills_tab.gd - Skills and skill trees display
+# Self-registers with parent, emits signals upward
 extends Control
 
 # ============================================================================
-# EXPORTS - Configure in Inspector
+# SIGNALS (emitted upward)
 # ============================================================================
-@export var skill_tree_panel_scene: PackedScene = null
-
-# ============================================================================
-# NODE REFERENCES
-# ============================================================================
-@onready var skill_points_label = $VBox/SkillPointsLabel
-@onready var class_label = $VBox/ClassLabel
-@onready var tree_tabs = $VBox/TreeTabs
-@onready var reset_button = $VBox/ResetButton
+signal refresh_requested()
+signal data_changed()
+signal skill_learned(skill: Skill)
 
 # ============================================================================
 # STATE
 # ============================================================================
 var player: Player = null
 
-# Store references to tree panels (created once, reused forever)
-var tree_panels: Dictionary = {}
-var is_initialized: bool = false
+# UI references (discovered dynamically)
+var skill_points_label: Label
+var class_label: Label
+var tree_tabs: TabContainer
+var reset_button: Button
 
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
 
 func _ready():
-	print("📚 Skills tab ready")
+	add_to_group("menu_tabs")  # Self-register
+	_discover_ui_elements()
+	print("🌳 SkillsTab: Ready")
+
+func _discover_ui_elements():
+	"""Discover UI elements via self-registration groups"""
+	await get_tree().process_frame  # Let children register themselves
 	
-	# Verify scene is set
-	if not skill_tree_panel_scene:
-		print("  ⚠️ WARNING: skill_tree_panel_scene not set in Inspector!")
+	# Find UI elements by group and metadata
+	var ui_elements = get_tree().get_nodes_in_group("skills_tab_ui")
+	for element in ui_elements:
+		match element.get_meta("ui_role", ""):
+			"skill_points_label": skill_points_label = element
+			"class_label": class_label = element
+			"tree_tabs": tree_tabs = element
+			"reset_button": 
+				reset_button = element
+				reset_button.pressed.connect(_on_reset_pressed)
 	
-	# Connect reset button
+	# Create UI if not found
+	if not tree_tabs:
+		_create_ui_structure()
+
+func _create_ui_structure():
+	"""Create UI if not defined in scene"""
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBox"
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(vbox)
+	
+	# Skill points label
+	skill_points_label = Label.new()
+	skill_points_label.name = "SkillPointsLabel"
+	skill_points_label.add_theme_font_size_override("font_size", 18)
+	skill_points_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(skill_points_label)
+	
+	# Class label
+	class_label = Label.new()
+	class_label.name = "ClassLabel"
+	class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(class_label)
+	
+	# Tree tabs
+	tree_tabs = TabContainer.new()
+	tree_tabs.name = "TreeTabs"
+	tree_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(tree_tabs)
+	
+	# Reset button
+	reset_button = Button.new()
+	reset_button.name = "ResetButton"
+	reset_button.text = "Reset Skills"
 	reset_button.pressed.connect(_on_reset_pressed)
-	
-	# Connect to responsive system
-	if has_node("/root/ResponsiveUI"):
-		ResponsiveUI.screen_size_changed.connect(_on_screen_size_changed)
-		print("  ✓ Connected to responsive system")
+	vbox.add_child(reset_button)
 
 # ============================================================================
-# PLAYER SETUP
+# PUBLIC API
 # ============================================================================
 
 func set_player(p_player: Player):
-	"""Set player and refresh display"""
-	print("📚 Skills tab: Setting player")
+	"""Set player and refresh"""
 	player = p_player
 	
-	# Create tabs on first setup only
-	if not is_initialized:
-		setup_tree_tabs()
-		is_initialized = true
-	else:
-		# Just refresh existing tabs
-		print("  🔄 Refreshing existing tabs...")
-		refresh()
+	# Connect to player signals
+	if player and player.active_class:
+		# Listen for class changes
+		if not player.class_changed.is_connected(_on_player_class_changed):
+			player.class_changed.connect(_on_player_class_changed)
+	
+	refresh()
 
-# ============================================================================
-# TAB CREATION (ONCE!)
-# ============================================================================
-
-func setup_tree_tabs():
-	"""Create tabs for each skill tree (called once)"""
+func refresh():
+	"""Refresh all skill displays"""
 	if not player or not player.active_class:
-		print("  No player or active class")
+		_show_no_class_message()
 		return
 	
-	# Verify scene is set
-	if not skill_tree_panel_scene:
-		print("  ❌ ERROR: Cannot create skill trees - skill_tree_panel_scene not set!")
-		return
-	
-	print("  🏗️ Creating skill tree tabs (first time)...")
-	
-	# Update header info
-	update_header()
-	
-	# Create a tab for each skill tree
-	if player.active_class and player.active_class.skill_trees:
-		for tree_name in player.active_class.skill_trees:
-			var tree = player.active_class.skill_trees[tree_name]
-			var tree_panel = create_skill_tree_panel(tree)
-			if tree_panel:
-				tree_panel.name = tree_name
-				# Only add if not already a child
-				if tree_panel.get_parent() == null:
-					tree_tabs.add_child(tree_panel)
-					tree_panels[tree_name] = tree_panel
-					print("  ✓ Created tab: %s" % tree_name)
-				else:
-					# Already exists, just store reference
-					tree_panels[tree_name] = tree_panel
-					print("  ✓ Reusing existing tab: %s" % tree_name)
+	_update_header_info()
+	_rebuild_skill_trees()
 
-func create_skill_tree_panel(tree):
-	"""Create a panel from scene (called once per tree)"""
-	if not skill_tree_panel_scene:
-		print("  ❌ Cannot create panel: scene not set")
-		return null
+func on_external_data_change():
+	"""Called when other tabs modify player data"""
+	refresh()
+
+# ============================================================================
+# PRIVATE DISPLAY METHODS
+# ============================================================================
+
+func _update_header_info():
+	"""Update skill points and class name"""
+	var active_class = player.active_class
 	
-	# Instance the scene
-	var panel = skill_tree_panel_scene.instantiate()
+	if skill_points_label:
+		var available = active_class.get_available_skill_points()
+		var total = active_class.total_skill_points
+		skill_points_label.text = "Skill Points: %d / %d" % [available, total]
 	
-	# Connect signal BEFORE adding to tree
-	if panel.has_signal("skill_clicked"):
-		panel.skill_clicked.connect(_on_skill_clicked)
-	else:
-		print("  ⚠️ WARNING: skill_tree_panel has no skill_clicked signal")
+	if class_label:
+		class_label.text = "Class: %s" % active_class.player_class_name
+
+func _rebuild_skill_trees():
+	"""Rebuild all skill tree tabs"""
+	if not tree_tabs:
+		return
 	
-	# Add to tree (triggers _ready)
-	tree_tabs.add_child(panel)
+	# Clear existing tabs
+	for child in tree_tabs.get_children():
+		child.queue_free()
 	
-	# Now setup (nodes are ready)
-	if panel.has_method("setup"):
-		panel.setup(player, tree)
-	else:
-		print("  ⚠️ WARNING: skill_tree_panel has no setup method")
+	# Create tab for each skill tree
+	var active_class = player.active_class
+	for tree_name in active_class.skill_trees:
+		var skill_tree = active_class.skill_trees[tree_name]
+		var tree_tab = _create_skill_tree_tab(skill_tree)
+		tree_tabs.add_child(tree_tab)
+		tree_tab.name = tree_name
+
+func _create_skill_tree_tab(skill_tree) -> Control:
+	"""Create a tab for a skill tree"""
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 10)
+	scroll.add_child(vbox)
+	
+	# Add skill buttons
+	for skill in skill_tree.skills:
+		var skill_panel = _create_skill_panel(skill)
+		vbox.add_child(skill_panel)
+	
+	return scroll
+
+func _create_skill_panel(skill) -> Control:
+	"""Create a panel for a single skill"""
+	var panel = PanelContainer.new()
+	
+	var vbox = VBoxContainer.new()
+	panel.add_child(vbox)
+	
+	# Skill name
+	var name_label = Label.new()
+	name_label.text = skill.skill_name
+	name_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(name_label)
+	
+	# Rank display
+	var rank_label = Label.new()
+	rank_label.text = "Rank: %d / %d" % [skill.current_rank, skill.max_rank]
+	vbox.add_child(rank_label)
+	
+	# Description
+	var desc_label = Label.new()
+	desc_label.text = skill.description
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc_label)
+	
+	# Learn button
+	var learn_button = Button.new()
+	learn_button.text = "Learn" if skill.current_rank == 0 else "Upgrade"
+	learn_button.disabled = not player.active_class.can_learn_skill(skill)
+	learn_button.pressed.connect(_on_skill_learn_pressed.bind(skill))
+	vbox.add_child(learn_button)
+	
+	# Requirements (if any)
+	if skill.requirements.size() > 0:
+		var req_label = RichTextLabel.new()
+		req_label.bbcode_enabled = true
+		req_label.custom_minimum_size = Vector2(0, 40)
+		req_label.fit_content = true
+		
+		var req_text = "[color=gray]Requires:[/color]\n"
+		for req in skill.requirements:
+			var req_skill = player.active_class.find_skill_by_name(req.skill_name)
+			var has_req = req_skill and req_skill.current_rank >= req.required_rank
+			var color = "green" if has_req else "red"
+			req_text += "[color=%s]• %s (Rank %d)[/color]\n" % [color, req.skill_name, req.required_rank]
+		
+		req_label.text = req_text
+		vbox.add_child(req_label)
 	
 	return panel
 
+func _show_no_class_message():
+	"""Display message when no class is active"""
+	if skill_points_label:
+		skill_points_label.text = "No Class Selected"
+	if class_label:
+		class_label.text = ""
+	
+	# Clear tree tabs
+	if tree_tabs:
+		for child in tree_tabs.get_children():
+			child.queue_free()
+
 # ============================================================================
-# REFRESH (REUSES EXISTING TABS)
+# SIGNAL HANDLERS
 # ============================================================================
 
-func refresh():
-	"""Refresh the display (doesn't recreate tabs!)"""
+func _on_skill_learn_pressed(skill):
+	"""Skill learn button pressed"""
 	if not player or not player.active_class:
 		return
 	
-	# Update header
-	update_header()
-	
-	# Refresh all existing tree panels
-	for tree_name in tree_panels:
-		if tree_panels[tree_name] and tree_panels[tree_name].has_method("refresh"):
-			tree_panels[tree_name].refresh()
-
-func update_header():
-	"""Update the header labels"""
-	if player and player.active_class:
-		class_label.text = "Class: %s (Level %d)" % [player.active_class.player_class_name, player.active_class.level]
-		skill_points_label.text = "Available Skill Points: %d" % player.active_class.get_available_skill_points()
-	else:
-		class_label.text = "Class: None"
-		skill_points_label.text = "Available Skill Points: 0"
-
-# ============================================================================
-# SKILL INTERACTION
-# ============================================================================
-
-func _on_skill_clicked(skill):
-	"""Skill was clicked - try to learn it"""
-	if player and player.active_class and player.active_class.learn_skill(skill):
-		refresh()
+	if player.active_class.learn_skill(skill):
+		skill_learned.emit(skill)  # Bubble up
+		data_changed.emit()  # Bubble up
+		refresh()  # Refresh this tab
 		print("✅ Learned skill: %s" % skill.skill_name)
-	else:
-		print("❌ Cannot learn skill: %s" % skill.skill_name)
 
 func _on_reset_pressed():
-	"""Reset button clicked"""
+	"""Reset button pressed"""
 	if not player or not player.active_class:
 		return
 	
-	print("🔄 Resetting all skills...")
-	player.active_class.reset_skills()
+	# Reset all skills
+	for tree_name in player.active_class.skill_trees:
+		var tree = player.active_class.skill_trees[tree_name]
+		tree.reset_all_skills()
+	
+	# Refund skill points
+	player.active_class.spent_skill_points = 0
+	
+	data_changed.emit()  # Bubble up
 	refresh()
-	print("✅ Skills reset")
+	print("🔄 Skills reset")
 
-# ============================================================================
-# RESPONSIVE UI
-# ============================================================================
-
-func _on_screen_size_changed(screen_size: int):
-	"""React to screen size changes"""
-	print("📚 Skills tab: Screen size changed to %s" % ResponsiveUI.get_size_name(screen_size))
+func _on_player_class_changed(_new_class):
+	"""Player switched classes"""
+	refresh()
