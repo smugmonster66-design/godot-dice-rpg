@@ -152,9 +152,9 @@ func _apply_item_visual(button: Button, item: Dictionary):
 	button.remove_theme_font_size_override("font_size")
 	
 	if item.has("icon") and item.icon:
-		# Show item icon
+		# Show item icon (Button uses icon property, not texture)
 		button.icon = item.icon
-		button.expand_icon = true
+		# Button doesn't have expand_icon - just set alignment
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		
 		# Set minimum size for icon display
@@ -172,7 +172,8 @@ func _apply_item_visual(button: Button, item: Dictionary):
 		var item_name = item.get("name", "?")
 		button.text = item_name[0] if item_name.length() > 0 else "?"
 		button.add_theme_font_size_override("font_size", 24)
-
+		
+		
 func _apply_empty_visual(button: Button):
 	"""Apply empty slot visual"""
 	button.icon = null

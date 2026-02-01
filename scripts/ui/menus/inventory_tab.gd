@@ -187,7 +187,7 @@ func _create_item_button(item: Dictionary) -> TextureButton:
 	"""Create a button for an inventory item with rarity shader"""
 	var btn = TextureButton.new()
 	btn.custom_minimum_size = Vector2(80, 80)
-	btn.expand_mode = TextureButton.EXPAND_FIT_WIDTH_PROPORTIONAL
+	btn.ignore_texture_size = true
 	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	
 	# Set item icon if available
