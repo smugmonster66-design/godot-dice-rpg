@@ -92,9 +92,6 @@ func calculate_stat(base_value: float, stat_name: String) -> float:
 		"intellect":
 			bonus_category = Affix.Category.INTELLECT_BONUS
 			mult_category = Affix.Category.INTELLECT_MULTIPLIER
-		"vitality":
-			bonus_category = Affix.Category.VITALITY_BONUS
-			mult_category = Affix.Category.VITALITY_MULTIPLIER
 		"luck":
 			bonus_category = Affix.Category.LUCK_BONUS
 			mult_category = Affix.Category.LUCK_MULTIPLIER

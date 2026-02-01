@@ -1,4 +1,4 @@
-# res://scripts/resources/action.gd
+# res://resources/data/action.gd
 # Combat action that executes a sequence of effects
 extends Resource
 class_name Action
@@ -15,9 +15,7 @@ class_name Action
 # DICE REQUIREMENTS
 # ============================================================================
 @export_group("Dice Requirements")
-## Total number of dice slots this action has
 @export var die_slots: int = 1
-## Minimum dice required to use action (0 = all slots must be filled)
 @export var min_dice_required: int = 0
 
 # ============================================================================
@@ -31,7 +29,6 @@ class_name Action
 # EFFECTS - Executed in order
 # ============================================================================
 @export_group("Action Effects")
-## Drag ActionEffect resources here - they execute in order
 @export var effects: Array[ActionEffect] = []
 
 # ============================================================================
@@ -43,30 +40,41 @@ class_name Action
 @export var damage_multiplier: float = 1.0
 
 # ============================================================================
+# CONVERSION
+# ============================================================================
+
+func to_dict() -> Dictionary:
+	"""Convert action to dictionary for combat system compatibility"""
+	return {
+		"id": action_id,
+		"name": action_name,
+		"description": action_description,
+		"icon": icon,
+		"die_slots": die_slots,
+		"min_dice_required": min_dice_required,
+		"mana_cost": mana_cost,
+		"cooldown": cooldown_turns,
+		"effects": effects,
+		# Legacy fields for backward compatibility
+		"action_type": action_type,
+		"base_damage": base_damage,
+		"damage_multiplier": damage_multiplier,
+		"source": "action"
+	}
+
+# ============================================================================
 # EXECUTION
 # ============================================================================
 
 func execute(source, target_resolver: Callable, dice_values: Array = []) -> Array[Dictionary]:
-	"""Execute all effects in order
-	
-	Args:
-		source: The entity performing the action
-		target_resolver: Callable(TargetType) -> Array of targets
-		dice_values: Array of dice values placed in this action
-	
-	Returns:
-		Array of result dictionaries from each effect
-	"""
+	"""Execute all effects in order"""
 	var all_results: Array[Dictionary] = []
 	
 	for effect in effects:
 		if not effect:
 			continue
 		
-		# Resolve targets for this effect
 		var targets = target_resolver.call(effect.target)
-		
-		# Execute effect on targets
 		var results = effect.execute(source, targets, dice_values)
 		all_results.append_array(results)
 	
@@ -84,7 +92,7 @@ func execute_simple(source, primary_target, all_enemies: Array, all_allies: Arra
 			ActionEffect.TargetType.ALL_ENEMIES:
 				return all_enemies
 			ActionEffect.TargetType.SINGLE_ALLY:
-				return [source]  # Default to self for single ally
+				return [source]
 			ActionEffect.TargetType.ALL_ALLIES:
 				return all_allies
 			_:
@@ -128,13 +136,6 @@ func has_heal_effect() -> bool:
 			return true
 	return false
 
-func has_status_effect() -> bool:
-	"""Check if action applies or removes status"""
-	for effect in effects:
-		if effect and effect.effect_type in [ActionEffect.EffectType.ADD_STATUS, ActionEffect.EffectType.REMOVE_STATUS]:
-			return true
-	return false
-
 func validate() -> Array[String]:
 	"""Validate action configuration"""
 	var warnings: Array[String] = []
@@ -147,14 +148,6 @@ func validate() -> Array[String]:
 	
 	if effects.is_empty():
 		warnings.append("Action has no effects")
-	
-	for i in range(effects.size()):
-		var effect = effects[i]
-		if not effect:
-			warnings.append("Effect %d is null" % i)
-		elif effect.effect_type in [ActionEffect.EffectType.ADD_STATUS, ActionEffect.EffectType.REMOVE_STATUS]:
-			if not effect.status:
-				warnings.append("Effect %d (%s) has no status assigned" % [i, effect.effect_name])
 	
 	return warnings
 

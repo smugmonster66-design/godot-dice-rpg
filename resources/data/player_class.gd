@@ -48,9 +48,8 @@ enum MainStat {
 @export var luck_per_level: float = 1.0
 
 # ============================================================================
-# LEVELING
+# LEVELING (runtime state)
 # ============================================================================
-@export_group("Leveling")
 var level: int = 1
 var experience: int = 0
 var skill_points: int = 0
@@ -160,6 +159,21 @@ func gain_experience(amount: int) -> bool:
 	
 	return leveled
 
+func get_available_skill_points() -> int:
+	"""Get skill points available to spend"""
+	return skill_points
+
+func spend_skill_point() -> bool:
+	"""Spend a skill point, returns true if successful"""
+	if skill_points > 0:
+		skill_points -= 1
+		return true
+	return false
+
+func refund_skill_point():
+	"""Refund a skill point"""
+	skill_points += 1
+
 # ============================================================================
 # DICE METHODS
 # ============================================================================
@@ -240,15 +254,17 @@ func get_all_skills() -> Array[SkillResource]:
 	"""Get all skills from all skill trees"""
 	var skills: Array[SkillResource] = []
 	for tree in get_skill_trees():
-		skills.append_array(tree.get_all_skills())
+		if tree:
+			skills.append_array(tree.get_all_skills())
 	return skills
 
 func get_skill_by_id(id: String) -> SkillResource:
 	"""Find a skill by ID across all trees"""
 	for tree in get_skill_trees():
-		var skill = tree.get_skill_by_id(id)
-		if skill:
-			return skill
+		if tree:
+			var skill = tree.get_skill_by_id(id)
+			if skill:
+				return skill
 	return null
 
 # ============================================================================
@@ -303,9 +319,10 @@ func validate() -> Array[String]:
 		warnings.append("Class has no skill trees")
 	
 	for tree in get_skill_trees():
-		var tree_warnings = tree.validate()
-		for warning in tree_warnings:
-			warnings.append("[%s] %s" % [tree.tree_name, warning])
+		if tree:
+			var tree_warnings = tree.validate()
+			for warning in tree_warnings:
+				warnings.append("[%s] %s" % [tree.tree_name, warning])
 	
 	return warnings
 

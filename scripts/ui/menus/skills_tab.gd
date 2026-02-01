@@ -1,259 +1,345 @@
-# skills_tab.gd - Skills and skill trees display
-# Self-registers with parent, emits signals upward
-extends Control
+# res://resources/data/player_class.gd
+# Player class definition with starting stats, dice, and skill trees
+extends Resource
+class_name PlayerClass
 
 # ============================================================================
-# SIGNALS (emitted upward)
+# ENUMS
 # ============================================================================
-signal refresh_requested()
-signal data_changed()
-signal skill_learned(skill: Skill)
-
-# ============================================================================
-# STATE
-# ============================================================================
-var player: Player = null
-
-# UI references (discovered dynamically)
-var skill_points_label: Label
-var class_label: Label
-var tree_tabs: TabContainer
-var reset_button: Button
+enum MainStat {
+	STRENGTH,
+	AGILITY,
+	INTELLIGENCE,
+	LUCK
+}
 
 # ============================================================================
-# INITIALIZATION
+# BASIC INFO
 # ============================================================================
-
-func _ready():
-	add_to_group("menu_tabs")  # Self-register
-	_discover_ui_elements()
-	print("🌳 SkillsTab: Ready")
-
-func _discover_ui_elements():
-	"""Discover UI elements via self-registration groups"""
-	await get_tree().process_frame  # Let children register themselves
-	
-	# Find UI elements by group and metadata
-	var ui_elements = get_tree().get_nodes_in_group("skills_tab_ui")
-	for element in ui_elements:
-		match element.get_meta("ui_role", ""):
-			"skill_points_label": skill_points_label = element
-			"class_label": class_label = element
-			"tree_tabs": tree_tabs = element
-			"reset_button": 
-				reset_button = element
-				reset_button.pressed.connect(_on_reset_pressed)
-	
-	# Create UI if not found
-	if not tree_tabs:
-		_create_ui_structure()
-
-func _create_ui_structure():
-	"""Create UI if not defined in scene"""
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBox"
-	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(vbox)
-	
-	# Skill points label
-	skill_points_label = Label.new()
-	skill_points_label.name = "SkillPointsLabel"
-	skill_points_label.add_theme_font_size_override("font_size", 18)
-	skill_points_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(skill_points_label)
-	
-	# Class label
-	class_label = Label.new()
-	class_label.name = "ClassLabel"
-	class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(class_label)
-	
-	# Tree tabs
-	tree_tabs = TabContainer.new()
-	tree_tabs.name = "TreeTabs"
-	tree_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(tree_tabs)
-	
-	# Reset button
-	reset_button = Button.new()
-	reset_button.name = "ResetButton"
-	reset_button.text = "Reset Skills"
-	reset_button.pressed.connect(_on_reset_pressed)
-	vbox.add_child(reset_button)
+@export var class_id: String = ""
+@export var player_class_name: String = "New Class"
+@export_multiline var description: String = ""
+@export var icon: Texture2D = null
+@export var portrait: Texture2D = null
+@export var main_stat: MainStat = MainStat.STRENGTH
 
 # ============================================================================
-# PUBLIC API
+# BASE STATS
 # ============================================================================
-
-func set_player(p_player: Player):
-	"""Set player and refresh"""
-	player = p_player
-	
-	# Connect to player signals
-	if player and player.active_class:
-		# Listen for class changes
-		if not player.class_changed.is_connected(_on_player_class_changed):
-			player.class_changed.connect(_on_player_class_changed)
-	
-	refresh()
-
-func refresh():
-	"""Refresh all skill displays"""
-	if not player or not player.active_class:
-		_show_no_class_message()
-		return
-	
-	_update_header_info()
-	_rebuild_skill_trees()
-
-func on_external_data_change():
-	"""Called when other tabs modify player data"""
-	refresh()
+@export_group("Base Stats")
+@export var base_health: int = 100
+@export var base_mana: int = 50
+@export var base_strength: int = 10
+@export var base_agility: int = 10
+@export var base_intelligence: int = 10
+@export var base_luck: int = 10
+@export var base_armor: int = 0
+@export var base_barrier: int = 0
 
 # ============================================================================
-# PRIVATE DISPLAY METHODS
+# STAT GROWTH (per level)
 # ============================================================================
-
-func _update_header_info():
-	"""Update skill points and class name"""
-	var active_class = player.active_class
-	
-	if skill_points_label:
-		var available = active_class.get_available_skill_points()
-		var total = active_class.total_skill_points
-		skill_points_label.text = "Skill Points: %d / %d" % [available, total]
-	
-	if class_label:
-		class_label.text = "Class: %s" % active_class.player_class_name
-
-func _rebuild_skill_trees():
-	"""Rebuild all skill tree tabs"""
-	if not tree_tabs:
-		return
-	
-	# Clear existing tabs
-	for child in tree_tabs.get_children():
-		child.queue_free()
-	
-	# Create tab for each skill tree
-	var active_class = player.active_class
-	for tree_name in active_class.skill_trees:
-		var skill_tree = active_class.skill_trees[tree_name]
-		var tree_tab = _create_skill_tree_tab(skill_tree)
-		tree_tabs.add_child(tree_tab)
-		tree_tab.name = tree_name
-
-func _create_skill_tree_tab(skill_tree) -> Control:
-	"""Create a tab for a skill tree"""
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	
-	var vbox = VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 10)
-	scroll.add_child(vbox)
-	
-	# Add skill buttons
-	for skill in skill_tree.skills:
-		var skill_panel = _create_skill_panel(skill)
-		vbox.add_child(skill_panel)
-	
-	return scroll
-
-func _create_skill_panel(skill) -> Control:
-	"""Create a panel for a single skill"""
-	var panel = PanelContainer.new()
-	
-	var vbox = VBoxContainer.new()
-	panel.add_child(vbox)
-	
-	# Skill name
-	var name_label = Label.new()
-	name_label.text = skill.skill_name
-	name_label.add_theme_font_size_override("font_size", 16)
-	vbox.add_child(name_label)
-	
-	# Rank display
-	var rank_label = Label.new()
-	rank_label.text = "Rank: %d / %d" % [skill.current_rank, skill.max_rank]
-	vbox.add_child(rank_label)
-	
-	# Description
-	var desc_label = Label.new()
-	desc_label.text = skill.description
-	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(desc_label)
-	
-	# Learn button
-	var learn_button = Button.new()
-	learn_button.text = "Learn" if skill.current_rank == 0 else "Upgrade"
-	learn_button.disabled = not player.active_class.can_learn_skill(skill)
-	learn_button.pressed.connect(_on_skill_learn_pressed.bind(skill))
-	vbox.add_child(learn_button)
-	
-	# Requirements (if any)
-	if skill.requirements.size() > 0:
-		var req_label = RichTextLabel.new()
-		req_label.bbcode_enabled = true
-		req_label.custom_minimum_size = Vector2(0, 40)
-		req_label.fit_content = true
-		
-		var req_text = "[color=gray]Requires:[/color]\n"
-		for req in skill.requirements:
-			var req_skill = player.active_class.find_skill_by_name(req.skill_name)
-			var has_req = req_skill and req_skill.current_rank >= req.required_rank
-			var color = "green" if has_req else "red"
-			req_text += "[color=%s]• %s (Rank %d)[/color]\n" % [color, req.skill_name, req.required_rank]
-		
-		req_label.text = req_text
-		vbox.add_child(req_label)
-	
-	return panel
-
-func _show_no_class_message():
-	"""Display message when no class is active"""
-	if skill_points_label:
-		skill_points_label.text = "No Class Selected"
-	if class_label:
-		class_label.text = ""
-	
-	# Clear tree tabs
-	if tree_tabs:
-		for child in tree_tabs.get_children():
-			child.queue_free()
+@export_group("Stat Growth Per Level")
+@export var health_per_level: int = 10
+@export var mana_per_level: int = 5
+@export var strength_per_level: float = 1.0
+@export var agility_per_level: float = 1.0
+@export var intelligence_per_level: float = 1.0
+@export var luck_per_level: float = 1.0
 
 # ============================================================================
-# SIGNAL HANDLERS
+# LEVELING (runtime state)
+# ============================================================================
+var level: int = 1
+var experience: int = 0
+var skill_points: int = 0
+var total_skill_points: int = 0
+
+# ============================================================================
+# STARTING DICE
+# ============================================================================
+@export_group("Starting Dice")
+@export var starting_dice: Array[DieResource] = []
+
+# ============================================================================
+# SKILL TREES (up to 3)
+# ============================================================================
+@export_group("Skill Trees")
+@export var skill_tree_1: SkillTree = null
+@export var skill_tree_2: SkillTree = null
+@export var skill_tree_3: SkillTree = null
+
+# ============================================================================
+# STARTING CONFIGURATION
+# ============================================================================
+@export_group("Starting Configuration")
+@export var starting_actions: Array[Dictionary] = []
+@export var unlocked_at_level: int = 1
+
+# ============================================================================
+# STAT METHODS
 # ============================================================================
 
-func _on_skill_learn_pressed(skill):
-	"""Skill learn button pressed"""
-	if not player or not player.active_class:
-		return
+func get_stat_at_level(stat_name: String, p_level: int) -> int:
+	"""Calculate a stat value at a given level"""
+	var base = 0
+	var growth = 0.0
 	
-	if player.active_class.learn_skill(skill):
-		skill_learned.emit(skill)  # Bubble up
-		data_changed.emit()  # Bubble up
-		refresh()  # Refresh this tab
-		print("✅ Learned skill: %s" % skill.skill_name)
+	match stat_name:
+		"health", "max_hp":
+			base = base_health
+			growth = health_per_level
+		"mana", "max_mana":
+			base = base_mana
+			growth = mana_per_level
+		"strength":
+			base = base_strength
+			growth = strength_per_level
+		"agility":
+			base = base_agility
+			growth = agility_per_level
+		"intelligence":
+			base = base_intelligence
+			growth = intelligence_per_level
+		"luck":
+			base = base_luck
+			growth = luck_per_level
+		"armor":
+			return base_armor
+		"barrier":
+			return base_barrier
+		_:
+			return 0
+	
+	return base + int(growth * (p_level - 1))
 
-func _on_reset_pressed():
-	"""Reset button pressed"""
-	if not player or not player.active_class:
-		return
-	
-	# Reset all skills
-	for tree_name in player.active_class.skill_trees:
-		var tree = player.active_class.skill_trees[tree_name]
-		tree.reset_all_skills()
-	
-	# Refund skill points
-	player.active_class.spent_skill_points = 0
-	
-	data_changed.emit()  # Bubble up
-	refresh()
-	print("🔄 Skills reset")
+func get_stat_bonus(stat_name: String) -> int:
+	"""Get base stat bonus"""
+	match stat_name:
+		"strength": return base_strength
+		"agility": return base_agility
+		"intelligence": return base_intelligence
+		"luck": return base_luck
+		"armor": return base_armor
+		"barrier": return base_barrier
+		_: return 0
 
-func _on_player_class_changed(_new_class):
-	"""Player switched classes"""
-	refresh()
+func get_main_stat_name() -> String:
+	"""Get the name of the main stat"""
+	match main_stat:
+		MainStat.STRENGTH: return "strength"
+		MainStat.AGILITY: return "agility"
+		MainStat.INTELLIGENCE: return "intelligence"
+		MainStat.LUCK: return "luck"
+		_: return "strength"
+
+# ============================================================================
+# LEVELING METHODS
+# ============================================================================
+
+func get_exp_for_next_level() -> int:
+	"""Calculate XP needed for next level"""
+	return level * 100
+
+func get_exp_progress() -> float:
+	"""Get progress toward next level (0.0 to 1.0)"""
+	var needed = get_exp_for_next_level()
+	return float(experience) / float(needed) if needed > 0 else 0.0
+
+func gain_experience(amount: int) -> bool:
+	"""Add experience, returns true if leveled up"""
+	experience += amount
+	var leveled = false
+	
+	while experience >= get_exp_for_next_level():
+		experience -= get_exp_for_next_level()
+		level += 1
+		skill_points += 1
+		total_skill_points += 1
+		leveled = true
+		print("🎉 Level up! Now level %d" % level)
+	
+	return leveled
+
+func get_available_skill_points() -> int:
+	"""Get skill points available to spend"""
+	return skill_points
+
+func get_total_skill_points() -> int:
+	"""Get total skill points earned"""
+	return total_skill_points
+
+func get_spent_skill_points() -> int:
+	"""Get number of skill points that have been spent"""
+	return total_skill_points - skill_points
+
+func spend_skill_point() -> bool:
+	"""Spend a skill point, returns true if successful"""
+	if skill_points > 0:
+		skill_points -= 1
+		return true
+	return false
+
+func refund_skill_point():
+	"""Refund a skill point"""
+	skill_points += 1
+
+# ============================================================================
+# DICE METHODS
+# ============================================================================
+
+func get_starting_dice_copies() -> Array[DieResource]:
+	"""Create copies of starting dice (don't modify originals!)"""
+	var copies: Array[DieResource] = []
+	
+	for die in starting_dice:
+		if die:
+			var copy = die.duplicate_die()
+			copy.source = player_class_name
+			copies.append(copy)
+	
+	return copies
+
+func get_all_class_dice() -> Array:
+	"""Get all dice types this class provides"""
+	var dice_types = []
+	for die in starting_dice:
+		if die:
+			dice_types.append(die.die_type)
+	return dice_types
+
+func get_starting_dice_summary() -> String:
+	"""Get a summary of starting dice for display"""
+	if starting_dice.is_empty():
+		return "No starting dice"
+	
+	var counts: Dictionary = {}
+	for die in starting_dice:
+		if die:
+			var key = "D%d" % die.die_type
+			counts[key] = counts.get(key, 0) + 1
+	
+	var parts: Array[String] = []
+	for key in counts:
+		parts.append("%dx %s" % [counts[key], key])
+	
+	return ", ".join(parts)
+
+# ============================================================================
+# SKILL TREE METHODS
+# ============================================================================
+
+func get_skill_trees() -> Array[SkillTree]:
+	"""Get all assigned skill trees"""
+	var trees: Array[SkillTree] = []
+	if skill_tree_1: trees.append(skill_tree_1)
+	if skill_tree_2: trees.append(skill_tree_2)
+	if skill_tree_3: trees.append(skill_tree_3)
+	return trees
+
+func get_skill_tree_count() -> int:
+	"""Count assigned skill trees"""
+	var count = 0
+	if skill_tree_1: count += 1
+	if skill_tree_2: count += 1
+	if skill_tree_3: count += 1
+	return count
+
+func get_skill_tree_by_index(index: int) -> SkillTree:
+	"""Get skill tree by index (0-2)"""
+	match index:
+		0: return skill_tree_1
+		1: return skill_tree_2
+		2: return skill_tree_3
+		_: return null
+
+func get_skill_tree_by_id(id: String) -> SkillTree:
+	"""Find a skill tree by its ID"""
+	for tree in get_skill_trees():
+		if tree and tree.tree_id == id:
+			return tree
+	return null
+
+func get_all_skills() -> Array[SkillResource]:
+	"""Get all skills from all skill trees"""
+	var skills: Array[SkillResource] = []
+	for tree in get_skill_trees():
+		if tree:
+			skills.append_array(tree.get_all_skills())
+	return skills
+
+func get_skill_by_id(id: String) -> SkillResource:
+	"""Find a skill by ID across all trees"""
+	for tree in get_skill_trees():
+		if tree:
+			var skill = tree.get_skill_by_id(id)
+			if skill:
+				return skill
+	return null
+
+# ============================================================================
+# DEFAULT ACTIONS
+# ============================================================================
+
+func get_default_actions() -> Array[Dictionary]:
+	"""Get default combat actions for this class"""
+	if starting_actions.size() > 0:
+		return starting_actions.duplicate(true)
+	
+	return [
+		{
+			"name": "Attack",
+			"action_type": 0,
+			"base_damage": 0,
+			"damage_multiplier": 1.0,
+			"die_slots": 1,
+			"source": "class"
+		},
+		{
+			"name": "Defend",
+			"action_type": 1,
+			"base_damage": 0,
+			"damage_multiplier": 0.5,
+			"die_slots": 1,
+			"source": "class"
+		}
+	]
+
+# ============================================================================
+# VALIDATION
+# ============================================================================
+
+func validate() -> Array[String]:
+	"""Validate the class configuration"""
+	var warnings: Array[String] = []
+	
+	if class_id.is_empty():
+		warnings.append("Class has no ID")
+	
+	if player_class_name.is_empty():
+		warnings.append("Class has no name")
+	
+	if base_health <= 0:
+		warnings.append("Base health should be positive")
+	
+	if starting_dice.is_empty():
+		warnings.append("Class has no starting dice")
+	
+	if get_skill_tree_count() == 0:
+		warnings.append("Class has no skill trees")
+	
+	for tree in get_skill_trees():
+		if tree:
+			var tree_warnings = tree.validate()
+			for warning in tree_warnings:
+				warnings.append("[%s] %s" % [tree.tree_name, warning])
+	
+	return warnings
+
+func _to_string() -> String:
+	return "PlayerClass<%s Lv.%d: %d dice, %d trees>" % [
+		player_class_name,
+		level,
+		starting_dice.size(),
+		get_skill_tree_count()
+	]
