@@ -240,7 +240,10 @@ func _get_item_type_color(item: Dictionary) -> Color:
 
 func _update_item_details():
 	"""Update the item details panel"""
+	print("🔍 _update_item_details called")
+	
 	if not item_details_panel:
+		print("  ❌ No item_details_panel!")
 		return
 	
 	# Find UI elements in details panel
@@ -248,10 +251,20 @@ func _update_item_details():
 	var image_rects = item_details_panel.find_children("*Image*", "TextureRect", true, false)
 	var desc_labels = item_details_panel.find_children("*Desc*", "Label", true, false)
 	var affix_containers = item_details_panel.find_children("*Affix*", "VBoxContainer", true, false)
-	var use_buttons = item_details_panel.find_children("*Use*", "Button", true, false)
-	var equip_buttons = item_details_panel.find_children("*Equip*", "Button", true, false)
+	var action_buttons_containers = item_details_panel.find_children("ActionButtons", "HBoxContainer", true, false)
+	
+	print("  Found %d ActionButtons containers" % action_buttons_containers.size())
+	
+	# Get individual buttons from ActionButtons container
+	var use_buttons = []
+	var equip_buttons = []
+	if action_buttons_containers.size() > 0:
+		use_buttons = action_buttons_containers[0].find_children("*Use*", "Button", false, false)
+		equip_buttons = action_buttons_containers[0].find_children("*Equip*", "Button", false, false)
+		print("  Found %d Use buttons, %d Equip buttons" % [use_buttons.size(), equip_buttons.size()])
 	
 	if selected_item.is_empty():
+		print("  No item selected - hiding buttons")
 		# Clear details
 		if name_labels.size() > 0:
 			name_labels[0].text = "No Item Selected"
@@ -262,11 +275,12 @@ func _update_item_details():
 		if affix_containers.size() > 0:
 			for child in affix_containers[0].get_children():
 				child.queue_free()
-		if use_buttons.size() > 0:
-			use_buttons[0].hide()
-		if equip_buttons.size() > 0:
-			equip_buttons[0].hide()
+		# Hide action buttons container
+		if action_buttons_containers.size() > 0:
+			action_buttons_containers[0].hide()
 		return
+	
+	print("  Selected item: %s" % selected_item.get("name", "Unknown"))
 	
 	# Show item name
 	if name_labels.size() > 0:
@@ -297,24 +311,54 @@ func _update_item_details():
 			var affix_display = _create_affix_display(affix)
 			affix_container.add_child(affix_display)
 	
-	# Show Use button for consumables
+	# Determine which buttons to show
+	var is_equipment = selected_item.has("slot")
+	var is_consumable = selected_item.get("type", "") == "Consumable"
+	var show_any_button = is_equipment or is_consumable
+	
+	print("  is_equipment: %s, is_consumable: %s, show_any: %s" % [is_equipment, is_consumable, show_any_button])
+	
+	# Show/hide ActionButtons container
+	if action_buttons_containers.size() > 0:
+		if show_any_button:
+			print("  ✅ Showing ActionButtons container")
+			action_buttons_containers[0].show()
+		else:
+			print("  ❌ Hiding ActionButtons container")
+			action_buttons_containers[0].hide()
+	
+	# Configure Use button for consumables
 	if use_buttons.size() > 0:
 		var use_btn = use_buttons[0]
-		if selected_item.get("type", "") == "Consumable":
+		if is_consumable:
+			print("  ✅ Showing Use button")
 			use_btn.show()
-			if not use_btn.pressed.is_connected(_on_use_item_pressed):
-				use_btn.pressed.connect(_on_use_item_pressed)
+			use_btn.disabled = false
+			# Disconnect old connections
+			for connection in use_btn.pressed.get_connections():
+				use_btn.pressed.disconnect(connection.callable)
+			use_btn.pressed.connect(_on_use_item_pressed)
 		else:
+			print("  ❌ Hiding Use button")
 			use_btn.hide()
 	
-	# Show Equip button for equipment
+	# Configure Equip button for equipment
 	if equip_buttons.size() > 0:
 		var equip_btn = equip_buttons[0]
-		if selected_item.has("slot"):
+		if is_equipment:
+			print("  ✅ Showing Equip button")
 			equip_btn.show()
-			if not equip_btn.pressed.is_connected(_on_equip_item_pressed):
-				equip_btn.pressed.connect(_on_equip_item_pressed)
+			equip_btn.disabled = false  # CRITICAL: Make sure it's enabled!
+			print("    Button disabled state: %s" % equip_btn.disabled)
+			# Disconnect old connections
+			for connection in equip_btn.pressed.get_connections():
+				print("    Disconnecting old connection")
+				equip_btn.pressed.disconnect(connection.callable)
+			print("    Connecting _on_equip_item_pressed")
+			equip_btn.pressed.connect(_on_equip_item_pressed)
+			print("    Button now has %d connections" % equip_btn.pressed.get_connections().size())
 		else:
+			print("  ❌ Hiding Equip button")
 			equip_btn.hide()
 
 func _create_affix_display(affix: Dictionary) -> PanelContainer:
@@ -394,12 +438,25 @@ func _use_consumable(item: Dictionary):
 
 func _on_equip_item_pressed():
 	"""Equip item button pressed"""
+	print("🔘 Equip button pressed!")
+	print("  Selected item: %s" % selected_item.get("name", "Unknown"))
+	print("  Player exists: %s" % (player != null))
+	
 	if selected_item.is_empty() or not player:
+		print("  ❌ Cannot equip - selected_item empty or no player")
 		return
 	
-	if player.equip_item(selected_item):
+	print("  Attempting to equip...")
+	var success = player.equip_item(selected_item)
+	print("  Equip result: %s" % success)
+	
+	if success:
+		var item_name = selected_item.get("name", "Unknown")
+		print("✅ Equipped: %s" % item_name)
+		
 		item_equipped.emit(selected_item)  # Bubble up
 		data_changed.emit()  # Bubble up
 		selected_item = {}
 		refresh()
-		print("✅ Equipped: %s" % selected_item.get("name", ""))
+	else:
+		print("❌ Failed to equip item")

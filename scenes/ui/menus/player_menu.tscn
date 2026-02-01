@@ -132,15 +132,17 @@ layout_mode = 2
 metadata/tab_name = "Skills"
 
 [node name="Equipment" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
-visible = false
 layout_mode = 2
 script = ExtResource("4_fbi1g")
 metadata/tab_name = "Equipment"
 
 [node name="CenterContainer" type="CenterContainer" parent="PanelContainer/VBoxContainer/ContentArea/Equipment"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Equipment/CenterContainer"]
 layout_mode = 2
@@ -235,6 +237,10 @@ size_flags_vertical = 3
 layout_mode = 2
 theme_override_constants/separation = 10
 
+[node name="UnequipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Equipment/CenterContainer/VBoxContainer/EquipmentDetailsPanel/DetailsVBox"]
+layout_mode = 2
+text = "Unequip"
+
 [node name="ItemName" type="Label" parent="PanelContainer/VBoxContainer/ContentArea/Equipment/CenterContainer/VBoxContainer/EquipmentDetailsPanel/DetailsVBox"]
 layout_mode = 2
 text = "No Item Selected"
@@ -253,11 +259,8 @@ autowrap_mode = 3
 [node name="AffixesContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Equipment/CenterContainer/VBoxContainer/EquipmentDetailsPanel/DetailsVBox"]
 layout_mode = 2
 
-[node name="UnequipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Equipment/CenterContainer/VBoxContainer/EquipmentDetailsPanel/DetailsVBox"]
-layout_mode = 2
-text = "Unequip"
-
 [node name="Inventory" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
+visible = false
 layout_mode = 2
 script = ExtResource("5_ldd5v")
 metadata/tab_name = "Inventory"
@@ -361,20 +364,6 @@ custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ActionButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel"]
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="UseButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/ActionButtons"]
-layout_mode = 2
-text = "Use"
-
-[node name="EquipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/ActionButtons"]
-layout_mode = 2
-text = "Equip"
-
 [node name="DetailsVBox" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel"]
 layout_mode = 2
 theme_override_constants/separation = 10
@@ -396,6 +385,20 @@ autowrap_mode = 3
 
 [node name="AffixesContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
 layout_mode = 2
+
+[node name="ActionButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="UseButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
+layout_mode = 2
+text = "Use"
+
+[node name="EquipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
+layout_mode = 2
+text = "Equip"
 
 [node name="Quests" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
 visible = false

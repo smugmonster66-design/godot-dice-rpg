@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://cx781vq4omutw"]
+[gd_scene load_steps=9 format=3 uid="uid://cx781vq4omutw"]
 
 [ext_resource type="Script" uid="uid://ex7lxpkjwyaa" path="res://scripts/game/map_manager.gd" id="1_yjpty"]
 [ext_resource type="Script" uid="uid://fxekowigxepb" path="res://scripts/ui/components/add_gear_button.gd" id="2_2b48g"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://gax4pbuq25uv" path="res://resources/data/equippable_item.gd" id="3_3c4m5"]
 [ext_resource type="Resource" uid="uid://dewowlwg6ekcd" path="res://resources/items/head/rusty_helm.tres" id="4_bg5j8"]
 [ext_resource type="Resource" uid="uid://do2lai1diivsb" path="res://resources/items/main hand/flaming_greatsword.tres" id="5_t547c"]
+[ext_resource type="PackedScene" uid="uid://cqp8tlucqj7xe" path="res://scenes/ui/map/map_dice_panel.tscn" id="8_bg5j8"]
 
 [node name="MapScene" type="Node2D"]
 script = ExtResource("1_yjpty")
@@ -44,17 +45,13 @@ script = ExtResource("1_yjpty")
 [node name="UILayer" type="CanvasLayer" parent="."]
 
 [node name="TopBar" type="HBoxContainer" parent="UILayer"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -397.0
-offset_top = -222.0
-offset_right = 397.0
-offset_bottom = -5.0
-grow_horizontal = 2
-grow_vertical = 0
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -108.5
+offset_right = 794.0
+offset_bottom = 108.5
+grow_vertical = 2
 alignment = 1
 
 [node name="MenuButton" type="Button" parent="UILayer/TopBar"]
@@ -72,6 +69,7 @@ script = ExtResource("2_2b48g")
 starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c")])
 
 [node name="PlayerMenu" parent="UILayer" instance=ExtResource("2_gvwpr")]
+visible = false
 custom_minimum_size = Vector2(300, 400)
 
 [node name="PostCombatSummary" type="Control" parent="UILayer"]
@@ -137,3 +135,5 @@ layout_mode = 2
 [node name="CloseButton" type="Button" parent="UILayer/PostCombatSummary/CenterContainer/PanelContainer/VBoxContainer"]
 layout_mode = 2
 text = "Close"
+
+[node name="MapDicePanel" parent="UILayer" instance=ExtResource("8_bg5j8")]
