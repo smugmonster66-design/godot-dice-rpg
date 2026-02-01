@@ -1,3 +1,52 @@
-[gd_scene format=3 uid="uid://c1kmjpwav45is"]
+[gd_scene load_steps=3 format=3 uid="uid://c1kmjpwav45is"]
 
-[node name="EnemySlot" type="Node2D"]
+[ext_resource type="Script" uid="uid://c6e0qeqjwtccy" path="res://scripts/ui/combat/enemy_slot.gd" id="1_8vtss"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8vtss"]
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9853031, 0.7671745, 0, 1)
+
+[node name="EnemySlot" type="PanelContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+script = ExtResource("1_8vtss")
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="MarginContainer/VBox"]
+custom_minimum_size = Vector2(100, 80)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SelectionIndicator" type="Panel" parent="MarginContainer/VBox"]
+visible = false
+custom_minimum_size = Vector2(100, 80)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_8vtss")
+
+[node name="NameLabel" type="Label" parent="MarginContainer/VBox"]
+layout_mode = 2
+text = "<Name>"
+horizontal_alignment = 1
+
+[node name="HealthBar" type="TextureProgressBar" parent="MarginContainer/VBox"]
+custom_minimum_size = Vector2(100, 16)
+layout_mode = 2
+value = 100.0
+
+[node name="HealthLabel" type="Label" parent="MarginContainer/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
