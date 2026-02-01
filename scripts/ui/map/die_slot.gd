@@ -1,24 +1,53 @@
 # die_slot.gd - A single slot in the dice grid
-# Handles drag-drop for reordering dice
+# Attach to: PanelContainer
+# Discovers child nodes via groups - see DICE_GRID_SETUP.md for scene structure
+# Works in both Map mode (reorder) and Combat mode (drag to action fields)
 extends PanelContainer
 class_name DieSlot
 
 # ============================================================================
-# SIGNALS (bubble up to parent)
+# SIGNALS
 # ============================================================================
 signal die_dropped(from_slot: DieSlot, to_slot: DieSlot)
 signal die_clicked(slot: DieSlot)
-signal drag_started(slot: DieSlot)
+signal drag_started(slot: DieSlot, die: DieResource)
 signal drag_ended(slot: DieSlot)
 
 # ============================================================================
-# EXPORTS
+# DRAG TYPE - Set by parent DiceGrid
+# ============================================================================
+enum DragType {
+	REORDER,      # Map mode: drag to reorder within grid
+	TO_TARGET,    # Combat mode: drag to external targets (action fields)
+}
+
+# ============================================================================
+# EXPORTS - Configure in Inspector
 # ============================================================================
 @export var slot_index: int = 0
-@export var slot_size: Vector2 = Vector2(64, 64)
-@export var empty_color: Color = Color(0.15, 0.15, 0.15, 0.8)
-@export var hover_color: Color = Color(0.3, 0.3, 0.5, 0.9)
-@export var selected_color: Color = Color(0.4, 0.4, 0.7, 1.0)
+
+@export_group("Behavior")
+## Set by parent DiceGrid - determines what happens on drag
+@export var drag_type: DragType = DragType.REORDER
+## If true, slot accepts drops (for reorder mode)
+@export var accepts_drops: bool = true
+
+@export_group("Colors")
+@export var empty_color: Color = Color(0.15, 0.15, 0.18, 0.9)
+@export var hover_color: Color = Color(0.25, 0.25, 0.35, 0.95)
+@export var selected_color: Color = Color(0.3, 0.3, 0.5, 1.0)
+@export var drag_target_color: Color = Color(0.2, 0.4, 0.3, 0.95)
+
+# ============================================================================
+# NODE REFERENCES - Discovered from scene
+# ============================================================================
+var die_display: Control = null      # Container shown when die is present
+var empty_display: Control = null    # Container shown when slot is empty
+var type_label: Label = null         # Shows "D6", "D8", etc.
+var value_label: Label = null        # Shows the rolled value
+var modifier_label: Label = null     # Shows "+2" or "-1"
+var affix_indicator: Label = null    # Shows "◆" for affixes
+var lock_icon: Control = null        # Shows lock when die is locked
 
 # ============================================================================
 # STATE
@@ -27,36 +56,174 @@ var die: DieResource = null
 var is_hovered: bool = false
 var is_selected: bool = false
 var is_dragging: bool = false
-var is_drag_target: bool = false  # Another die is being dragged over this slot
+var is_drag_target: bool = false
 
-# ============================================================================
-# UI REFERENCES
-# ============================================================================
-var die_visual: Control = null
-var empty_label: Label = null
+var _base_style: StyleBox = null
 
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
 
 func _ready():
-	add_to_group("dice_slots")
-	
-	# Setup container
-	custom_minimum_size = slot_size
+	_discover_nodes()
+	_setup_style()
 	mouse_filter = MOUSE_FILTER_STOP
+	update_display()
+
+func _discover_nodes():
+	"""Find child nodes by groups or names"""
+	# Find by groups first (preferred)
+	var displays = find_children("*", "Control", false, false)
+	for node in displays:
+		if node.is_in_group("die_display"):
+			die_display = node
+		elif node.is_in_group("empty_display"):
+			empty_display = node
+		elif node.is_in_group("lock_icon"):
+			lock_icon = node
 	
-	# Create empty state label
-	empty_label = Label.new()
-	empty_label.text = "+"
-	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	empty_label.add_theme_font_size_override("font_size", 24)
-	empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	empty_label.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(empty_label)
+	# Find labels anywhere in children
+	var labels = find_children("*", "Label", true, false)
+	for label in labels:
+		if label.is_in_group("type_label"):
+			type_label = label
+		elif label.is_in_group("value_label"):
+			value_label = label
+		elif label.is_in_group("modifier_label"):
+			modifier_label = label
+		elif label.is_in_group("affix_indicator"):
+			affix_indicator = label
 	
-	_update_visual()
+	# Fallback: find by node names if groups not set
+	if not die_display:
+		die_display = get_node_or_null("Content/DieDisplay")
+	if not empty_display:
+		empty_display = get_node_or_null("Content/EmptyDisplay")
+	if not type_label:
+		type_label = get_node_or_null("Content/DieDisplay/TypeLabel")
+	if not value_label:
+		value_label = get_node_or_null("Content/DieDisplay/ValueLabel")
+	if not modifier_label:
+		modifier_label = get_node_or_null("Content/DieDisplay/ModifierLabel")
+	if not affix_indicator:
+		affix_indicator = get_node_or_null("Content/DieDisplay/AffixIndicator")
+	if not lock_icon:
+		lock_icon = get_node_or_null("LockIcon")
+
+func _setup_style():
+	"""Store the base style for modifications"""
+	_base_style = get_theme_stylebox("panel")
+	if not _base_style:
+		var style = StyleBoxFlat.new()
+		style.bg_color = empty_color
+		style.set_corner_radius_all(4)
+		add_theme_stylebox_override("panel", style)
+		_base_style = style
+
+# ============================================================================
+# DIE MANAGEMENT
+# ============================================================================
+
+func set_die(new_die: DieResource):
+	"""Set the die in this slot"""
+	die = new_die
+	update_display()
+
+func clear_die():
+	"""Remove die from slot"""
+	die = null
+	update_display()
+
+func has_die() -> bool:
+	return die != null
+
+func get_die() -> DieResource:
+	return die
+
+# ============================================================================
+# DISPLAY UPDATE
+# ============================================================================
+
+func update_display():
+	"""Update all visual elements based on current state"""
+	_update_background()
+	
+	if die:
+		_show_die()
+	else:
+		_show_empty()
+
+func _show_die():
+	"""Show die information"""
+	if die_display:
+		die_display.show()
+	if empty_display:
+		empty_display.hide()
+	
+	# Type label
+	if type_label:
+		type_label.text = die.get_type_string()
+	
+	# Value label
+	if value_label:
+		value_label.text = str(die.get_total_value())
+	
+	# Modifier label
+	if modifier_label:
+		if die.modifier != 0:
+			modifier_label.text = "%+d" % die.modifier
+			modifier_label.show()
+		else:
+			modifier_label.hide()
+	
+	# Affix indicator
+	if affix_indicator:
+		var affix_count = die.get_all_affixes().size()
+		if affix_count > 0:
+			affix_indicator.text = "◆" if affix_count == 1 else "◆%d" % affix_count
+			affix_indicator.show()
+		else:
+			affix_indicator.hide()
+	
+	# Lock icon
+	if lock_icon:
+		lock_icon.visible = die.is_locked
+	
+	# Apply die color tint
+	modulate = die.color
+
+func _show_empty():
+	"""Show empty slot state"""
+	if die_display:
+		die_display.hide()
+	if empty_display:
+		empty_display.show()
+	if lock_icon:
+		lock_icon.hide()
+	
+	modulate = Color.WHITE
+
+func _update_background():
+	"""Update background color based on state"""
+	var style = _base_style.duplicate() if _base_style else StyleBoxFlat.new()
+	
+	if style is StyleBoxFlat:
+		if is_drag_target:
+			style.bg_color = drag_target_color
+			style.border_color = Color.WHITE
+			style.set_border_width_all(2)
+		elif is_selected:
+			style.bg_color = selected_color
+		elif is_hovered:
+			style.bg_color = hover_color
+		else:
+			style.bg_color = empty_color
+	
+	add_theme_stylebox_override("panel", style)
+
+# ============================================================================
+# INPUT HANDLING
+# ============================================================================
 
 func _gui_input(event: InputEvent):
 	if event is InputEventMouseButton:
@@ -67,80 +234,60 @@ func _notification(what):
 	match what:
 		NOTIFICATION_MOUSE_ENTER:
 			is_hovered = true
-			_update_visual()
+			_update_background()
 		NOTIFICATION_MOUSE_EXIT:
 			is_hovered = false
 			is_drag_target = false
-			_update_visual()
-
-# ============================================================================
-# DIE MANAGEMENT
-# ============================================================================
-
-func set_die(new_die: DieResource):
-	"""Set the die in this slot"""
-	die = new_die
-	_update_visual()
-
-func clear_die():
-	"""Remove die from slot"""
-	die = null
-	_update_visual()
-
-func has_die() -> bool:
-	"""Check if slot has a die"""
-	return die != null
-
-func get_die() -> DieResource:
-	"""Get the die in this slot"""
-	return die
+			_update_background()
+		NOTIFICATION_DRAG_END:
+			is_dragging = false
+			is_drag_target = false
+			drag_ended.emit(self)
+			update_display()
 
 # ============================================================================
 # DRAG AND DROP
 # ============================================================================
 
 func _get_drag_data(_at_position: Vector2) -> Variant:
-	"""Start dragging this die"""
 	if not die:
 		return null
 	
 	if die.is_locked:
-		print("🔒 Cannot drag locked die")
 		return null
 	
 	is_dragging = true
-	drag_started.emit(self)
+	drag_started.emit(self, die)
 	
 	# Create drag preview
 	var preview = _create_drag_preview()
 	set_drag_preview(preview)
 	
-	# Return drag data
+	# Return drag data - works for both reorder and combat modes
 	return {
-		"type": "die_slot",
+		"type": "die_slot" if drag_type == DragType.REORDER else "combat_die",
 		"slot": self,
 		"die": die,
-		"from_index": slot_index
+		"from_index": slot_index,
+		"source_grid": get_parent(),
 	}
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-	"""Check if we can accept dropped data"""
+	# Only accept drops if this slot allows it (reorder mode)
+	if not accepts_drops:
+		return false
 	if not data is Dictionary:
 		return false
-	
 	if data.get("type") != "die_slot":
 		return false
-	
-	# Don't drop on self
 	if data.get("slot") == self:
 		return false
 	
 	is_drag_target = true
-	_update_visual()
+	_update_background()
 	return true
 
 func _drop_data(_at_position: Vector2, data: Variant):
-	"""Handle dropped die"""
 	if not data is Dictionary:
 		return
 	
@@ -149,215 +296,66 @@ func _drop_data(_at_position: Vector2, data: Variant):
 		die_dropped.emit(from_slot, self)
 	
 	is_drag_target = false
-	_update_visual()
-
-func _notification_drag(what):
-	"""Handle drag notifications"""
-	if what == NOTIFICATION_DRAG_END:
-		is_dragging = false
-		is_drag_target = false
-		drag_ended.emit(self)
-		_update_visual()
+	update_display()
 
 func _create_drag_preview() -> Control:
-	"""Create visual preview while dragging"""
+	"""Create the visual shown while dragging"""
 	var preview = PanelContainer.new()
-	preview.custom_minimum_size = slot_size
+	preview.custom_minimum_size = custom_minimum_size
 	preview.modulate = Color(1, 1, 1, 0.8)
 	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
+	style.set_corner_radius_all(4)
+	preview.add_theme_stylebox_override("panel", style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	preview.add_child(vbox)
+	
 	if die:
-		var vbox = VBoxContainer.new()
-		vbox.mouse_filter = MOUSE_FILTER_IGNORE
-		preview.add_child(vbox)
+		var type_lbl = Label.new()
+		type_lbl.text = die.get_type_string()
+		type_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(type_lbl)
 		
-		# Die type
-		var type_label = Label.new()
-		type_label.text = die.get_type_string()
-		type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		type_label.add_theme_font_size_override("font_size", 12)
-		type_label.mouse_filter = MOUSE_FILTER_IGNORE
-		vbox.add_child(type_label)
-		
-		# Value
-		var value_label = Label.new()
-		value_label.text = str(die.get_total_value())
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.add_theme_font_size_override("font_size", 20)
-		value_label.mouse_filter = MOUSE_FILTER_IGNORE
-		vbox.add_child(value_label)
+		var value_lbl = Label.new()
+		value_lbl.text = str(die.get_total_value())
+		value_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value_lbl.add_theme_font_size_override("font_size", 20)
+		vbox.add_child(value_lbl)
 	
 	return preview
 
 # ============================================================================
-# VISUAL UPDATE
+# SELECTION
 # ============================================================================
 
-func _update_visual():
-	"""Update the slot's visual state"""
-	# Update background color
-	var style = StyleBoxFlat.new()
-	style.set_corner_radius_all(4)
-	
-	if is_drag_target:
-		style.bg_color = hover_color
-		style.border_color = Color.WHITE
-		style.border_width_bottom = 2
-		style.border_width_top = 2
-		style.border_width_left = 2
-		style.border_width_right = 2
-	elif is_selected:
-		style.bg_color = selected_color
-	elif is_hovered:
-		style.bg_color = hover_color
-	else:
-		style.bg_color = empty_color
-	
-	add_theme_stylebox_override("panel", style)
-	
-	# Show/hide empty label
-	if empty_label:
-		empty_label.visible = (die == null)
-	
-	# Update die visual
-	_update_die_visual()
-
-func _update_die_visual():
-	"""Update the die visual display"""
-	# Remove existing die visual
-	if die_visual and is_instance_valid(die_visual):
-		die_visual.queue_free()
-		die_visual = null
-	
-	if not die:
-		return
-	
-	# Create new die visual
-	die_visual = VBoxContainer.new()
-	die_visual.mouse_filter = MOUSE_FILTER_IGNORE
-	die_visual.set_anchors_preset(PRESET_CENTER)
-	add_child(die_visual)
-	
-	# Icon or type label
-	if die.icon:
-		var icon_rect = TextureRect.new()
-		icon_rect.texture = die.icon
-		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon_rect.custom_minimum_size = Vector2(32, 32)
-		icon_rect.mouse_filter = MOUSE_FILTER_IGNORE
-		die_visual.add_child(icon_rect)
-	else:
-		var type_label = Label.new()
-		type_label.text = die.get_type_string()
-		type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		type_label.add_theme_font_size_override("font_size", 10)
-		type_label.add_theme_color_override("font_color", die.color)
-		type_label.mouse_filter = MOUSE_FILTER_IGNORE
-		die_visual.add_child(type_label)
-	
-	# Value label
-	var value_label = Label.new()
-	value_label.text = str(die.get_total_value())
-	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value_label.add_theme_font_size_override("font_size", 18)
-	value_label.mouse_filter = MOUSE_FILTER_IGNORE
-	die_visual.add_child(value_label)
-	
-	# Modifier indicator
-	if die.modifier != 0:
-		var mod_label = Label.new()
-		mod_label.text = "%+d" % die.modifier if die.modifier > 0 else str(die.modifier)
-		mod_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		mod_label.add_theme_font_size_override("font_size", 8)
-		mod_label.add_theme_color_override("font_color", Color.YELLOW if die.modifier > 0 else Color.RED)
-		mod_label.mouse_filter = MOUSE_FILTER_IGNORE
-		die_visual.add_child(mod_label)
-	
-	# Affixes indicator
-	var affix_count = die.get_all_affixes().size()
-	if affix_count > 0:
-		var affix_indicator = Label.new()
-		affix_indicator.text = "◆" if affix_count == 1 else "◆%d" % affix_count
-		affix_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		affix_indicator.add_theme_font_size_override("font_size", 8)
-		affix_indicator.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
-		affix_indicator.mouse_filter = MOUSE_FILTER_IGNORE
-		die_visual.add_child(affix_indicator)
-	
-	# Lock indicator
-	if die.is_locked:
-		var lock_label = Label.new()
-		lock_label.text = "🔒"
-		lock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lock_label.add_theme_font_size_override("font_size", 10)
-		lock_label.mouse_filter = MOUSE_FILTER_IGNORE
-		die_visual.add_child(lock_label)
-	
-	# Apply die color tint
-	modulate = die.color
-
 func set_selected(selected: bool):
-	"""Set selection state"""
 	is_selected = selected
-	_update_visual()
+	_update_background()
 
 # ============================================================================
 # TOOLTIP
 # ============================================================================
 
-func _make_custom_tooltip(for_text: String) -> Object:
-	"""Create custom tooltip with affix details"""
+func _get_tooltip(_at_position: Vector2) -> String:
 	if not die:
-		return null
+		return "Empty slot"
 	
-	var panel = PanelContainer.new()
-	var vbox = VBoxContainer.new()
-	panel.add_child(vbox)
+	var lines: Array[String] = [die.get_display_name()]
+	lines.append("Slot %d" % (slot_index + 1))
 	
-	# Die name
-	var name_label = Label.new()
-	name_label.text = die.get_display_name()
-	name_label.add_theme_font_size_override("font_size", 14)
-	vbox.add_child(name_label)
-	
-	# Position info
-	var pos_label = Label.new()
-	pos_label.text = "Slot %d" % (slot_index + 1)
-	pos_label.add_theme_font_size_override("font_size", 10)
-	pos_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	vbox.add_child(pos_label)
-	
-	# Affixes
 	var affixes = die.get_all_affixes()
 	if affixes.size() > 0:
-		var sep = HSeparator.new()
-		vbox.add_child(sep)
-		
-		var affixes_label = Label.new()
-		affixes_label.text = "Dice Affixes:"
-		affixes_label.add_theme_font_size_override("font_size", 12)
-		vbox.add_child(affixes_label)
-		
+		lines.append("")
+		lines.append("Dice Affixes:")
 		for affix in affixes:
-			var affix_label = Label.new()
-			affix_label.text = "• " + affix.get_formatted_description()
-			affix_label.add_theme_font_size_override("font_size", 10)
-			affix_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			affix_label.custom_minimum_size.x = 200
-			vbox.add_child(affix_label)
+			lines.append("  • " + affix.get_formatted_description())
 	
-	# Tags
 	var tags = die.get_tags()
 	if tags.size() > 0:
-		var tag_label = Label.new()
-		tag_label.text = "Tags: " + ", ".join(tags)
-		tag_label.add_theme_font_size_override("font_size", 10)
-		tag_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.5))
-		vbox.add_child(tag_label)
+		lines.append("")
+		lines.append("Tags: " + ", ".join(tags))
 	
-	return panel
-
-func _get_tooltip(_at_position: Vector2) -> String:
-	"""Return tooltip text (triggers custom tooltip)"""
-	if die:
-		return die.get_display_name()
-	return ""
+	return "\n".join(lines)
