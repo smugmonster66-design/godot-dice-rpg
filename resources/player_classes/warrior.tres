@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PlayerClass" load_steps=3 format=3 uid="uid://flk40m735lxj"]
+
+[ext_resource type="Script" uid="uid://n4huc4i0nhvn" path="res://resources/data/player_class.gd" id="1_3nn7d"]
+[ext_resource type="Script" uid="uid://d3l85pyscg85h" path="res://resources/data/die_resource.gd" id="2_agdky"]
+
+[resource]
+script = ExtResource("1_3nn7d")
+mana_per_level = 0
+strength_per_level = 2.0
+metadata/_custom_type_script = "uid://n4huc4i0nhvn"

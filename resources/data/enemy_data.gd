@@ -1,4 +1,5 @@
-# enemy_data.gd - Enemy configuration resource with drag-and-drop dice and actions
+# res://resources/data/enemy_data.gd
+# Enemy configuration resource with drag-and-drop dice and actions
 extends Resource
 class_name EnemyData
 
@@ -39,26 +40,24 @@ class_name EnemyData
 @export_group("AI Settings")
 
 enum AIStrategy {
-	AGGRESSIVE,    ## Prioritize high damage attacks
-	DEFENSIVE,     ## Prioritize defense and healing
-	BALANCED,      ## Mix of offense and defense
-	RANDOM         ## Random action selection
+	AGGRESSIVE,
+	DEFENSIVE,
+	BALANCED,
+	RANDOM
 }
 
 @export var ai_strategy: AIStrategy = AIStrategy.BALANCED
 
 enum TargetPriority {
-	LOWEST_HEALTH,   ## Target the weakest
-	HIGHEST_HEALTH,  ## Target the strongest
-	RANDOM           ## Random target
+	LOWEST_HEALTH,
+	HIGHEST_HEALTH,
+	RANDOM
 }
 
 @export var target_priority: TargetPriority = TargetPriority.RANDOM
 
 @export_subgroup("Timing")
-## Delay between enemy actions (seconds)
 @export_range(0.3, 2.0, 0.1) var action_delay: float = 0.8
-## Duration of dice drag animation (seconds)
 @export_range(0.2, 1.0, 0.1) var dice_drag_duration: float = 0.4
 
 # ============================================================================
@@ -106,88 +105,3 @@ func _to_string() -> String:
 	return "EnemyData<%s, HP:%d, Dice:%d, Actions:%d>" % [
 		enemy_name, max_health, starting_dice.size(), combat_actions.size()
 	]
-
-# ============================================================================
-# FACTORY METHODS - Create common enemies in code
-# ============================================================================
-
-static func create_goblin() -> EnemyData:
-	"""Factory method: Create a basic goblin"""
-	var enemy = EnemyData.new()
-	enemy.enemy_name = "Goblin"
-	enemy.description = "A small, vicious creature."
-	enemy.max_health = 25
-	enemy.ai_strategy = AIStrategy.AGGRESSIVE
-	enemy.experience_reward = 15
-	enemy.gold_reward_min = 3
-	enemy.gold_reward_max = 8
-	
-	# Create dice
-	enemy.starting_dice = [
-		DieResource.new(DieResource.DieType.D4, "Goblin"),
-		DieResource.new(DieResource.DieType.D6, "Goblin")
-	]
-	
-	# Create action
-	var stab = Action.new()
-	stab.action_name = "Stab"
-	stab.action_description = "A quick stab."
-	stab.action_type = Action.ActionType.ATTACK
-	stab.die_slots = 1
-	stab.base_damage = 2
-	stab.damage_multiplier = 1.0
-	enemy.combat_actions = [stab]
-	
-	return enemy
-
-static func create_skeleton() -> EnemyData:
-	"""Factory method: Create a skeleton warrior"""
-	var enemy = EnemyData.new()
-	enemy.enemy_name = "Skeleton"
-	enemy.description = "An undead warrior."
-	enemy.max_health = 35
-	enemy.base_armor = 2
-	enemy.ai_strategy = AIStrategy.BALANCED
-	enemy.experience_reward = 20
-	
-	enemy.starting_dice = [
-		DieResource.new(DieResource.DieType.D6, "Skeleton"),
-		DieResource.new(DieResource.DieType.D6, "Skeleton")
-	]
-	
-	var bone_strike = Action.new()
-	bone_strike.action_name = "Bone Strike"
-	bone_strike.action_description = "Strikes with a bone club."
-	bone_strike.action_type = Action.ActionType.ATTACK
-	bone_strike.die_slots = 1
-	bone_strike.base_damage = 3
-	enemy.combat_actions = [bone_strike]
-	
-	return enemy
-
-static func create_orc() -> EnemyData:
-	"""Factory method: Create an orc warrior"""
-	var enemy = EnemyData.new()
-	enemy.enemy_name = "Orc Warrior"
-	enemy.description = "A brutish orc."
-	enemy.max_health = 60
-	enemy.base_armor = 3
-	enemy.ai_strategy = AIStrategy.AGGRESSIVE
-	enemy.experience_reward = 35
-	
-	enemy.starting_dice = [
-		DieResource.new(DieResource.DieType.D8, "Orc"),
-		DieResource.new(DieResource.DieType.D8, "Orc"),
-		DieResource.new(DieResource.DieType.D6, "Orc")
-	]
-	
-	var cleave = Action.new()
-	cleave.action_name = "Cleave"
-	cleave.action_description = "Powerful overhead swing."
-	cleave.action_type = Action.ActionType.ATTACK
-	cleave.die_slots = 2
-	cleave.base_damage = 5
-	cleave.damage_multiplier = 1.5
-	enemy.combat_actions = [cleave]
-	
-	return enemy

@@ -13,6 +13,9 @@ const MAP_SCENE = preload("res://scenes/game/map_scene.tscn")
 @export_group("Starting Items")
 @export var starting_items: Array[EquippableItem] = []
 
+@export_group("Player Base Classes")
+@export var warrior = load("res://resources/player_classes/warrior.tres") as PlayerClass
+
 # ============================================================================
 # GAME STATE
 # ============================================================================
@@ -73,17 +76,11 @@ func initialize_player():
 	"""Create persistent player"""
 	print("Creating player...")
 	
-	# Create player resource (not a node)
 	player = Player.new()
-	
-	# Add dice pool as a child node
 	add_child(player.dice_pool)
 	print("  ✅ Dice pool added to scene tree")
 	
-	# Create simple warrior class (no skills yet - add via .tres files later)
-	var warrior = PlayerClass.new("Warrior", "strength")
-	warrior.stat_bonuses["strength"] = 5
-	warrior.stat_bonuses["armor"] = 3
+	# Load warrior class resource
 	
 	player.add_class("Warrior", warrior)
 	player.switch_class("Warrior")
@@ -93,42 +90,12 @@ func initialize_player():
 		if player.active_class:
 			player.active_class.gain_experience(100)
 	
-	# Add starting items
-	#add_starting_items()
-	
 	if player.active_class:
 		print("Player created: %s Level %d" % [player.active_class.player_class_name, player.active_class.level])
 	else:
 		print("Player created but no active class")
 	
 	player_created.emit(player)
-
-#func add_starting_items():
-	"""Add starting equipment from Inspector-configured array"""
-	print("🎒 Adding starting items...")
-	
-	if starting_items.size() == 0:
-		print("  ⚠️  No starting items configured in Inspector")
-		return
-	
-	for item_template in starting_items:
-		if not item_template:
-			print("  ⚠️  Null item in starting_items array - skipping")
-			continue
-		
-		# Initialize affixes (rolls or uses manual)
-		item_template.initialize_affixes(AffixPool)
-		
-		# Convert to dictionary
-		var item_dict = item_template.to_dict()
-		item_dict["item_affixes"] = item_template.get_all_affixes()
-		
-		# Add to player inventory
-		player.add_to_inventory(item_dict)
-		
-		print("  ✅ Added %s (%s) to inventory" % [item_template.item_name, item_template.get_rarity_name()])
-	
-	print("🎒 Finished adding %d starting items" % starting_items.size())
 
 # ============================================================================
 # SCENE MANAGEMENT

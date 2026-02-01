@@ -6,18 +6,11 @@ class_name PlayerClass
 # ============================================================================
 # ENUMS
 # ============================================================================
-enum ClassRole {
-	DAMAGE,
-	TANK,
-	SUPPORT,
-	HYBRID
-}
-
 enum MainStat {
 	STRENGTH,
 	AGILITY,
 	INTELLIGENCE,
-	VITALITY
+	LUCK
 }
 
 # ============================================================================
@@ -28,9 +21,6 @@ enum MainStat {
 @export_multiline var description: String = ""
 @export var icon: Texture2D = null
 @export var portrait: Texture2D = null
-
-@export_group("Classification")
-@export var role: ClassRole = ClassRole.DAMAGE
 @export var main_stat: MainStat = MainStat.STRENGTH
 
 # ============================================================================
@@ -42,7 +32,7 @@ enum MainStat {
 @export var base_strength: int = 10
 @export var base_agility: int = 10
 @export var base_intelligence: int = 10
-@export var base_vitality: int = 10
+@export var base_luck: int = 10
 @export var base_armor: int = 0
 @export var base_barrier: int = 0
 
@@ -55,24 +45,28 @@ enum MainStat {
 @export var strength_per_level: float = 1.0
 @export var agility_per_level: float = 1.0
 @export var intelligence_per_level: float = 1.0
-@export var vitality_per_level: float = 1.0
+@export var luck_per_level: float = 1.0
+
+# ============================================================================
+# LEVELING
+# ============================================================================
+@export_group("Leveling")
+var level: int = 1
+var experience: int = 0
+var skill_points: int = 0
 
 # ============================================================================
 # STARTING DICE
 # ============================================================================
 @export_group("Starting Dice")
-## Drag DieResource items here to define class starting dice
 @export var starting_dice: Array[DieResource] = []
 
 # ============================================================================
 # SKILL TREES (up to 3)
 # ============================================================================
 @export_group("Skill Trees")
-## Primary skill tree for this class
 @export var skill_tree_1: SkillTree = null
-## Secondary skill tree
 @export var skill_tree_2: SkillTree = null
-## Tertiary skill tree
 @export var skill_tree_3: SkillTree = null
 
 # ============================================================================
@@ -86,7 +80,7 @@ enum MainStat {
 # STAT METHODS
 # ============================================================================
 
-func get_stat_at_level(stat_name: String, level: int) -> int:
+func get_stat_at_level(stat_name: String, p_level: int) -> int:
 	"""Calculate a stat value at a given level"""
 	var base = 0
 	var growth = 0.0
@@ -107,9 +101,9 @@ func get_stat_at_level(stat_name: String, level: int) -> int:
 		"intelligence":
 			base = base_intelligence
 			growth = intelligence_per_level
-		"vitality":
-			base = base_vitality
-			growth = vitality_per_level
+		"luck":
+			base = base_luck
+			growth = luck_per_level
 		"armor":
 			return base_armor
 		"barrier":
@@ -117,7 +111,7 @@ func get_stat_at_level(stat_name: String, level: int) -> int:
 		_:
 			return 0
 	
-	return base + int(growth * (level - 1))
+	return base + int(growth * (p_level - 1))
 
 func get_stat_bonus(stat_name: String) -> int:
 	"""Get base stat bonus"""
@@ -125,7 +119,7 @@ func get_stat_bonus(stat_name: String) -> int:
 		"strength": return base_strength
 		"agility": return base_agility
 		"intelligence": return base_intelligence
-		"vitality": return base_vitality
+		"luck": return base_luck
 		"armor": return base_armor
 		"barrier": return base_barrier
 		_: return 0
@@ -136,17 +130,35 @@ func get_main_stat_name() -> String:
 		MainStat.STRENGTH: return "strength"
 		MainStat.AGILITY: return "agility"
 		MainStat.INTELLIGENCE: return "intelligence"
-		MainStat.VITALITY: return "vitality"
+		MainStat.LUCK: return "luck"
 		_: return "strength"
 
-func get_role_name() -> String:
-	"""Get the role as a string"""
-	match role:
-		ClassRole.DAMAGE: return "Damage"
-		ClassRole.TANK: return "Tank"
-		ClassRole.SUPPORT: return "Support"
-		ClassRole.HYBRID: return "Hybrid"
-		_: return "Unknown"
+# ============================================================================
+# LEVELING METHODS
+# ============================================================================
+
+func get_exp_for_next_level() -> int:
+	"""Calculate XP needed for next level"""
+	return level * 100
+
+func get_exp_progress() -> float:
+	"""Get progress toward next level (0.0 to 1.0)"""
+	var needed = get_exp_for_next_level()
+	return float(experience) / float(needed) if needed > 0 else 0.0
+
+func gain_experience(amount: int) -> bool:
+	"""Add experience, returns true if leveled up"""
+	experience += amount
+	var leveled = false
+	
+	while experience >= get_exp_for_next_level():
+		experience -= get_exp_for_next_level()
+		level += 1
+		skill_points += 1
+		leveled = true
+		print("🎉 Level up! Now level %d" % level)
+	
+	return leveled
 
 # ============================================================================
 # DICE METHODS
@@ -158,11 +170,19 @@ func get_starting_dice_copies() -> Array[DieResource]:
 	
 	for die in starting_dice:
 		if die:
-			var copy = die.duplicate(true)
+			var copy = die.duplicate_die()
 			copy.source = player_class_name
 			copies.append(copy)
 	
 	return copies
+
+func get_all_class_dice() -> Array:
+	"""Get all dice types this class provides"""
+	var dice_types = []
+	for die in starting_dice:
+		if die:
+			dice_types.append(die.die_type)
+	return dice_types
 
 func get_starting_dice_summary() -> String:
 	"""Get a summary of starting dice for display"""
@@ -231,14 +251,6 @@ func get_skill_by_id(id: String) -> SkillResource:
 			return skill
 	return null
 
-func get_active_skills() -> Array[SkillResource]:
-	"""Get all active (usable in combat) skills"""
-	var active: Array[SkillResource] = []
-	for skill in get_all_skills():
-		if skill and skill.skill_type == SkillResource.SkillType.ACTIVE:
-			active.append(skill)
-	return active
-
 # ============================================================================
 # DEFAULT ACTIONS
 # ============================================================================
@@ -298,9 +310,9 @@ func validate() -> Array[String]:
 	return warnings
 
 func _to_string() -> String:
-	return "PlayerClass<%s: %s, %d dice, %d trees>" % [
-		player_class_name, 
-		get_role_name(),
+	return "PlayerClass<%s Lv.%d: %d dice, %d trees>" % [
+		player_class_name,
+		level,
 		starting_dice.size(),
 		get_skill_tree_count()
 	]

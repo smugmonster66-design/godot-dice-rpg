@@ -254,7 +254,8 @@ func to_dict() -> Dictionary:
 			"name": affix.affix_name,
 			"display_name": affix.affix_name,
 			"description": affix.description,
-			"categories": affix.categories
+			"category": affix.category,
+			"category_name": affix.get_category_name()
 		})
 	
 	if affixes_data.size() > 0:
