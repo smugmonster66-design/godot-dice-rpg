@@ -48,11 +48,18 @@ enum MainStat {
 @export var luck_per_level: float = 1.0
 
 # ============================================================================
-# LEVELING (runtime state)
+# LEVELING (runtime state - preserved per class)
 # ============================================================================
 var level: int = 1
 var experience: int = 0
 var skill_points: int = 0
+var total_skill_points: int = 0
+
+# ============================================================================
+# SKILL RANKS (runtime state - preserved per class)
+# ============================================================================
+## Tracks learned skill ranks: skill_id -> current_rank
+var skill_ranks: Dictionary = {}
 
 # ============================================================================
 # STARTING DICE
@@ -154,6 +161,7 @@ func gain_experience(amount: int) -> bool:
 		experience -= get_exp_for_next_level()
 		level += 1
 		skill_points += 1
+		total_skill_points += 1
 		leveled = true
 		print("🎉 Level up! Now level %d" % level)
 	
@@ -162,6 +170,14 @@ func gain_experience(amount: int) -> bool:
 func get_available_skill_points() -> int:
 	"""Get skill points available to spend"""
 	return skill_points
+
+func get_total_skill_points() -> int:
+	"""Get total skill points earned"""
+	return total_skill_points
+
+func get_spent_skill_points() -> int:
+	"""Get number of skill points that have been spent"""
+	return total_skill_points - skill_points
 
 func spend_skill_point() -> bool:
 	"""Spend a skill point, returns true if successful"""
@@ -173,6 +189,40 @@ func spend_skill_point() -> bool:
 func refund_skill_point():
 	"""Refund a skill point"""
 	skill_points += 1
+
+# ============================================================================
+# SKILL RANK METHODS
+# ============================================================================
+
+func get_skill_rank(skill_id: String) -> int:
+	"""Get current rank for a skill"""
+	return skill_ranks.get(skill_id, 0)
+
+func set_skill_rank(skill_id: String, rank: int):
+	"""Set rank for a skill"""
+	if rank <= 0:
+		skill_ranks.erase(skill_id)
+	else:
+		skill_ranks[skill_id] = rank
+
+func has_learned_skill(skill_id: String) -> bool:
+	"""Check if a skill has been learned (rank >= 1)"""
+	return skill_ranks.get(skill_id, 0) >= 1
+
+func get_all_learned_skill_ids() -> Array[String]:
+	"""Get IDs of all learned skills"""
+	var ids: Array[String] = []
+	for skill_id in skill_ranks:
+		if skill_ranks[skill_id] > 0:
+			ids.append(skill_id)
+	return ids
+
+func reset_all_skills():
+	"""Reset all skills and refund points"""
+	var spent = get_spent_skill_points()
+	skill_ranks.clear()
+	skill_points = total_skill_points
+	print("🌳 Reset all skills, refunded %d points" % spent)
 
 # ============================================================================
 # DICE METHODS
@@ -296,6 +346,29 @@ func get_default_actions() -> Array[Dictionary]:
 	]
 
 # ============================================================================
+# SERIALIZATION
+# ============================================================================
+
+func to_save_data() -> Dictionary:
+	"""Serialize class state for saving"""
+	return {
+		"class_id": class_id,
+		"level": level,
+		"experience": experience,
+		"skill_points": skill_points,
+		"total_skill_points": total_skill_points,
+		"skill_ranks": skill_ranks.duplicate()
+	}
+
+func load_save_data(data: Dictionary):
+	"""Restore class state from save data"""
+	level = data.get("level", 1)
+	experience = data.get("experience", 0)
+	skill_points = data.get("skill_points", 0)
+	total_skill_points = data.get("total_skill_points", 0)
+	skill_ranks = data.get("skill_ranks", {}).duplicate()
+
+# ============================================================================
 # VALIDATION
 # ============================================================================
 
@@ -327,9 +400,10 @@ func validate() -> Array[String]:
 	return warnings
 
 func _to_string() -> String:
-	return "PlayerClass<%s Lv.%d: %d dice, %d trees>" % [
+	return "PlayerClass<%s Lv.%d: %d dice, %d trees, %d skills learned>" % [
 		player_class_name,
 		level,
 		starting_dice.size(),
-		get_skill_tree_count()
+		get_skill_tree_count(),
+		skill_ranks.size()
 	]

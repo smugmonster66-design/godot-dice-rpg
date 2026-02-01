@@ -316,18 +316,51 @@ func switch_class(p_class_name: String) -> bool:
 	if not available_classes.has(p_class_name):
 		return false
 	
+	# Remove old class's dice and skill affixes
 	if active_class and dice_pool:
 		dice_pool.remove_dice_by_source(active_class.player_class_name)
+		
+		# Remove skill affixes from old class
+		for skill in active_class.get_all_skills():
+			if skill:
+				affix_manager.remove_affixes_by_source(skill.skill_name)
 	
+	# Switch to new class
 	active_class = available_classes[p_class_name]
 	
+	# Add new class's dice
 	if dice_pool and active_class:
 		var class_dice = active_class.get_all_class_dice()
 		dice_pool.add_dice_from_source(class_dice, active_class.player_class_name, ["class"])
 	
+	# Reapply skill affixes for new class
+	if active_class:
+		_reapply_class_skill_affixes()
+	
 	class_changed.emit(active_class)
 	print("Switched to class: %s" % p_class_name)
 	return true
+
+func _reapply_class_skill_affixes():
+	"""Reapply all learned skill affixes for active class"""
+	if not active_class:
+		return
+	
+	for skill in active_class.get_all_skills():
+		if not skill:
+			continue
+		
+		var rank = active_class.get_skill_rank(skill.skill_id)
+		if rank <= 0:
+			continue
+		
+		# Apply affixes for all learned ranks
+		for r in range(1, rank + 1):
+			var affixes = skill.get_affixes_for_rank(r)
+			for affix in affixes:
+				if affix:
+					var affix_copy = affix.duplicate_with_source(skill.skill_name, "skill")
+					affix_manager.add_affix(affix_copy)
 
 # ============================================================================
 # STATUS EFFECTS

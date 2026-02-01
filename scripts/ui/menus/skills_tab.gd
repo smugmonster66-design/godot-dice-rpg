@@ -31,7 +31,6 @@ signal skill_learned(skill: SkillResource, new_rank: int)
 # ============================================================================
 var player: Player = null
 var current_tree_index: int = 0
-var skill_ranks: Dictionary = {}  # skill_id -> current_rank
 
 # ============================================================================
 # INITIALIZATION
@@ -93,6 +92,21 @@ func on_external_data_change():
 	refresh()
 
 # ============================================================================
+# HELPER - Get skill ranks from active class
+# ============================================================================
+
+func _get_skill_rank(skill_id: String) -> int:
+	"""Get skill rank from player's active class"""
+	if player and player.active_class:
+		return player.active_class.get_skill_rank(skill_id)
+	return 0
+
+func _set_skill_rank(skill_id: String, rank: int):
+	"""Set skill rank on player's active class"""
+	if player and player.active_class:
+		player.active_class.set_skill_rank(skill_id, rank)
+
+# ============================================================================
 # HEADER
 # ============================================================================
 
@@ -131,7 +145,6 @@ func _update_tree_tabs():
 	
 	var trees = player.active_class.get_skill_trees()
 	
-	# Update tab 1
 	if tree_tab_1:
 		if trees.size() > 0 and trees[0]:
 			tree_tab_1.text = trees[0].tree_name
@@ -139,7 +152,6 @@ func _update_tree_tabs():
 		else:
 			tree_tab_1.hide()
 	
-	# Update tab 2
 	if tree_tab_2:
 		if trees.size() > 1 and trees[1]:
 			tree_tab_2.text = trees[1].tree_name
@@ -147,7 +159,6 @@ func _update_tree_tabs():
 		else:
 			tree_tab_2.hide()
 	
-	# Update tab 3
 	if tree_tab_3:
 		if trees.size() > 2 and trees[2]:
 			tree_tab_3.text = trees[2].tree_name
@@ -215,11 +226,10 @@ func _update_single_skill_slot(slot: SkillSlot):
 		return
 	
 	var skill_id = skill.skill_id
-	var current_rank = skill_ranks.get(skill_id, 0)
+	var current_rank = _get_skill_rank(skill_id)
 	
 	slot.set_rank(current_rank)
 	
-	# Check if prerequisites are met
 	if _are_prerequisites_met(skill):
 		if current_rank >= skill.get_max_rank():
 			slot.set_state(SkillButton.State.MAXED)
@@ -238,9 +248,8 @@ func _are_prerequisites_met(skill: SkillResource) -> bool:
 			continue
 		
 		var required_id = required_skill.skill_id
-		var current_rank = skill_ranks.get(required_id, 0)
+		var current_rank = _get_skill_rank(required_id)
 		
-		# Require at least 1 rank in prerequisite
 		if current_rank < 1:
 			return false
 	
@@ -261,21 +270,18 @@ func _on_skill_clicked(skill: SkillResource):
 		return
 	
 	var skill_id = skill.skill_id
-	var current_rank = skill_ranks.get(skill_id, 0)
+	var current_rank = _get_skill_rank(skill_id)
 	var max_rank = skill.get_max_rank()
 	
-	# Check if already maxed
 	if current_rank >= max_rank:
 		print("🌳 %s is already maxed (%d/%d)" % [skill.skill_name, current_rank, max_rank])
 		return
 	
-	# Check prerequisites
 	if not _are_prerequisites_met(skill):
 		print("🌳 Prerequisites not met for %s" % skill.skill_name)
 		_show_missing_prerequisites(skill)
 		return
 	
-	# Check skill points
 	var available_points = player.active_class.get_available_skill_points()
 	if available_points < skill.skill_point_cost:
 		print("🌳 Not enough skill points for %s (need %d, have %d)" % [
@@ -283,7 +289,6 @@ func _on_skill_clicked(skill: SkillResource):
 		])
 		return
 	
-	# Learn the skill!
 	_learn_skill(skill)
 
 func _show_missing_prerequisites(skill: SkillResource):
@@ -293,7 +298,7 @@ func _show_missing_prerequisites(skill: SkillResource):
 			continue
 		
 		var required_id = required_skill.skill_id
-		var current_rank = skill_ranks.get(required_id, 0)
+		var current_rank = _get_skill_rank(required_id)
 		
 		if current_rank < 1:
 			print("  ❌ Missing: %s" % required_skill.skill_name)
@@ -301,7 +306,7 @@ func _show_missing_prerequisites(skill: SkillResource):
 func _learn_skill(skill: SkillResource):
 	"""Actually learn/rank up a skill"""
 	var skill_id = skill.skill_id
-	var current_rank = skill_ranks.get(skill_id, 0)
+	var current_rank = _get_skill_rank(skill_id)
 	var new_rank = current_rank + 1
 	
 	# Spend skill point(s)
@@ -310,8 +315,8 @@ func _learn_skill(skill: SkillResource):
 			print("🌳 Failed to spend skill point!")
 			return
 	
-	# Update rank tracking
-	skill_ranks[skill_id] = new_rank
+	# Update rank on the class
+	_set_skill_rank(skill_id, new_rank)
 	
 	# Apply affixes from the new rank
 	var new_affixes = skill.get_affixes_for_rank(new_rank)
@@ -323,14 +328,11 @@ func _learn_skill(skill: SkillResource):
 	
 	print("🌳 Learned %s rank %d!" % [skill.skill_name, new_rank])
 	
-	# Emit signal
 	skill_learned.emit(skill, new_rank)
-	
-	# Refresh display
 	refresh()
 
 # ============================================================================
-# SKILL REFUND (optional feature)
+# SKILL REFUND
 # ============================================================================
 
 func refund_skill(skill: SkillResource) -> bool:
@@ -342,29 +344,22 @@ func refund_skill(skill: SkillResource) -> bool:
 		return false
 	
 	var skill_id = skill.skill_id
-	var current_rank = skill_ranks.get(skill_id, 0)
+	var current_rank = _get_skill_rank(skill_id)
 	
 	if current_rank <= 0:
 		print("🌳 %s has no ranks to refund" % skill.skill_name)
 		return false
 	
-	# Check if other skills depend on this one
 	if _is_skill_required_by_others(skill):
 		print("🌳 Cannot refund %s - other skills require it" % skill.skill_name)
 		return false
 	
 	# Remove affixes from current rank
-	var rank_affixes = skill.get_affixes_for_rank(current_rank)
-	for affix in rank_affixes:
-		if affix:
-			player.affix_manager.remove_affixes_by_source(skill.skill_name)
+	player.affix_manager.remove_affixes_by_source(skill.skill_name)
 	
 	# Reduce rank
 	var new_rank = current_rank - 1
-	if new_rank <= 0:
-		skill_ranks.erase(skill_id)
-	else:
-		skill_ranks[skill_id] = new_rank
+	_set_skill_rank(skill_id, new_rank)
 	
 	# Refund skill point(s)
 	for i in range(skill.skill_point_cost):
@@ -387,13 +382,11 @@ func _is_skill_required_by_others(skill: SkillResource) -> bool:
 				continue
 			
 			var other_id = other_skill.skill_id
-			var other_rank = skill_ranks.get(other_id, 0)
+			var other_rank = _get_skill_rank(other_id)
 			
-			# Skip unlearned skills
 			if other_rank <= 0:
 				continue
 			
-			# Check if other skill requires this one
 			for required in other_skill.required_skills:
 				if required and required.skill_id == skill.skill_id:
 					return true
@@ -419,59 +412,22 @@ func reset_all_skills():
 			if skill:
 				player.affix_manager.remove_affixes_by_source(skill.skill_name)
 	
-	# Refund all spent points
-	var spent = player.active_class.get_spent_skill_points()
-	for i in range(spent):
-		player.active_class.refund_skill_point()
-	
-	# Clear rank tracking
-	skill_ranks.clear()
+	# Reset on the class itself
+	player.active_class.reset_all_skills()
 	
 	print("🌳 All skills reset!")
 	refresh()
-
-# ============================================================================
-# SERIALIZATION (for save/load)
-# ============================================================================
-
-func get_skill_ranks() -> Dictionary:
-	"""Get all learned skill ranks for saving"""
-	return skill_ranks.duplicate()
-
-func set_skill_ranks(ranks: Dictionary):
-	"""Restore skill ranks from save data and reapply affixes"""
-	skill_ranks = ranks.duplicate()
-	
-	# Reapply all affixes
-	if player:
-		for content in [tree_content_1, tree_content_2, tree_content_3]:
-			if not content:
-				continue
-			
-			for slot in _find_skill_slots(content):
-				var skill = slot.get_skill()
-				if not skill:
-					continue
-				
-				var skill_id = skill.skill_id
-				var rank = skill_ranks.get(skill_id, 0)
-				
-				# Apply affixes for all learned ranks
-				for r in range(1, rank + 1):
-					var affixes = skill.get_affixes_for_rank(r)
-					for affix in affixes:
-						if affix:
-							var affix_copy = affix.duplicate_with_source(skill.skill_name, "skill")
-							player.affix_manager.add_affix(affix_copy)
-	
-	_update_skill_slots()
 
 # ============================================================================
 # DEBUG
 # ============================================================================
 
 func print_learned_skills():
-	"""Debug: Print all learned skills"""
-	print("=== Learned Skills ===")
-	for skill_id in skill_ranks:
-		print("  %s: Rank %d" % [skill_id, skill_ranks[skill_id]])
+	"""Debug: Print all learned skills for active class"""
+	if not player or not player.active_class:
+		print("No active class")
+		return
+	
+	print("=== Learned Skills for %s ===" % player.active_class.player_class_name)
+	for skill_id in player.active_class.skill_ranks:
+		print("  %s: Rank %d" % [skill_id, player.active_class.skill_ranks[skill_id]])
