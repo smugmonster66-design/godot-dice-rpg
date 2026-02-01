@@ -132,6 +132,7 @@ layout_mode = 2
 metadata/tab_name = "Skills"
 
 [node name="Equipment" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
+visible = false
 layout_mode = 2
 script = ExtResource("4_fbi1g")
 metadata/tab_name = "Equipment"
@@ -257,7 +258,6 @@ layout_mode = 2
 text = "Unequip"
 
 [node name="Inventory" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
-visible = false
 layout_mode = 2
 script = ExtResource("5_ldd5v")
 metadata/tab_name = "Inventory"
@@ -361,6 +361,20 @@ custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="ActionButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="UseButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/ActionButtons"]
+layout_mode = 2
+text = "Use"
+
+[node name="EquipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/ActionButtons"]
+layout_mode = 2
+text = "Equip"
+
 [node name="DetailsVBox" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel"]
 layout_mode = 2
 theme_override_constants/separation = 10
@@ -382,20 +396,6 @@ autowrap_mode = 3
 
 [node name="AffixesContainer" type="VBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
 layout_mode = 2
-
-[node name="ActionButtons" type="HBoxContainer" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox"]
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="UseButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
-layout_mode = 2
-text = "Use"
-
-[node name="EquipButton" type="Button" parent="PanelContainer/VBoxContainer/ContentArea/Inventory/MainVBox/InventoryDetailsPanel/DetailsVBox/ActionButtons"]
-layout_mode = 2
-text = "Equip"
 
 [node name="Quests" type="Control" parent="PanelContainer/VBoxContainer/ContentArea" groups=["player_menu_tab_content"]]
 visible = false

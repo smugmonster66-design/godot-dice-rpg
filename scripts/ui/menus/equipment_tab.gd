@@ -152,13 +152,32 @@ func _apply_item_visual(button: Button, item: Dictionary):
 	button.remove_theme_font_size_override("font_size")
 	
 	if item.has("icon") and item.icon:
-		# Show item icon (Button uses icon property, not texture)
+		# Show item icon
 		button.icon = item.icon
-		# Button doesn't have expand_icon - just set alignment
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		
-		# Set minimum size for icon display
-		button.custom_minimum_size = Vector2(64, 64)
+		# CRITICAL: Set these properties for icon display
+		button.custom_minimum_size = Vector2(80, 80)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		
+		# Create a minimal background so button is visible
+		var bg_style = StyleBoxFlat.new()
+		bg_style.bg_color = Color(0.15, 0.15, 0.15, 0.8)
+		bg_style.set_corner_radius_all(4)
+		bg_style.set_border_width_all(1)
+		bg_style.border_color = Color(0.3, 0.3, 0.3)
+		button.add_theme_stylebox_override("normal", bg_style)
+		
+		# Hover state
+		var hover_style = bg_style.duplicate()
+		hover_style.border_color = Color(0.5, 0.5, 0.5)
+		button.add_theme_stylebox_override("hover", hover_style)
+		
+		# Pressed state
+		var pressed_style = bg_style.duplicate()
+		pressed_style.bg_color = Color(0.2, 0.2, 0.2, 0.9)
+		button.add_theme_stylebox_override("pressed", pressed_style)
 	else:
 		# Show colored placeholder with item initial
 		var stylebox = StyleBoxFlat.new()
@@ -172,8 +191,7 @@ func _apply_item_visual(button: Button, item: Dictionary):
 		var item_name = item.get("name", "?")
 		button.text = item_name[0] if item_name.length() > 0 else "?"
 		button.add_theme_font_size_override("font_size", 24)
-		
-		
+
 func _apply_empty_visual(button: Button):
 	"""Apply empty slot visual"""
 	button.icon = null
