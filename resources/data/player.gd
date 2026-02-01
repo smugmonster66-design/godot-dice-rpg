@@ -65,7 +65,7 @@ var status_effects: Dictionary = {
 # ============================================================================
 # DICE POOL (created as node at runtime)
 # ============================================================================
-var dice_pool: PlayerDicePool = null
+var dice_pool: PlayerDiceCollection = null
 
 # ============================================================================
 # SIGNALS
@@ -82,15 +82,16 @@ signal player_died()
 # INITIALIZATION
 # ============================================================================
 
-func _init():
+func _ready():
 	current_hp = max_hp
 	current_mana = max_mana
 	
-	# Create dice pool node
-	dice_pool = PlayerDicePool.new()
+	# Initialize dice collection (replaces old PlayerDicePool)
+	dice_pool = PlayerDiceCollection.new()
 	dice_pool.name = "DicePool"
+	add_child(dice_pool)
 	
-	print("Player resource initialized")
+	print("🎲 Player dice collection initialized")
 
 # ============================================================================
 # STAT MANAGEMENT
