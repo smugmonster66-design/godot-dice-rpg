@@ -41,9 +41,22 @@ func add_item_actions():
 		return
 	
 	print("📋 Scanning equipped items for actions...")
+	
+	# Track items we've already processed (to avoid duplicates from heavy weapons)
+	var processed_items: Array = []
+	
 	for slot in player.equipment:
 		var item = player.equipment[slot]
-		if item and item.has("actions"):
+		
+		# Skip if no item or already processed (heavy weapons appear in both hands)
+		if not item or item in processed_items:
+			continue
+		
+		# Mark as processed
+		processed_items.append(item)
+		
+		# Add actions from this item
+		if item.has("actions"):
 			print("  Found item with actions: %s" % item.get("name"))
 			for action_data in item.actions:
 				print("    Action data: %s" % str(action_data))

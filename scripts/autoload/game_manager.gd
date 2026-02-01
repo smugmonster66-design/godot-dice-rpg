@@ -93,7 +93,7 @@ func initialize_player():
 			player.active_class.gain_experience(100)
 	
 	# Add starting items
-	add_starting_items()
+	#add_starting_items()
 	
 	if player.active_class:
 		print("Player created: %s Level %d" % [player.active_class.player_class_name, player.active_class.level])
@@ -102,7 +102,7 @@ func initialize_player():
 	
 	player_created.emit(player)
 
-func add_starting_items():
+#func add_starting_items():
 	"""Add starting equipment from Inspector-configured array"""
 	print("🎒 Adding starting items...")
 	

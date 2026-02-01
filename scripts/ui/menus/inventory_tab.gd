@@ -1,7 +1,18 @@
-# inventory_tab.gd - Inventory management tab
+# inventory_tab.gd - Inventory management tab with rarity shader support
 # Self-registers with parent, emits signals upward
 # Uses button-based category filtering with vertical sidebar
 extends Control
+
+# ============================================================================
+# RARITY SHADER CONFIGURATION
+# ============================================================================
+@export var rarity_colors: RarityColors = null
+@export var use_rarity_shaders: bool = true
+
+@export_group("Shader Settings")
+@export_range(0.0, 0.5) var border_width: float = 0.08
+@export_range(0.0, 2.0) var glow_strength: float = 0.8
+@export_range(0.0, 5.0) var pulse_speed: float = 1.5
 
 # ============================================================================
 # SIGNALS (emitted upward)
@@ -27,6 +38,9 @@ var item_details_panel: PanelContainer
 # Current filter
 var current_category: String = "All"
 
+# Shader resources
+var rarity_shader: Shader = null
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -35,6 +49,18 @@ func _ready():
 	add_to_group("menu_tabs")  # Self-register
 	add_to_group("player_menu_tab_content")  # Register as tab content
 	await get_tree().process_frame
+	
+	# Load rarity shader
+	rarity_shader = load("res://shaders/rarity_border.gdshader")
+	
+	# Load default rarity colors if not set
+	if not rarity_colors:
+		var default_colors = load("res://resources/data/rarity_colors.tres")
+		if default_colors:
+			rarity_colors = default_colors
+		else:
+			rarity_colors = RarityColors.new()
+	
 	_discover_ui_elements()
 	print("🎒 InventoryTab: Ready")
 
@@ -63,21 +89,8 @@ func _discover_ui_elements():
 	if panels.size() > 0:
 		item_details_panel = panels[0]
 		print("  ✓ Details panel registered")
-		_setup_details_panel()
-
-func _setup_details_panel():
-	"""Connect signals in details panel if it exists"""
-	if not item_details_panel:
-		return
-	
-	# Find buttons in details panel
-	var buttons = item_details_panel.find_children("*", "Button", true, false)
-	for button in buttons:
-		var btn_name = button.name.to_lower()
-		if "use" in btn_name:
-			button.pressed.connect(_on_use_item_pressed)
-		elif "equip" in btn_name:
-			button.pressed.connect(_on_equip_item_pressed)
+	else:
+		print("  ⚠️ No inventory details panel found in scene")
 
 # ============================================================================
 # PUBLIC API
@@ -86,20 +99,20 @@ func _setup_details_panel():
 func set_player(p_player: Player):
 	"""Set player and refresh"""
 	player = p_player
+	
+	if player:
+		# Connect to player inventory signals if available
+		if player.has_signal("inventory_changed") and not player.inventory_changed.is_connected(refresh):
+			player.inventory_changed.connect(refresh)
+	
 	refresh()
 
 func refresh():
-	"""Refresh all displayed data"""
+	"""Refresh all inventory displays"""
 	if not player:
 		return
 	
 	print("🎒 Refreshing inventory - Total items: %d, Category: %s" % [player.inventory.size(), current_category])
-	
-	# Debug: print first few items
-	if player.inventory.size() > 0:
-		for i in range(min(3, player.inventory.size())):
-			var item = player.inventory[i]
-			print("  Item %d: %s (slot: %s, type: %s)" % [i, item.get("name", "?"), item.get("slot", "none"), item.get("type", "none")])
 	
 	_rebuild_inventory_grid()
 	_update_item_details()
@@ -127,6 +140,18 @@ func _rebuild_inventory_grid():
 	
 	# Filter items by current category
 	var filtered_items = _get_filtered_items()
+	
+	print("  📦 Showing %d items in %s" % [filtered_items.size(), current_category])
+	
+	# Show empty message if no items
+	if filtered_items.size() == 0:
+		var empty_label = Label.new()
+		empty_label.text = "No items in this category"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		inventory_grid.add_child(empty_label)
+		return
 	
 	# Create button for each item in filtered inventory
 	for item in filtered_items:
@@ -158,31 +183,52 @@ func _get_filtered_items() -> Array:
 	
 	return filtered
 
-func _create_item_button(item: Dictionary) -> Button:
-	"""Create a button for an inventory item"""
-	var btn = Button.new()
+func _create_item_button(item: Dictionary) -> TextureButton:
+	"""Create a button for an inventory item with rarity shader"""
+	var btn = TextureButton.new()
 	btn.custom_minimum_size = Vector2(80, 80)
+	btn.expand_mode = TextureButton.EXPAND_FIT_WIDTH_PROPORTIONAL
+	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	
-	# Show icon if available
+	# Set item icon if available
 	if item.has("icon") and item.icon:
-		btn.icon = item.icon
-		btn.expand_icon = true
+		btn.texture_normal = item.icon
 	else:
-		# Show colored square based on type
-		var stylebox = StyleBoxFlat.new()
-		stylebox.bg_color = _get_item_type_color(item)
-		btn.add_theme_stylebox_override("normal", stylebox)
-		
-		# Show first letter of item name
-		var item_name = item.get("name", "?")
-		btn.text = item_name[0] if item_name.length() > 0 else "?"
+		# Create colored placeholder
+		var img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		img.fill(_get_item_type_color(item))
+		var tex = ImageTexture.create_from_image(img)
+		btn.texture_normal = tex
+	
+	# Apply rarity shader
+	if use_rarity_shaders and rarity_shader and rarity_colors:
+		_apply_rarity_shader_to_button(btn, item)
 	
 	btn.pressed.connect(_on_item_button_pressed.bind(item))
 	
 	return btn
 
+func _apply_rarity_shader_to_button(button: TextureButton, item: Dictionary):
+	"""Apply rarity border shader to a button"""
+	# Create shader material
+	var shader_material = ShaderMaterial.new()
+	shader_material.shader = rarity_shader
+	
+	# Get rarity color
+	var rarity_name = item.get("rarity", "Common")
+	var border_color = rarity_colors.get_color_for_rarity(rarity_name)
+	
+	# Set shader parameters
+	shader_material.set_shader_parameter("border_color", border_color)
+	shader_material.set_shader_parameter("border_width", border_width)
+	shader_material.set_shader_parameter("glow_strength", glow_strength)
+	shader_material.set_shader_parameter("pulse_speed", pulse_speed)
+	
+	# Apply material
+	button.material = shader_material
+
 func _get_item_type_color(item: Dictionary) -> Color:
-	"""Get color for item type"""
+	"""Get color for item type (fallback when no icon)"""
 	if item.has("slot"):
 		return Color(0.4, 0.6, 0.4)  # Equipment - green
 	
@@ -198,25 +244,28 @@ func _update_item_details():
 		return
 	
 	# Find UI elements in details panel
-	var name_labels = item_details_panel.find_children("ItemName", "Label", true, false)
-	var image_rects = item_details_panel.find_children("ItemImage", "TextureRect", true, false)
-	var desc_labels = item_details_panel.find_children("ItemDescription", "Label", true, false)
-	var affixes_container = item_details_panel.find_children("AffixesContainer", "VBoxContainer", true, false)
-	var action_containers = item_details_panel.find_children("ActionButtons", "HBoxContainer", true, false)
+	var name_labels = item_details_panel.find_children("*Name*", "Label", true, false)
+	var image_rects = item_details_panel.find_children("*Image*", "TextureRect", true, false)
+	var desc_labels = item_details_panel.find_children("*Desc*", "Label", true, false)
+	var affix_containers = item_details_panel.find_children("*Affix*", "VBoxContainer", true, false)
+	var use_buttons = item_details_panel.find_children("*Use*", "Button", true, false)
+	var equip_buttons = item_details_panel.find_children("*Equip*", "Button", true, false)
 	
 	if selected_item.is_empty():
-		# No item selected
+		# Clear details
 		if name_labels.size() > 0:
 			name_labels[0].text = "No Item Selected"
 		if image_rects.size() > 0:
 			image_rects[0].texture = null
 		if desc_labels.size() > 0:
 			desc_labels[0].text = ""
-		if affixes_container.size() > 0:
-			for child in affixes_container[0].get_children():
+		if affix_containers.size() > 0:
+			for child in affix_containers[0].get_children():
 				child.queue_free()
-		if action_containers.size() > 0:
-			action_containers[0].hide()
+		if use_buttons.size() > 0:
+			use_buttons[0].hide()
+		if equip_buttons.size() > 0:
+			equip_buttons[0].hide()
 		return
 	
 	# Show item name
@@ -231,58 +280,55 @@ func _update_item_details():
 			# Create colored placeholder
 			var img = Image.create(100, 100, false, Image.FORMAT_RGBA8)
 			img.fill(_get_item_type_color(selected_item))
-			image_rects[0].texture = ImageTexture.create_from_image(img)
+			var tex = ImageTexture.create_from_image(img)
+			image_rects[0].texture = tex
 	
-	# Show item description
+	# Show description
 	if desc_labels.size() > 0:
-		desc_labels[0].text = selected_item.get("description", "")
+		desc_labels[0].text = selected_item.get("description", "No description.")
 	
 	# Show affixes
-	if affixes_container.size() > 0:
-		var affix_vbox = affixes_container[0]
-		
-		# Clear existing affixes
-		for child in affix_vbox.get_children():
+	if affix_containers.size() > 0 and selected_item.has("affixes"):
+		var affix_container = affix_containers[0]
+		for child in affix_container.get_children():
 			child.queue_free()
 		
-		# Add affix displays
-		if selected_item.has("affixes") and selected_item.affixes.size() > 0:
-			for affix in selected_item.affixes:
-				var affix_panel = _create_affix_display(affix)
-				affix_vbox.add_child(affix_panel)
+		for affix in selected_item.affixes:
+			var affix_display = _create_affix_display(affix)
+			affix_container.add_child(affix_display)
 	
-	# Update action buttons visibility
-	if action_containers.size() > 0:
-		action_containers[0].show()
-		
-		var buttons = action_containers[0].find_children("*", "Button", false, false)
-		for btn in buttons:
-			var btn_name = btn.name.to_lower()
-			if "use" in btn_name:
-				btn.visible = selected_item.get("type", "") == "Consumable"
-			elif "equip" in btn_name:
-				btn.visible = selected_item.has("slot")
+	# Show Use button for consumables
+	if use_buttons.size() > 0:
+		var use_btn = use_buttons[0]
+		if selected_item.get("type", "") == "Consumable":
+			use_btn.show()
+			if not use_btn.pressed.is_connected(_on_use_item_pressed):
+				use_btn.pressed.connect(_on_use_item_pressed)
+		else:
+			use_btn.hide()
+	
+	# Show Equip button for equipment
+	if equip_buttons.size() > 0:
+		var equip_btn = equip_buttons[0]
+		if selected_item.has("slot"):
+			equip_btn.show()
+			if not equip_btn.pressed.is_connected(_on_equip_item_pressed):
+				equip_btn.pressed.connect(_on_equip_item_pressed)
+		else:
+			equip_btn.hide()
 
-func _create_affix_display(affix) -> PanelContainer:
-	"""Create a visual display for a single affix"""
+func _create_affix_display(affix: Dictionary) -> PanelContainer:
+	"""Create a display panel for an affix"""
 	var panel = PanelContainer.new()
 	
-	# Style the panel
-	var stylebox = StyleBoxFlat.new()
-	stylebox.bg_color = Color(0.2, 0.2, 0.3, 0.5)
-	stylebox.set_corner_radius_all(4)
-	panel.add_theme_stylebox_override("panel", stylebox)
-	
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 2)
 	panel.add_child(vbox)
 	
 	# Affix name
 	var name_label = Label.new()
-	var prefix_suffix = " (Prefix)" if affix.get("is_prefix", true) else " (Suffix)"
-	name_label.text = affix.get("display_name", "Unknown") + prefix_suffix
-	name_label.add_theme_font_size_override("font_size", 12)
-	name_label.add_theme_color_override("font_color", Color(0.8, 0.6, 1.0))  # Purple tint
+	name_label.text = affix.get("display_name", affix.get("name", "Unknown"))
+	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 	vbox.add_child(name_label)
 	
 	# Affix description

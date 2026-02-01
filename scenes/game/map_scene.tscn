@@ -1,8 +1,12 @@
-[gd_scene load_steps=4 format=3 uid="uid://cx781vq4omutw"]
+[gd_scene load_steps=8 format=3 uid="uid://cx781vq4omutw"]
 
 [ext_resource type="Script" uid="uid://ex7lxpkjwyaa" path="res://scripts/game/map_manager.gd" id="1_yjpty"]
+[ext_resource type="Script" uid="uid://fxekowigxepb" path="res://scripts/ui/components/add_gear_button.gd" id="2_2b48g"]
 [ext_resource type="PackedScene" uid="uid://b4cwd535525ap" path="res://scenes/ui/menus/player_menu.tscn" id="2_gvwpr"]
 [ext_resource type="Script" uid="uid://cmngrutsjny1t" path="res://scripts/ui/combat/post_combat_summary.gd" id="3_2b48g"]
+[ext_resource type="Script" uid="uid://gax4pbuq25uv" path="res://resources/data/equippable_item.gd" id="3_3c4m5"]
+[ext_resource type="Resource" uid="uid://dewowlwg6ekcd" path="res://resources/items/head/rusty_helm.tres" id="4_bg5j8"]
+[ext_resource type="Resource" uid="uid://do2lai1diivsb" path="res://resources/items/main hand/flaming_greatsword.tres" id="5_t547c"]
 
 [node name="MapScene" type="Node2D"]
 script = ExtResource("1_yjpty")
@@ -45,9 +49,10 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -81.5
-offset_top = -40.0
-offset_right = 81.5
+offset_left = -397.0
+offset_top = -222.0
+offset_right = 397.0
+offset_bottom = -5.0
 grow_horizontal = 2
 grow_vertical = 0
 alignment = 1
@@ -59,6 +64,12 @@ text = "Menu"
 [node name="CombatButton" type="Button" parent="UILayer/TopBar"]
 layout_mode = 2
 text = "Test Combat"
+
+[node name="AddStartingGearButton" type="Button" parent="UILayer/TopBar"]
+layout_mode = 2
+text = "Add Starting Gear"
+script = ExtResource("2_2b48g")
+starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c")])
 
 [node name="PlayerMenu" parent="UILayer" instance=ExtResource("2_gvwpr")]
 custom_minimum_size = Vector2(300, 400)

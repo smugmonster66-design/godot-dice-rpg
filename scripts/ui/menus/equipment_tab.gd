@@ -145,10 +145,20 @@ func _apply_item_visual(button: Button, item: Dictionary):
 	button.text = ""
 	button.icon = null
 	
+	# Remove old style overrides
+	button.remove_theme_stylebox_override("normal")
+	button.remove_theme_stylebox_override("hover")
+	button.remove_theme_stylebox_override("pressed")
+	button.remove_theme_font_size_override("font_size")
+	
 	if item.has("icon") and item.icon:
 		# Show item icon
 		button.icon = item.icon
 		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		
+		# Set minimum size for icon display
+		button.custom_minimum_size = Vector2(64, 64)
 	else:
 		# Show colored placeholder with item initial
 		var stylebox = StyleBoxFlat.new()
