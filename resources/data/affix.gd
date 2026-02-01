@@ -1,6 +1,44 @@
-# affix.gd - Standalone affix resource with category-based effects
+# res://resources/data/affix.gd
+# Standalone affix resource with category-based effects
 extends Resource
 class_name Affix
+
+# ============================================================================
+# CATEGORY ENUM
+# ============================================================================
+enum Category {
+	NONE,
+	# Stat Bonuses (flat)
+	STRENGTH_BONUS,
+	AGILITY_BONUS,
+	INTELLECT_BONUS,
+	VITALITY_BONUS,
+	LUCK_BONUS,
+	# Stat Multipliers
+	STRENGTH_MULTIPLIER,
+	AGILITY_MULTIPLIER,
+	INTELLECT_MULTIPLIER,
+	VITALITY_MULTIPLIER,
+	LUCK_MULTIPLIER,
+	# Combat Bonuses
+	DAMAGE_BONUS,
+	DAMAGE_MULTIPLIER,
+	DEFENSE_BONUS,
+	DEFENSE_MULTIPLIER,
+	ARMOR_BONUS,
+	BARRIER_BONUS,
+	# Health/Mana
+	HEALTH_BONUS,
+	MANA_BONUS,
+	# Special
+	ELEMENTAL,
+	NEW_ACTION,
+	DICE,
+	PER_TURN,
+	ON_HIT,
+	PROC,
+	MISC
+}
 
 # ============================================================================
 # BASIC DATA
@@ -10,50 +48,31 @@ class_name Affix
 @export var icon: Texture2D = null
 
 # ============================================================================
-# GRANTED ACTION (for "new_action" category)
-# ============================================================================
-@export_group("Granted Action")
-## Drag an Action resource here if this affix grants a combat action
-@export var granted_action: Action = null
-
-# ============================================================================
 # CATEGORIZATION
 # ============================================================================
-# Affixes can have multiple category tags
-# Categories determine when/how the affix is applied
-@export var categories: Array[String] = []
-
-# Valid categories:
-# - strength_bonus, agility_bonus, intellect_bonus, luck_bonus
-# - strength_multiplier, agility_multiplier, intellect_multiplier, luck_multiplier
-# - damage_bonus, damage_multiplier
-# - defense_bonus, defense_multiplier
-# - elemental, misc, skill, new_action, per_turn, dice
+@export var category: Category = Category.NONE
 
 # ============================================================================
 # SOURCE TRACKING
 # ============================================================================
-# Tracks where this affix came from (for removal)
-var source: String = ""  # e.g., "Iron Sword", "Warrior - Power Strike Rank 2"
-var source_type: String = ""  # e.g., "item", "skill", "consumable", "buff"
+var source: String = ""
+var source_type: String = ""
 
 # ============================================================================
 # EFFECT DATA
 # ============================================================================
-# The value/data used by the effect function
-# Use the appropriate field based on affix type:
-
-# For simple numeric bonuses/multipliers (most common)
+@export_group("Effect Values")
+## For simple numeric bonuses/multipliers
 @export var effect_number: float = 0.0
-
-# For complex effects that need multiple values
+## For complex effects that need multiple values
 @export var effect_data: Dictionary = {}
 
-# Examples:
-# - Stat bonus: effect_number = 5.0
-# - Multiplier: effect_number = 1.2
-# - Multi-stat: effect_data = {"strength": 3, "agility": 2}
-# - Max HP/Mana: effect_data = {"max_hp": 20}
+# ============================================================================
+# GRANTED ACTION (for NEW_ACTION category)
+# ============================================================================
+@export_group("Granted Action")
+## Drag an Action resource here if this affix grants a combat action
+@export var granted_action: Action = null
 
 # ============================================================================
 # EFFECT APPLICATION
@@ -63,7 +82,7 @@ func apply_effect() -> Variant:
 	"""Apply this affix's effect and return the result"""
 	
 	# If this grants an action, return it
-	if granted_action and has_category("new_action"):
+	if granted_action and category == Category.NEW_ACTION:
 		return granted_action
 	
 	if effect_number != 0.0:
@@ -74,16 +93,22 @@ func apply_effect() -> Variant:
 	return 0.0
 
 func can_stack_with(other_affix: Affix) -> bool:
-	"""Check if this affix can stack with another
-	
-	By default, affixes with the same name from different sources stack
-	Override this for special stacking rules
-	"""
+	"""Check if this affix can stack with another"""
 	if affix_name != other_affix.affix_name:
-		return true  # Different affixes always stack
-	
-	# Same affix name - check if sources are different
+		return true
 	return source != other_affix.source
+
+# ============================================================================
+# CATEGORY HELPERS
+# ============================================================================
+
+func is_category(check_category: Category) -> bool:
+	"""Check if this affix has a specific category"""
+	return category == check_category
+
+func get_category_name() -> String:
+	"""Get category name for display"""
+	return Category.keys()[category].capitalize().replace("_", " ")
 
 # ============================================================================
 # UTILITY
@@ -100,13 +125,12 @@ func matches_source(p_source: String) -> bool:
 	"""Check if this affix came from a specific source"""
 	return source == p_source
 
-func has_category(category: String) -> bool:
-	"""Check if this affix has a specific category tag"""
-	return category in categories
-
 func get_display_text() -> String:
 	"""Get formatted display text for UI"""
 	var text = affix_name
 	if source:
 		text += " (from %s)" % source
 	return text
+
+func _to_string() -> String:
+	return "Affix<%s: %s>" % [affix_name, get_category_name()]

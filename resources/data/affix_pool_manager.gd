@@ -1,4 +1,5 @@
-# affix_pool_manager.gd - Manages categorized affix pools
+# res://resources/data/affix_pool_manager.gd
+# Manages categorized affix pools
 extends RefCounted
 class_name AffixPoolManager
 
@@ -16,127 +17,97 @@ func _init():
 
 func _initialize_pools():
 	"""Create empty pools for all categories"""
-	# Stat bonuses
-	pools["strength_bonus"] = []
-	pools["agility_bonus"] = []
-	pools["intellect_bonus"] = []
-	pools["luck_bonus"] = []
-	
-	# Stat multipliers
-	pools["strength_multiplier"] = []
-	pools["agility_multiplier"] = []
-	pools["intellect_multiplier"] = []
-	pools["luck_multiplier"] = []
-	
-	# Combat
-	pools["damage_bonus"] = []
-	pools["damage_multiplier"] = []
-	pools["defense_bonus"] = []
-	pools["defense_multiplier"] = []
-	
-	# Special
-	pools["elemental"] = []
-	pools["misc"] = []
-	pools["skill"] = []
-	pools["new_action"] = []
-	pools["per_turn"] = []
-	pools["dice"] = []
+	for category in Affix.Category.values():
+		pools[category] = []
 
 # ============================================================================
 # ADD/REMOVE AFFIXES
 # ============================================================================
 
 func add_affix(affix: Affix):
-	"""Add an affix to all its category pools"""
+	"""Add an affix to its category pool"""
 	if not affix:
 		return
 	
-	for category in affix.categories:
-		if pools.has(category):
-			pools[category].append(affix)
-			print("  ✨ Added affix '%s' to pool '%s'" % [affix.affix_name, category])
-		else:
-			print("  ⚠️ Unknown category: %s" % category)
+	if not pools.has(affix.category):
+		pools[affix.category] = []
+	
+	pools[affix.category].append(affix)
 
 func remove_affix(affix: Affix):
-	"""Remove a specific affix from all pools"""
+	"""Remove a specific affix from its pool"""
 	if not affix:
 		return
 	
-	for category in affix.categories:
-		if pools.has(category):
-			pools[category].erase(affix)
-			print("  🗑️ Removed affix '%s' from pool '%s'" % [affix.affix_name, category])
+	if pools.has(affix.category):
+		pools[affix.category].erase(affix)
 
-func remove_affixes_by_source(source: String):
+func remove_affixes_by_source(p_source: String):
 	"""Remove all affixes from a specific source"""
-	var removed_count = 0
-	
 	for category in pools:
-		var pool = pools[category]
 		var to_remove = []
-		
-		for affix in pool:
-			if affix.matches_source(source):
+		for affix in pools[category]:
+			if affix.matches_source(p_source):
 				to_remove.append(affix)
-		
 		for affix in to_remove:
-			pool.erase(affix)
-			removed_count += 1
-	
-	if removed_count > 0:
-		print("  🗑️ Removed %d affixes from source: %s" % [removed_count, source])
+			pools[category].erase(affix)
 
 # ============================================================================
 # QUERY POOLS
 # ============================================================================
 
-func get_pool(category: String) -> Array:
+func get_pool(category: Affix.Category) -> Array[Affix]:
 	"""Get all affixes in a category"""
 	return pools.get(category, [])
 
-func get_affixes_by_source(source: String) -> Array[Affix]:
+func get_affixes_by_source(p_source: String) -> Array[Affix]:
 	"""Get all affixes from a specific source"""
 	var result: Array[Affix] = []
 	
 	for category in pools:
 		for affix in pools[category]:
-			if affix.matches_source(source) and affix not in result:
+			if affix.matches_source(p_source):
 				result.append(affix)
 	
 	return result
-
-func has_affixes_from_source(source: String) -> bool:
-	"""Check if any affixes exist from a source"""
-	return get_affixes_by_source(source).size() > 0
 
 # ============================================================================
 # CALCULATE STATS
 # ============================================================================
 
 func calculate_stat(base_value: float, stat_name: String) -> float:
-	"""Calculate a stat with bonuses then multipliers
-	
-	Args:
-		base_value: The base stat value
-		stat_name: Name of stat (strength, agility, intellect, luck)
-	
-	Returns:
-		Final calculated value
-	"""
+	"""Calculate a stat with bonuses then multipliers"""
 	var value = base_value
 	
+	var bonus_category: Affix.Category
+	var mult_category: Affix.Category
+	
+	match stat_name:
+		"strength":
+			bonus_category = Affix.Category.STRENGTH_BONUS
+			mult_category = Affix.Category.STRENGTH_MULTIPLIER
+		"agility":
+			bonus_category = Affix.Category.AGILITY_BONUS
+			mult_category = Affix.Category.AGILITY_MULTIPLIER
+		"intellect":
+			bonus_category = Affix.Category.INTELLECT_BONUS
+			mult_category = Affix.Category.INTELLECT_MULTIPLIER
+		"vitality":
+			bonus_category = Affix.Category.VITALITY_BONUS
+			mult_category = Affix.Category.VITALITY_MULTIPLIER
+		"luck":
+			bonus_category = Affix.Category.LUCK_BONUS
+			mult_category = Affix.Category.LUCK_MULTIPLIER
+		_:
+			return value
+	
 	# Apply bonuses first
-	var bonus_category = stat_name + "_bonus"
-	if pools.has(bonus_category):
-		for affix in pools[bonus_category]:
-			value += affix.apply_effect()
+	for affix in get_pool(bonus_category):
+		value += affix.apply_effect()
 	
 	# Apply multipliers second
-	var mult_category = stat_name + "_multiplier"
-	if pools.has(mult_category):
-		for affix in pools[mult_category]:
-			value *= affix.apply_effect()
+	for affix in get_pool(mult_category):
+		value *= affix.apply_effect()
 	
 	return value
 
@@ -144,12 +115,10 @@ func calculate_damage(base_damage: float) -> float:
 	"""Calculate damage with bonuses then multipliers"""
 	var damage = base_damage
 	
-	# Apply damage bonuses
-	for affix in pools["damage_bonus"]:
+	for affix in get_pool(Affix.Category.DAMAGE_BONUS):
 		damage += affix.apply_effect()
 	
-	# Apply damage multipliers
-	for affix in pools["damage_multiplier"]:
+	for affix in get_pool(Affix.Category.DAMAGE_MULTIPLIER):
 		damage *= affix.apply_effect()
 	
 	return damage
@@ -158,12 +127,10 @@ func calculate_defense(base_defense: float) -> float:
 	"""Calculate defense with bonuses then multipliers"""
 	var defense = base_defense
 	
-	# Apply defense bonuses
-	for affix in pools["defense_bonus"]:
+	for affix in get_pool(Affix.Category.DEFENSE_BONUS):
 		defense += affix.apply_effect()
 	
-	# Apply defense multipliers
-	for affix in pools["defense_multiplier"]:
+	for affix in get_pool(Affix.Category.DEFENSE_MULTIPLIER):
 		defense *= affix.apply_effect()
 	
 	return defense
@@ -172,27 +139,15 @@ func calculate_defense(base_defense: float) -> float:
 # GET SPECIAL AFFIXES
 # ============================================================================
 
-func get_granted_actions() -> Array:
+func get_granted_actions() -> Array[Action]:
 	"""Get all actions granted by affixes"""
-	var actions = []
+	var actions: Array[Action] = []
 	
-	for affix in pools["new_action"]:
-		var action = affix.apply_effect()
-		if action:
-			actions.append(action)
+	for affix in get_pool(Affix.Category.NEW_ACTION):
+		if affix.granted_action:
+			actions.append(affix.granted_action)
 	
 	return actions
-
-func get_granted_dice() -> Array:
-	"""Get all dice granted by affixes"""
-	var dice = []
-	
-	for affix in pools["dice"]:
-		var affix_dice = affix.apply_effect()
-		if affix_dice is Array:
-			dice.append_array(affix_dice)
-	
-	return dice
 
 # ============================================================================
 # DEBUG
@@ -203,6 +158,7 @@ func print_pools():
 	print("=== Affix Pools ===")
 	for category in pools:
 		if pools[category].size() > 0:
-			print("  %s: %d affixes" % [category, pools[category].size()])
+			var cat_name = Affix.Category.keys()[category]
+			print("  %s: %d affixes" % [cat_name, pools[category].size()])
 			for affix in pools[category]:
 				print("    - %s" % affix.get_display_text())
