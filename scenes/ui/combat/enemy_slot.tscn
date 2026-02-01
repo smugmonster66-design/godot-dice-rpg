@@ -12,6 +12,7 @@ border_color = Color(0.9853031, 0.7671745, 0, 1)
 [node name="EnemySlot" type="PanelContainer"]
 offset_right = 40.0
 offset_bottom = 40.0
+script = ExtResource("1_8vtss")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 2
@@ -19,7 +20,6 @@ theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
-script = ExtResource("1_8vtss")
 
 [node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
