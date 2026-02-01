@@ -32,6 +32,10 @@ var actions: Array[Dictionary] = []
 var current_action: Dictionary = {}
 var current_action_dice: Array[DieResource] = []
 
+var selection_shader: ShaderMaterial = null
+var is_target_selected: bool = false
+
+
 # ============================================================================
 # NODE REFERENCES
 # ============================================================================
@@ -61,6 +65,10 @@ func _ready():
 	# Create dice collection for non-player combatants without enemy_data
 	if not is_player_controlled and not dice_collection:
 		_setup_dice_collection()
+	
+	# Setup selection shader for enemies
+	if not is_player_controlled:
+		setup_selection_shader()
 	
 	update_display()
 
@@ -324,3 +332,49 @@ func get_rewards() -> Dictionary:
 		"gold": 0,
 		"loot_table": ""
 		}
+
+
+# res://scripts/entities/combatant.gd
+# ADD these properties and methods to your existing combatant.gd
+
+
+# ============================================================================
+# SHADER METHODS (add these functions)
+# ============================================================================
+
+func setup_selection_shader():
+	"""Setup the selection outline shader on the sprite"""
+	if not sprite:
+		return
+	
+	var shader = load("res://shaders/enemy_selection_outline.gdshader")
+	if shader:
+		selection_shader = ShaderMaterial.new()
+		selection_shader.shader = shader
+		selection_shader.set_shader_parameter("enabled", false)
+		selection_shader.set_shader_parameter("outline_color", Color(1.0, 0.9, 0.2, 1.0))
+		selection_shader.set_shader_parameter("outline_width", 3.0)
+		selection_shader.set_shader_parameter("pulse_speed", 3.0)
+		sprite.material = selection_shader
+		print("  ✅ Selection shader setup for %s" % combatant_name)
+
+func set_target_selected(selected: bool):
+	"""Set whether this combatant is the selected target"""
+	is_target_selected = selected
+	
+	if selection_shader:
+		selection_shader.set_shader_parameter("enabled", selected)
+	
+	# Visual feedback even without shader
+	if sprite:
+		if selected:
+			# Slight scale up when selected
+			var tween = create_tween()
+			tween.tween_property(sprite, "scale", Vector2(1.1, 1.1), 0.15)
+		else:
+			var tween = create_tween()
+			tween.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.15)
+
+func get_is_target_selected() -> bool:
+	"""Check if this combatant is the selected target"""
+	return is_target_selected

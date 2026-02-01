@@ -350,6 +350,10 @@ func _on_player_end_turn():
 	print("🎮 Player ended turn")
 	_end_current_turn()
 
+
+# res://scripts/game/combat_manager.gd
+# Find the _on_action_confirmed function and replace it with this:
+
 func _on_action_confirmed(action_data: Dictionary):
 	"""Player confirmed an action"""
 	if combat_state != CombatState.PLAYER_TURN:
@@ -363,11 +367,19 @@ func _on_action_confirmed(action_data: Dictionary):
 	
 	match action_type:
 		0:  # ATTACK
-			var target = _get_first_living_enemy()
+			# Get target from action_data (set by combat_ui)
+			var target = action_data.get("target", null) as Combatant
+			var target_index = action_data.get("target_index", 0)
+			
+			# Fallback to first living enemy if no target specified
+			if not target or not target.is_alive():
+				target = _get_first_living_enemy()
+				target_index = enemy_combatants.find(target)
+			
 			if target:
 				print("  → Attacking %s" % target.combatant_name)
 				target.take_damage(damage)
-				_update_enemy_health(enemy_combatants.find(target))
+				_update_enemy_health(target_index)
 				_check_enemy_death(target)
 		1:  # DEFEND
 			print("  → Defending")
@@ -513,8 +525,16 @@ func _on_player_health_changed(current: int, maximum: int):
 func _on_enemy_health_changed(_current: int, _maximum: int, enemy_index: int):
 	_update_enemy_health(enemy_index)
 
+# Update the _on_enemy_died function:
+
 func _on_enemy_died(enemy: Combatant):
 	print("☠️ %s defeated!" % enemy.combatant_name)
+	
+	# Notify UI of enemy death
+	var enemy_index = enemy_combatants.find(enemy)
+	if combat_ui and combat_ui.has_method("on_enemy_died"):
+		combat_ui.on_enemy_died(enemy_index)
+	
 	_check_combat_end()
 
 func _on_player_died():

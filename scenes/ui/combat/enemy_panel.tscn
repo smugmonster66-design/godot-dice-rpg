@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://dofeq3txtonis"]
+
+[ext_resource type="Script" uid="uid://diwnfbide3q17" path="res://scripts/ui/combat/enemy_panel.gd" id="1_o7t4d"]
+[ext_resource type="PackedScene" uid="uid://c1kmjpwav45is" path="res://scenes/ui/combat/enemy_slot.tscn" id="2_g7aqa"]
+
+[node name="EnemyPanel" type="HBoxContainer"]
+theme_override_constants/separation = 16
+alignment = 1
+script = ExtResource("1_o7t4d")
+
+[node name="EnemySlot1" parent="." instance=ExtResource("2_g7aqa")]
+layout_mode = 2
+
+[node name="EnemySlot2" parent="." instance=ExtResource("2_g7aqa")]
+layout_mode = 2
+
+[node name="EnemySlot3" parent="." instance=ExtResource("2_g7aqa")]
+layout_mode = 2
