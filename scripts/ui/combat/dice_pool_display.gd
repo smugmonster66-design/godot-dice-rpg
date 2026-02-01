@@ -82,7 +82,7 @@ func clear_display():
 	for child in get_children():
 		child.queue_free()
 
-func create_die_visual(die: DieData) -> Control:
+func create_die_visual(die: DieResource) -> Control:
 	"""Create a visual representation of a die"""
 	# Check if scene is set
 	if not die_visual_scene:

@@ -253,7 +253,7 @@ func deselect_all_fields():
 			# Visual deselection if needed
 			pass
 
-func _on_dice_returned(die: DieData):
+func _on_dice_returned(die: DieResource):
 	"""Die was returned from action field"""
 	print("🔄 Die returned to pool: %s" % die.get_display_name())
 	

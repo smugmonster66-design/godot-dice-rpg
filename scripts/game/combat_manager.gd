@@ -179,7 +179,7 @@ func calculate_action_damage(action_data: Dictionary) -> int:
 	
 	var dice_total = 0
 	for die in placed_dice:
-		if die is DieData:
+		if die is DieResource:
 			dice_total += die.get_total_value()  # Changed from die.value
 			print("    Die: %s = %d" % [die.get_display_name(), die.get_total_value()])
 	

@@ -12,7 +12,7 @@ extends PanelContainer
 # ============================================================================
 # STATE
 # ============================================================================
-var die_data: DieData = null
+var die_data: DieResource = null
 var can_drag: bool = true
 
 # ============================================================================
@@ -27,7 +27,7 @@ func _ready():
 	print("  - mouse_filter: %s" % mouse_filter)
 	print("  - can_drag: %s" % can_drag)
 
-func initialize(die: DieData):
+func initialize(die: DieResource):
 	"""Initialize with die data"""
 	die_data = die
 	can_drag = true

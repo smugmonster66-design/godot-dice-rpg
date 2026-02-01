@@ -46,7 +46,7 @@ var description_label: RichTextLabel
 # ============================================================================
 # STATE
 # ============================================================================
-var placed_dice: Array[DieData] = []
+var placed_dice: Array[DieResource] = []
 var dice_visuals: Array[Control] = []
 var die_slot_panels: Array[PanelContainer] = []
 
@@ -55,7 +55,7 @@ var die_slot_panels: Array[PanelContainer] = []
 # ============================================================================
 signal action_selected(field: ActionField)
 signal action_confirmed(action_data: Dictionary)
-signal dice_returned(die: DieData)
+signal dice_returned(die: DieResource)
 
 # ============================================================================
 # INITIALIZATION
@@ -197,7 +197,7 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 	if placed_dice.size() >= die_slots:
 		return false
 	
-	var die: DieData = data.get("die")
+	var die: DieResource = data.get("die")
 	
 	# Check if we have available slots
 	if placed_dice.size() >= die_slots:
@@ -230,7 +230,7 @@ func _drop_data(_at_position: Vector2, data):
 	if not data is Dictionary or not data.has("die"):
 		return
 	
-	var die: DieData = data.get("die")
+	var die: DieResource = data.get("die")
 	var visual: Control = data.get("visual")
 	
 	add_die(die, visual)
@@ -258,7 +258,7 @@ func get_action_data() -> Dictionary:
 # DIE MANAGEMENT
 # ============================================================================
 
-func add_die(die: DieData, visual: Control = null):
+func add_die(die: DieResource, visual: Control = null):
 	"""Add a die to this field"""
 	if placed_dice.size() >= die_slots:
 		print("⚠️ No available die slots in %s" % action_name)
