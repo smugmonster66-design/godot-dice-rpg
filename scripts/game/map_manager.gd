@@ -206,16 +206,6 @@ func _on_combat_button_pressed():
 	"""Test combat button clicked"""
 	print("\n🔴 Combat button pressed!")
 	
-	if not is_initialized:
-		print("❌ Map not initialized yet")
-		return
-	
-	if not player:
-		print("❌ No player!")
-		return
-	
-	print("✅ Emitting start_combat signal")
-	start_combat.emit()
 
 func _on_menu_closed():
 	"""Player menu closed"""

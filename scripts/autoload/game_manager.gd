@@ -210,3 +210,85 @@ func _on_combat_ended(results: Dictionary):
 			map_scene_instance.show_post_combat_summary(results)
 	
 	scene_changed.emit(map_scene_instance)
+
+# Add these to your existing game_manager.gd
+
+# ============================================================================
+# COMBAT ENCOUNTER SYSTEM
+# ============================================================================
+
+## The pending encounter to load when combat scene starts
+var pending_encounter: CombatEncounter = null
+
+## History of completed encounters (for tracking/quests)
+var completed_encounters: Array[String] = []
+
+func start_combat_encounter(encounter: CombatEncounter):
+	"""Start a combat encounter - stores encounter and transitions to combat scene"""
+	if not encounter:
+		push_error("GameManager: Cannot start null encounter")
+		return
+	
+	print("🎮 GameManager: Starting encounter '%s'" % encounter.encounter_name)
+	
+	# Validate encounter
+	var warnings = encounter.validate()
+	if warnings.size() > 0:
+		print("  ⚠️ Encounter warnings:")
+		for warning in warnings:
+			print("    - %s" % warning)
+	
+	# Store encounter for combat scene to read
+	pending_encounter = encounter
+	
+	# Transition to combat scene
+	load_combat_scene()
+
+func start_random_encounter(encounter_pool: Array[CombatEncounter]):
+	"""Start a random encounter from a pool"""
+	if encounter_pool.size() == 0:
+		push_error("GameManager: Empty encounter pool")
+		return
+	
+	var random_index = randi() % encounter_pool.size()
+	var encounter = encounter_pool[random_index]
+	start_combat_encounter(encounter)
+
+func get_pending_encounter() -> CombatEncounter:
+	"""Get the pending encounter (called by combat scene)"""
+	return pending_encounter
+
+func clear_pending_encounter():
+	"""Clear pending encounter after it's been loaded"""
+	pending_encounter = null
+
+func mark_encounter_completed(encounter: CombatEncounter):
+	"""Mark an encounter as completed"""
+	if encounter and encounter.encounter_id != "":
+		if encounter.encounter_id not in completed_encounters:
+			completed_encounters.append(encounter.encounter_id)
+			print("🎮 Encounter completed: %s" % encounter.encounter_id)
+
+func has_completed_encounter(encounter_id: String) -> bool:
+	"""Check if an encounter has been completed"""
+	return encounter_id in completed_encounters
+
+func on_combat_ended(player_won: bool):
+	"""Called when combat ends"""
+	if player_won and pending_encounter:
+		mark_encounter_completed(pending_encounter)
+		
+		# Calculate rewards
+		var exp = pending_encounter.get_total_experience()
+		var gold_range = pending_encounter.get_total_gold_range()
+		var gold = randi_range(gold_range.x, gold_range.y)
+		
+		print("🎮 Combat rewards: %d XP, %d gold" % [exp, gold])
+		
+		# Apply rewards to player
+		if player:
+			player.add_experience(exp)
+			player.add_gold(gold)
+	
+	clear_pending_encounter()
+	load_map_scene()

@@ -1,9 +1,11 @@
-# combat_manager.gd - Manages combat flow with multiple enemies and turn order
+# combat_manager.gd - Manages combat flow with encounter spawning
 extends Node2D
 
 # ============================================================================
 # NODE REFERENCES
 # ============================================================================
+@onready var encounter_spawner: EncounterSpawner = $EncounterSpawner
+
 var player_combatant: Combatant = null
 var enemy_combatants: Array[Combatant] = []
 var combat_ui = null
@@ -12,6 +14,7 @@ var combat_ui = null
 # STATE
 # ============================================================================
 var player: Player = null
+var current_encounter: CombatEncounter = null
 
 enum CombatState {
 	INITIALIZING,
@@ -41,8 +44,19 @@ signal round_started(round_number: int)
 
 func _ready():
 	print("⚔️ CombatManager _ready")
+	
+	# Find nodes
 	find_combat_nodes()
-	setup_connections()
+	
+	# Setup encounter spawner
+	setup_encounter_spawner()
+	
+	# Setup UI connections
+	setup_ui_connections()
+	
+	# Check for pending encounter from GameManager
+	await get_tree().process_frame
+	check_pending_encounter()
 
 func find_combat_nodes():
 	"""Find combat nodes in the scene tree"""
@@ -50,61 +64,40 @@ func find_combat_nodes():
 	
 	# Find player combatant
 	player_combatant = find_child("PlayerCombatant", true, false) as Combatant
-	if not player_combatant:
-		player_combatant = find_child("PlayerCombantant", true, false) as Combatant
-	
 	if player_combatant:
 		player_combatant.is_player_controlled = true
+		print("  ✅ Player combatant found")
+	else:
+		push_error("  ❌ Player combatant NOT FOUND")
 	
-	# Find all enemy combatants
-	enemy_combatants.clear()
-	for i in range(1, 4):  # Enemy1, Enemy2, Enemy3
-		var enemy = find_child("Enemy%d" % i, true, false) as Combatant
-		if enemy:
-			enemy.is_player_controlled = false
-			enemy_combatants.append(enemy)
-	
-	# Also find any Combatant children that aren't the player
-	for child in get_children():
-		if child is Combatant and child != player_combatant and child not in enemy_combatants:
-			child.is_player_controlled = false
-			enemy_combatants.append(child)
+	# Find encounter spawner
+	if not encounter_spawner:
+		encounter_spawner = find_child("EncounterSpawner", true, false) as EncounterSpawner
+	if not encounter_spawner:
+		# Create one if not found
+		encounter_spawner = EncounterSpawner.new()
+		encounter_spawner.name = "EncounterSpawner"
+		add_child(encounter_spawner)
+		print("  ✅ Created EncounterSpawner")
+	else:
+		print("  ✅ EncounterSpawner found")
 	
 	# Find UI
 	combat_ui = find_child("CombatUILayer", true, false)
 	if not combat_ui:
 		combat_ui = find_child("CombatUI", true, false)
-	
-	print("  Player Combatant: %s" % ("Found" if player_combatant else "❌ NOT FOUND"))
-	print("  Enemy Combatants: %d found" % enemy_combatants.size())
-	for enemy in enemy_combatants:
-		print("    - %s" % enemy.combatant_name)
 	print("  Combat UI: %s" % ("Found" if combat_ui else "❌ NOT FOUND"))
 
-func setup_connections():
-	"""Setup signal connections"""
-	print("⚔️ Setting up connections...")
-	
-	# Player combatant
-	if player_combatant:
-		if not player_combatant.health_changed.is_connected(_on_player_health_changed):
-			player_combatant.health_changed.connect(_on_player_health_changed)
-		if not player_combatant.died.is_connected(_on_player_died):
-			player_combatant.died.connect(_on_player_died)
-		print("  ✅ Player combatant connected")
-	
-	# Enemy combatants
-	for i in range(enemy_combatants.size()):
-		var enemy = enemy_combatants[i]
-		if not enemy.health_changed.is_connected(_on_enemy_health_changed):
-			enemy.health_changed.connect(_on_enemy_health_changed.bind(i))
-		if not enemy.died.is_connected(_on_enemy_died):
-			enemy.died.connect(_on_enemy_died.bind(enemy))
-		if not enemy.turn_completed.is_connected(_on_combatant_turn_completed):
-			enemy.turn_completed.connect(_on_combatant_turn_completed.bind(enemy))
-		print("  ✅ Enemy '%s' connected" % enemy.combatant_name)
-	
-	# Combat UI
+func setup_encounter_spawner():
+	"""Setup encounter spawner signals"""
+	if encounter_spawner:
+		if not encounter_spawner.enemies_spawned.is_connected(_on_enemies_spawned):
+			encounter_spawner.enemies_spawned.connect(_on_enemies_spawned)
+		if not encounter_spawner.spawn_failed.is_connected(_on_spawn_failed):
+			encounter_spawner.spawn_failed.connect(_on_spawn_failed)
+
+func setup_ui_connections():
+	"""Setup combat UI signal connections"""
 	if combat_ui:
 		if combat_ui.has_signal("action_confirmed") and not combat_ui.action_confirmed.is_connected(_on_action_confirmed):
 			combat_ui.action_confirmed.connect(_on_action_confirmed)
@@ -112,27 +105,104 @@ func setup_connections():
 			combat_ui.turn_ended.connect(_on_player_end_turn)
 		print("  ✅ Combat UI connected")
 
+func check_pending_encounter():
+	"""Check if GameManager has a pending encounter"""
+	if GameManager and GameManager.pending_encounter:
+		print("⚔️ Found pending encounter: %s" % GameManager.pending_encounter.encounter_name)
+		current_encounter = GameManager.pending_encounter
+		
+		# Get player from GameManager
+		if GameManager.player:
+			initialize_combat(GameManager.player)
+		else:
+			push_error("No player in GameManager!")
+	else:
+		print("⚠️ No pending encounter - using fallback")
+		# Fallback: look for pre-placed enemies or create test encounter
+		_setup_fallback_enemies()
+
+func _setup_fallback_enemies():
+	"""Fallback when no encounter is set - find pre-placed enemies"""
+	enemy_combatants.clear()
+	
+	for i in range(1, 4):
+		var enemy = find_child("Enemy%d" % i, true, false) as Combatant
+		if enemy:
+			enemy.is_player_controlled = false
+			enemy_combatants.append(enemy)
+			_connect_enemy_signals(enemy, enemy_combatants.size() - 1)
+	
+	if enemy_combatants.size() > 0:
+		print("  Found %d pre-placed enemies" % enemy_combatants.size())
+		
+		# Initialize with GameManager player if available
+		if GameManager and GameManager.player:
+			_finalize_combat_init(GameManager.player)
+	else:
+		push_warning("No enemies found and no encounter set!")
+
+# ============================================================================
+# ENCOUNTER SPAWNING
+# ============================================================================
+
+func _on_enemies_spawned(enemies: Array[Combatant]):
+	"""Handle enemies spawned by EncounterSpawner"""
+	enemy_combatants = enemies
+	
+	# Connect signals for each enemy
+	for i in range(enemy_combatants.size()):
+		_connect_enemy_signals(enemy_combatants[i], i)
+	
+	print("⚔️ %d enemies ready for combat" % enemy_combatants.size())
+
+func _on_spawn_failed(reason: String):
+	"""Handle spawn failure"""
+	push_error("⚔️ Encounter spawn failed: %s" % reason)
+	# Could show error UI or return to map
+
+func _connect_enemy_signals(enemy: Combatant, index: int):
+	"""Connect signals for an enemy combatant"""
+	if not enemy.health_changed.is_connected(_on_enemy_health_changed):
+		enemy.health_changed.connect(_on_enemy_health_changed.bind(index))
+	if not enemy.died.is_connected(_on_enemy_died):
+		enemy.died.connect(_on_enemy_died.bind(enemy))
+	if not enemy.turn_completed.is_connected(_on_combatant_turn_completed):
+		enemy.turn_completed.connect(_on_combatant_turn_completed.bind(enemy))
+
 # ============================================================================
 # COMBAT INITIALIZATION
 # ============================================================================
 
 func initialize_combat(p_player: Player):
 	"""Initialize combat with player data"""
-	print("⚔️ Initializing combat with player")
+	print("⚔️ Initializing combat...")
 	player = p_player
 	combat_state = CombatState.INITIALIZING
+	
+	# Spawn enemies from encounter if we have one
+	if current_encounter and encounter_spawner:
+		encounter_spawner.spawn_encounter(current_encounter)
+	
+	# Continue initialization after spawning
+	await get_tree().process_frame
+	_finalize_combat_init(p_player)
+
+func _finalize_combat_init(p_player: Player):
+	"""Finalize combat initialization after enemies are ready"""
+	player = p_player
 	
 	# Sync player to combatant
 	_sync_player_to_combatant()
 	
-	# Build turn order: player first, then enemies
-	turn_order.clear()
-	turn_order.append(player_combatant)
-	for enemy in enemy_combatants:
-		if enemy.is_alive():
-			turn_order.append(enemy)
+	# Connect player combatant signals
+	if player_combatant:
+		if not player_combatant.health_changed.is_connected(_on_player_health_changed):
+			player_combatant.health_changed.connect(_on_player_health_changed)
+		if not player_combatant.died.is_connected(_on_player_died):
+			player_combatant.died.connect(_on_player_died)
 	
-	print("  Turn order: %s" % [turn_order.map(func(c): return c.combatant_name)])
+	# Build turn order
+	_build_turn_order()
 	
 	# Initialize UI
 	if combat_ui:
@@ -143,9 +213,9 @@ func initialize_combat(p_player: Player):
 		combat_ended.connect(_on_combat_ended)
 	
 	print("⚔️ Combat initialization complete")
+	print("  Turn order: %s" % [turn_order.map(func(c): return c.combatant_name)])
 	
 	# Start first round
-	await get_tree().process_frame
 	_start_round()
 
 func _sync_player_to_combatant():
@@ -154,8 +224,28 @@ func _sync_player_to_combatant():
 		player_combatant.current_health = player.current_hp
 		player_combatant.max_health = player.max_hp
 		player_combatant.combatant_name = "Player"
-		player_combatant.update_health_display()
+		player_combatant.update_display()
 		print("  ✅ Synced player to combatant")
+
+func _build_turn_order():
+	"""Build the turn order array"""
+	turn_order.clear()
+	
+	# Check encounter settings for turn order
+	var player_first = true
+	if current_encounter:
+		player_first = current_encounter.player_starts_first
+	
+	if player_first:
+		turn_order.append(player_combatant)
+		for enemy in enemy_combatants:
+			if enemy.is_alive():
+				turn_order.append(enemy)
+	else:
+		for enemy in enemy_combatants:
+			if enemy.is_alive():
+				turn_order.append(enemy)
+		turn_order.append(player_combatant)
 
 # ============================================================================
 # TURN ORDER MANAGEMENT
@@ -167,8 +257,15 @@ func _start_round():
 	current_turn_index = 0
 	
 	print("\n⚔️ === ROUND %d ===" % current_round)
-	round_started.emit(current_round)
 	
+	# Check turn limit
+	if current_encounter and current_encounter.turn_limit > 0:
+		if current_round > current_encounter.turn_limit:
+			print("⏰ Turn limit reached!")
+			end_combat(false)
+			return
+	
+	round_started.emit(current_round)
 	_start_current_turn()
 
 func _start_current_turn():
@@ -205,21 +302,17 @@ func _end_round():
 	"""End round and check for combat end or start new round"""
 	print("\n⚔️ === ROUND %d ENDED ===" % current_round)
 	
-	# Check for combat end
 	if _check_combat_end():
 		return
 	
-	# Start new round
 	_start_round()
 
 func _check_combat_end() -> bool:
 	"""Check if combat should end"""
-	# Player dead?
 	if not player_combatant.is_alive():
 		end_combat(false)
 		return true
 	
-	# All enemies dead?
 	var all_dead = true
 	for enemy in enemy_combatants:
 		if enemy.is_alive():
@@ -240,11 +333,9 @@ func _start_player_turn():
 	"""Start player's turn"""
 	combat_state = CombatState.PLAYER_TURN
 	
-	# Roll player dice
 	if player and player.dice_pool:
 		player.dice_pool.roll_hand()
 	
-	# Update UI
 	if combat_ui:
 		if combat_ui.has_method("on_turn_start"):
 			combat_ui.on_turn_start()
@@ -295,18 +386,14 @@ func _start_enemy_turn(enemy: Combatant):
 	"""Start an enemy's turn"""
 	combat_state = CombatState.ENEMY_TURN
 	
-	# Disable player controls
 	if combat_ui and combat_ui.has_method("set_player_turn"):
 		combat_ui.set_player_turn(false)
 	
-	# Roll enemy dice
 	enemy.start_turn()
 	
-	# Show enemy hand in UI
 	if combat_ui and combat_ui.has_method("show_enemy_hand"):
 		combat_ui.show_enemy_hand(enemy)
 	
-	# Process enemy decisions
 	_process_enemy_turn(enemy)
 
 func _process_enemy_turn(enemy: Combatant):
@@ -320,7 +407,6 @@ func _process_enemy_turn(enemy: Combatant):
 		_finish_enemy_turn(enemy)
 		return
 	
-	# Get AI decision
 	var decision = EnemyAI.decide(
 		enemy.actions,
 		enemy.get_available_dice(),
@@ -338,21 +424,17 @@ func _process_enemy_turn(enemy: Combatant):
 		decision.dice.size()
 	])
 	
-	# Execute with animation
 	_animate_enemy_action(enemy, decision)
 
 func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 	"""Animate enemy placing dice and executing action"""
 	combat_state = CombatState.ANIMATING
 	
-	# Prepare action
 	enemy.prepare_action(decision.action, decision.dice)
 	
-	# Show action in UI
 	if combat_ui and combat_ui.has_method("show_enemy_action"):
 		combat_ui.show_enemy_action(enemy, decision.action)
 	
-	# Animate each die placement
 	for i in range(decision.dice.size()):
 		var die = decision.dice[i]
 		
@@ -363,14 +445,11 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 		
 		enemy.consume_action_die(die)
 		
-		# Refresh enemy hand display
 		if combat_ui and combat_ui.has_method("refresh_enemy_hand"):
 			combat_ui.refresh_enemy_hand(enemy)
 	
-	# Short pause before execution
 	await get_tree().create_timer(0.3).timeout
 	
-	# Execute action
 	var result = enemy.execute_prepared_action()
 	var action_type = decision.action.get("action_type", 0)
 	
@@ -388,10 +467,8 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 			enemy.heal(result)
 			_update_enemy_health(enemy_combatants.find(enemy))
 	
-	# Delay before next action
 	await get_tree().create_timer(enemy.action_delay).timeout
 	
-	# Continue turn (might have more dice)
 	combat_state = CombatState.ENEMY_TURN
 	_process_enemy_turn(enemy)
 
@@ -405,16 +482,14 @@ func _finish_enemy_turn(enemy: Combatant):
 	enemy.end_turn()
 	_end_current_turn()
 
-func _on_combatant_turn_completed(combatant: Combatant):
-	"""Signal handler for turn completion"""
-	pass  # Handled by _finish_enemy_turn
+func _on_combatant_turn_completed(_combatant: Combatant):
+	pass
 
 # ============================================================================
 # DAMAGE CALCULATION
 # ============================================================================
 
 func _calculate_damage(action_data: Dictionary) -> int:
-	"""Calculate damage from action data"""
 	var base = action_data.get("base_damage", 0)
 	var mult = action_data.get("damage_multiplier", 1.0)
 	var placed_dice: Array = action_data.get("placed_dice", [])
@@ -435,7 +510,7 @@ func _on_player_health_changed(current: int, maximum: int):
 		player.current_hp = current
 	_update_player_health()
 
-func _on_enemy_health_changed(current: int, maximum: int, enemy_index: int):
+func _on_enemy_health_changed(_current: int, _maximum: int, enemy_index: int):
 	_update_enemy_health(enemy_index)
 
 func _on_enemy_died(enemy: Combatant):
@@ -477,7 +552,6 @@ func _get_first_living_enemy() -> Combatant:
 # ============================================================================
 
 func end_combat(player_won: bool):
-	"""End combat"""
 	print("\n=== COMBAT ENDED ===")
 	combat_state = CombatState.ENDED
 	
@@ -489,13 +563,10 @@ func end_combat(player_won: bool):
 	combat_ended.emit(player_won)
 
 func _on_combat_ended(player_won: bool):
-	"""Cleanup after combat"""
 	if player and player_combatant:
 		player.current_hp = player_combatant.current_health
 	
 	await get_tree().create_timer(2.0).timeout
 	
-	if GameManager and GameManager.has_method("on_combat_ended"):
+	if GameManager:
 		GameManager.on_combat_ended(player_won)
-	elif GameManager and GameManager.has_method("load_map_scene"):
-		GameManager.load_map_scene()

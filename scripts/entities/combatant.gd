@@ -9,15 +9,12 @@ class_name Combatant
 @export var combatant_name: String = "Combatant"
 @export var is_player_controlled: bool = false
 
-@export_group("Dice Configuration")
-## Starting dice types for this combatant (only used for enemies)
-@export var starting_dice_types: Array[int] = []  # DieResource.DieType values (4, 6, 8, etc.)
+@export_group("Enemy Configuration")
+## Drag an EnemyData resource here to configure this combatant
+@export var enemy_data: EnemyData = null
 
-@export_group("Actions")
-## Actions this combatant can perform (only used for enemies)
-@export var actions: Array[Dictionary] = []
-
-@export_group("AI Settings")
+@export_group("AI Settings (Override)")
+## Override AI strategy (only if enemy_data is not set)
 @export_enum("AGGRESSIVE", "DEFENSIVE", "BALANCED", "RANDOM") var ai_strategy: int = 0
 @export var action_delay: float = 0.8
 @export var dice_drag_duration: float = 0.4
@@ -26,7 +23,10 @@ class_name Combatant
 # STATE
 # ============================================================================
 var current_health: int = 100
+var armor: int = 0
+var barrier: int = 0
 var dice_collection: PlayerDiceCollection = null
+var actions: Array[Dictionary] = []
 
 # Current action state (for AI turns)
 var current_action: Dictionary = {}
@@ -35,8 +35,9 @@ var current_action_dice: Array[DieResource] = []
 # ============================================================================
 # NODE REFERENCES
 # ============================================================================
-@onready var sprite = $Sprite2D
-@onready var health_label = $HealthLabel
+@onready var sprite: Sprite2D = $Sprite2D
+@onready var health_label: Label = $HealthLabel
+@onready var name_label: Label = $NameLabel
 
 # ============================================================================
 # SIGNALS
@@ -51,29 +52,76 @@ signal action_executed(action: Dictionary, value: int)
 # ============================================================================
 
 func _ready():
-	current_health = max_health
+	# If we have enemy_data, initialize from it
+	if enemy_data and not is_player_controlled:
+		_initialize_from_enemy_data()
+	else:
+		current_health = max_health
 	
-	# Create dice collection for non-player combatants
-	if not is_player_controlled:
+	# Create dice collection for non-player combatants without enemy_data
+	if not is_player_controlled and not dice_collection:
 		_setup_dice_collection()
 	
-	update_health_display()
+	update_display()
 
-func _setup_dice_collection():
-	"""Setup dice collection for enemy combatants"""
+func _initialize_from_enemy_data():
+	"""Initialize all combatant properties from EnemyData resource"""
+	print("🎲 Initializing combatant from EnemyData: %s" % enemy_data.enemy_name)
+	
+	# Identity
+	combatant_name = enemy_data.enemy_name
+	
+	# Stats
+	max_health = enemy_data.max_health
+	current_health = max_health
+	armor = enemy_data.base_armor
+	barrier = enemy_data.base_barrier
+	
+	# AI settings
+	ai_strategy = enemy_data.ai_strategy
+	action_delay = enemy_data.action_delay
+	dice_drag_duration = enemy_data.dice_drag_duration
+	
+	# Actions (convert from Action resources to dictionaries)
+	actions = enemy_data.get_actions_as_dicts()
+	
+	# Dice collection
+	_setup_dice_collection_from_enemy_data()
+	
+	# Sprite texture
+	if enemy_data.sprite_texture and sprite:
+		sprite.texture = enemy_data.sprite_texture
+	
+	print("  ✅ %s: HP=%d, Armor=%d, Dice=%d, Actions=%d" % [
+		combatant_name, max_health, armor, 
+		dice_collection.get_pool_count() if dice_collection else 0, 
+		actions.size()
+	])
+
+func _setup_dice_collection_from_enemy_data():
+	"""Setup dice collection from EnemyData"""
 	dice_collection = PlayerDiceCollection.new()
 	dice_collection.name = "DiceCollection"
 	add_child(dice_collection)
 	
-	# Add starting dice
-	for die_type in starting_dice_types:
-		var die = DieResource.new(die_type, combatant_name)
+	# Add copies of starting dice (not the originals!)
+	var dice_copies = enemy_data.create_dice_copies()
+	for die in dice_copies:
 		dice_collection.add_die(die)
 	
-	print("🎲 %s: Dice collection created with %d dice" % [combatant_name, dice_collection.get_pool_count()])
+	print("  🎲 Dice collection: %d dice" % dice_collection.get_pool_count())
+
+func _setup_dice_collection():
+	"""Fallback: Setup empty dice collection"""
+	if dice_collection:
+		return
+	
+	dice_collection = PlayerDiceCollection.new()
+	dice_collection.name = "DiceCollection"
+	add_child(dice_collection)
 
 func setup_from_data(data: Dictionary):
-	"""Setup combatant from a data dictionary"""
+	"""Setup combatant from a data dictionary (legacy support)"""
 	combatant_name = data.get("name", "Enemy")
 	max_health = data.get("max_health", 100)
 	current_health = max_health
@@ -91,10 +139,7 @@ func setup_from_data(data: Dictionary):
 		var die = DieResource.new(die_type, combatant_name)
 		dice_collection.add_die(die)
 	
-	update_health_display()
-	print("🎲 %s configured: %d HP, %d dice, %d actions" % [
-		combatant_name, max_health, dice_collection.get_pool_count(), actions.size()
-	])
+	update_display()
 
 # ============================================================================
 # TURN MANAGEMENT (for AI combatants)
@@ -187,13 +232,19 @@ func execute_prepared_action() -> int:
 # ============================================================================
 
 func take_damage(amount: int):
-	"""Take damage"""
+	"""Take damage (applies armor reduction)"""
+	var effective_damage = max(0, amount - armor)
 	var old = current_health
-	current_health = max(0, current_health - amount)
+	current_health = max(0, current_health - effective_damage)
 	
-	print("💔 %s: %d → %d (-%d)" % [combatant_name, old, current_health, amount])
+	if armor > 0:
+		print("💔 %s: %d damage (-%d armor) = %d → %d" % [
+			combatant_name, amount, armor, old, current_health
+		])
+	else:
+		print("💔 %s: %d → %d (-%d)" % [combatant_name, old, current_health, amount])
 	
-	update_health_display()
+	update_display()
 	flash_damage()
 	health_changed.emit(current_health, max_health)
 	
@@ -207,7 +258,7 @@ func heal(amount: int):
 	
 	print("💚 %s: %d → %d (+%d)" % [combatant_name, old, current_health, amount])
 	
-	update_health_display()
+	update_display()
 	flash_heal()
 	health_changed.emit(current_health, max_health)
 
@@ -227,10 +278,20 @@ func die():
 # DISPLAY
 # ============================================================================
 
+func update_display():
+	"""Update all visual elements"""
+	update_health_display()
+	update_name_display()
+
 func update_health_display():
 	"""Update health label"""
 	if health_label:
 		health_label.text = "%d/%d" % [current_health, max_health]
+
+func update_name_display():
+	"""Update name label"""
+	if name_label:
+		name_label.text = combatant_name
 
 func flash_damage():
 	"""Flash red on damage"""
@@ -245,3 +306,21 @@ func flash_heal():
 		sprite.modulate = Color.GREEN
 		var tween = create_tween()
 		tween.tween_property(sprite, "modulate", Color.WHITE, 0.3)
+
+# ============================================================================
+# REWARDS (for enemies)
+# ============================================================================
+
+func get_rewards() -> Dictionary:
+	"""Get rewards for defeating this enemy"""
+	if enemy_data:
+		return {
+			"experience": enemy_data.experience_reward,
+			"gold": enemy_data.get_gold_reward(),
+			"loot_table": enemy_data.loot_table_id
+		}
+	return {
+		"experience": 0,
+		"gold": 0,
+		"loot_table": ""
+		}
