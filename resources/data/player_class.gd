@@ -178,25 +178,25 @@ func get_all_class_dice() -> Array:
 	
 	match player_class_name:
 		"Warrior":
-			class_dice = [DieData.DieType.D6, DieData.DieType.D6]
+			class_dice = [DieResource.DieType.D6, DieResource.DieType.D6]
 			var bonus_count = int(level / 5)
 			for i in range(bonus_count):
-				class_dice.append(DieData.DieType.D6)
+				class_dice.append(DieResource.DieType.D6)
 		
 		"Rogue":
-			class_dice = [DieData.DieType.D4, DieData.DieType.D4, DieData.DieType.D4]
+			class_dice = [DieResource.DieType.D4, DieResource.DieType.D4, DieResource.DieType.D4]
 			var bonus_count = int(level / 5)
 			for i in range(bonus_count):
-				class_dice.append(DieData.DieType.D4)
+				class_dice.append(DieResource.DieType.D4)
 		
 		"Mage":
-			class_dice = [DieData.DieType.D8, DieData.DieType.D6]
+			class_dice = [DieResource.DieType.D8, DieResource.DieType.D6]
 			var bonus_count = int(level / 5)
 			for i in range(bonus_count):
-				class_dice.append(DieData.DieType.D8)
+				class_dice.append(DieResource.DieType.D8)
 		
 		_:
-			class_dice = [DieData.DieType.D6, DieData.DieType.D6]
+			class_dice = [DieResource.DieType.D6, DieResource.DieType.D6]
 	
 	return class_dice
 

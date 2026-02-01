@@ -26,7 +26,7 @@ func display_dice():
 		var die_visual = create_die_visual(die)
 		add_child(die_visual)
 
-func create_die_visual(die: DieData) -> Control:
+func create_die_visual(die: DieResource) -> Control:
 	var panel = PanelContainer.new()
 	panel.custom_minimum_size = Vector2(60, 60)
 	

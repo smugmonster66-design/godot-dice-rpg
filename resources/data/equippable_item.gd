@@ -66,7 +66,7 @@ var item_affixes: Array[Affix] = []
 # DICE
 # ============================================================================
 @export_group("Dice")
-@export var grants_dice: Array[DieData.DieType] = []
+@export var grants_dice: Array[DieResource.DieType] = []
 @export var dice_tags: Array[String] = []
 
 # ============================================================================

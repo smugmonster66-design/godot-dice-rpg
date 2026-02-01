@@ -34,7 +34,7 @@ var die_multiplier: float = 1.0
 # Die restrictions
 var required_tags: Array[String] = []
 var restricted_tags: Array[String] = []
-var allowed_die_types: Array[DieData.DieType] = []
+var allowed_die_types: Array[DieResource.DieType] = []
 
 # Source
 var source: String = ""
@@ -97,7 +97,7 @@ static func create_heal(source_name: String = "Heal") -> ActionFieldData:
 # UTILITY
 # ============================================================================
 
-func can_accept_die(die: DieData) -> bool:
+func can_accept_die(die: DieResource) -> bool:
 	"""Check if this action can accept a die"""
 	# Check allowed types
 	if allowed_die_types.size() > 0:
