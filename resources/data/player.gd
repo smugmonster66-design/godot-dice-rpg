@@ -485,32 +485,3 @@ func _add_item_affixes(item: Dictionary):
 func _remove_item_affixes(item: Dictionary):
 	var item_name = item.get("name", "Unknown Item")
 	affix_manager.remove_affixes_by_source(item_name)
-
-func learn_skill(skill: Skill) -> bool:
-	if not skill.can_rank_up():
-		return false
-	
-	skill.rank_up()
-	
-	var new_affixes = skill.get_affixes_for_rank(skill.current_rank)
-	
-	for affix in new_affixes:
-		affix_manager.add_affix(affix)
-	
-	recalculate_stats()
-	return true
-
-func unlearn_skill_rank(skill: Skill) -> bool:
-	if skill.current_rank <= 0:
-		return false
-	
-	var source_name = "%s - %s Rank %d" % [
-		skill.player_class,
-		skill.skill_name,
-		skill.current_rank
-	]
-	affix_manager.remove_affixes_by_source(source_name)
-	
-	skill.rank_down()
-	recalculate_stats()
-	return true

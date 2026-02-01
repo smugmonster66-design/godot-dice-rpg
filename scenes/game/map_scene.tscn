@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://cx781vq4omutw"]
+[gd_scene load_steps=12 format=3 uid="uid://cx781vq4omutw"]
 
 [ext_resource type="Script" uid="uid://ex7lxpkjwyaa" path="res://scripts/game/map_manager.gd" id="1_yjpty"]
 [ext_resource type="Script" uid="uid://fxekowigxepb" path="res://scripts/ui/components/add_gear_button.gd" id="2_2b48g"]
@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://bd34csdn887p6" path="res://resources/encounters/goblins_basic.tres" id="3_o83tl"]
 [ext_resource type="Resource" uid="uid://dewowlwg6ekcd" path="res://resources/items/head/rusty_helm.tres" id="4_bg5j8"]
 [ext_resource type="Resource" uid="uid://do2lai1diivsb" path="res://resources/items/main hand/flaming_greatsword.tres" id="5_t547c"]
+[ext_resource type="Resource" uid="uid://gmrfuoi5syc7" path="res://resources/items/gloves/agile_gloves.tres" id="8_5osyn"]
 [ext_resource type="PackedScene" uid="uid://cqp8tlucqj7xe" path="res://scenes/ui/map/map_dice_panel.tscn" id="8_bg5j8"]
 
 [node name="MapScene" type="Node2D"]
@@ -70,7 +71,7 @@ encounter = ExtResource("3_o83tl")
 layout_mode = 2
 text = "Add Starting Gear"
 script = ExtResource("2_2b48g")
-starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c")])
+starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c"), ExtResource("8_5osyn")])
 
 [node name="PlayerMenu" parent="UILayer" instance=ExtResource("2_gvwpr")]
 visible = false
