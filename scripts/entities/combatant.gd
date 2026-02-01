@@ -1,4 +1,5 @@
-# combatant.gd - Visual combatant (player or enemy) with dice and actions
+# res://scripts/entities/combatant.gd
+# Visual combatant (player or enemy) with dice and actions
 extends Node2D
 class_name Combatant
 
@@ -32,9 +33,9 @@ var actions: Array[Dictionary] = []
 var current_action: Dictionary = {}
 var current_action_dice: Array[DieResource] = []
 
+# Selection shader for targeting
 var selection_shader: ShaderMaterial = null
 var is_target_selected: bool = false
-
 
 # ============================================================================
 # NODE REFERENCES
@@ -150,196 +151,7 @@ func setup_from_data(data: Dictionary):
 	update_display()
 
 # ============================================================================
-# TURN MANAGEMENT (for AI combatants)
-# ============================================================================
-
-func start_turn():
-	"""Called when this combatant's turn begins"""
-	if is_player_controlled:
-		return  # Player turn handled by combat_ui
-	
-	print("🎲 %s starting turn..." % combatant_name)
-	
-	# Roll dice into hand
-	if dice_collection:
-		dice_collection.roll_hand()
-		print("  Rolled hand:")
-		for die in dice_collection.get_hand_dice():
-			print("    %s = %d" % [die.get_type_string(), die.get_total_value()])
-
-func end_turn():
-	"""Called when this combatant's turn ends"""
-	if dice_collection:
-		dice_collection.clear_hand()
-	
-	current_action = {}
-	current_action_dice.clear()
-	turn_completed.emit()
-
-func get_available_dice() -> Array[DieResource]:
-	"""Get dice available this turn"""
-	if dice_collection:
-		return dice_collection.get_hand_dice()
-	return []
-
-func has_usable_dice() -> bool:
-	"""Check if combatant can still act"""
-	var hand = get_available_dice()
-	if hand.size() == 0:
-		return false
-	
-	# Check if any action can be performed
-	for action in actions:
-		var required = action.get("die_slots", 1)
-		if hand.size() >= required:
-			return true
-	
-	return false
-
-# ============================================================================
-# ACTION EXECUTION (for AI combatants)
-# ============================================================================
-
-func prepare_action(action: Dictionary, dice: Array[DieResource]):
-	"""Prepare an action with selected dice"""
-	current_action = action
-	current_action_dice = dice
-
-func consume_action_die(die: DieResource):
-	"""Mark a die as used (during animation)"""
-	if dice_collection:
-		dice_collection.consume_from_hand(die)
-
-func execute_prepared_action() -> int:
-	"""Execute the prepared action, return the result value"""
-	var base = current_action.get("base_damage", 0)
-	var multiplier = current_action.get("damage_multiplier", 1.0)
-	
-	var dice_total = 0
-	for die in current_action_dice:
-		dice_total += die.get_total_value()
-	
-	var result = int(base + (dice_total * multiplier))
-	
-	print("💥 %s executes %s: %d + (%d × %.1f) = %d" % [
-		combatant_name,
-		current_action.get("name", "Attack"),
-		base, dice_total, multiplier, result
-	])
-	
-	action_executed.emit(current_action, result)
-	
-	# Clear state
-	current_action = {}
-	current_action_dice.clear()
-	
-	return result
-
-# ============================================================================
-# HEALTH MANAGEMENT
-# ============================================================================
-
-func take_damage(amount: int):
-	"""Take damage (applies armor reduction)"""
-	var effective_damage = max(0, amount - armor)
-	var old = current_health
-	current_health = max(0, current_health - effective_damage)
-	
-	if armor > 0:
-		print("💔 %s: %d damage (-%d armor) = %d → %d" % [
-			combatant_name, amount, armor, old, current_health
-		])
-	else:
-		print("💔 %s: %d → %d (-%d)" % [combatant_name, old, current_health, amount])
-	
-	update_display()
-	flash_damage()
-	health_changed.emit(current_health, max_health)
-	
-	if current_health <= 0:
-		die()
-
-func heal(amount: int):
-	"""Heal"""
-	var old = current_health
-	current_health = min(max_health, current_health + amount)
-	
-	print("💚 %s: %d → %d (+%d)" % [combatant_name, old, current_health, amount])
-	
-	update_display()
-	flash_heal()
-	health_changed.emit(current_health, max_health)
-
-func is_alive() -> bool:
-	return current_health > 0
-
-func die():
-	"""Handle death"""
-	print("☠️ %s died!" % combatant_name)
-	died.emit()
-	
-	# Fade out
-	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 0.5)
-
-# ============================================================================
-# DISPLAY
-# ============================================================================
-
-func update_display():
-	"""Update all visual elements"""
-	update_health_display()
-	update_name_display()
-
-func update_health_display():
-	"""Update health label"""
-	if health_label:
-		health_label.text = "%d/%d" % [current_health, max_health]
-
-func update_name_display():
-	"""Update name label"""
-	if name_label:
-		name_label.text = combatant_name
-
-func flash_damage():
-	"""Flash red on damage"""
-	if sprite:
-		sprite.modulate = Color.RED
-		var tween = create_tween()
-		tween.tween_property(sprite, "modulate", Color.WHITE, 0.3)
-
-func flash_heal():
-	"""Flash green on heal"""
-	if sprite:
-		sprite.modulate = Color.GREEN
-		var tween = create_tween()
-		tween.tween_property(sprite, "modulate", Color.WHITE, 0.3)
-
-# ============================================================================
-# REWARDS (for enemies)
-# ============================================================================
-
-func get_rewards() -> Dictionary:
-	"""Get rewards for defeating this enemy"""
-	if enemy_data:
-		return {
-			"experience": enemy_data.experience_reward,
-			"gold": enemy_data.get_gold_reward(),
-			"loot_table": enemy_data.loot_table_id
-		}
-	return {
-		"experience": 0,
-		"gold": 0,
-		"loot_table": ""
-		}
-
-
-# res://scripts/entities/combatant.gd
-# ADD these properties and methods to your existing combatant.gd
-
-
-# ============================================================================
-# SHADER METHODS (add these functions)
+# SELECTION SHADER
 # ============================================================================
 
 func setup_selection_shader():
@@ -367,14 +179,146 @@ func set_target_selected(selected: bool):
 	
 	# Visual feedback even without shader
 	if sprite:
+		var tween = create_tween()
 		if selected:
-			# Slight scale up when selected
-			var tween = create_tween()
 			tween.tween_property(sprite, "scale", Vector2(1.1, 1.1), 0.15)
 		else:
-			var tween = create_tween()
 			tween.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.15)
 
 func get_is_target_selected() -> bool:
 	"""Check if this combatant is the selected target"""
 	return is_target_selected
+
+# ============================================================================
+# TURN MANAGEMENT (for AI combatants)
+# ============================================================================
+
+func start_turn():
+	"""Called when this combatant's turn begins"""
+	if is_player_controlled:
+		return  # Player turn handled by combat_ui
+	
+	print("🎲 %s starting turn..." % combatant_name)
+	
+	# Roll dice into hand
+	if dice_collection:
+		dice_collection.roll_hand()
+		print("  Rolled hand:")
+		for die in dice_collection.get_hand_dice():
+			print("    %s: %d" % [die.get_display_name(), die.get_total_value()])
+
+func end_turn():
+	"""Called when this combatant's turn ends"""
+	current_action = {}
+	current_action_dice.clear()
+	turn_completed.emit()
+
+func prepare_action(action: Dictionary, dice: Array[DieResource]):
+	"""Prepare an action with specific dice"""
+	current_action = action
+	current_action_dice = dice
+
+func consume_action_die(die: DieResource):
+	"""Consume a die from the prepared action"""
+	if dice_collection:
+		dice_collection.consume_from_hand(die)
+
+func execute_prepared_action() -> int:
+	"""Execute the prepared action and return result value"""
+	if current_action.is_empty():
+		return 0
+	
+	var total = 0
+	for die in current_action_dice:
+		total += die.get_total_value()
+	
+	var base_damage = current_action.get("base_damage", 0)
+	var multiplier = current_action.get("damage_multiplier", 1.0)
+	var result = int(base_damage + (total * multiplier))
+	
+	action_executed.emit(current_action, result)
+	
+	return result
+
+func has_usable_dice() -> bool:
+	"""Check if combatant has dice available to use"""
+	if not dice_collection:
+		return false
+	return dice_collection.get_hand_count() > 0
+
+func get_available_dice() -> Array[DieResource]:
+	"""Get currently available dice (hand)"""
+	if dice_collection:
+		return dice_collection.get_hand_dice()
+	return []
+
+# ============================================================================
+# COMBAT - HEALTH
+# ============================================================================
+
+func take_damage(amount: int):
+	"""Take damage, applying armor reduction"""
+	var reduced = max(0, amount - armor)
+	current_health = max(0, current_health - reduced)
+	
+	print("  💥 %s takes %d damage (%d after armor), HP: %d/%d" % [
+		combatant_name, amount, reduced, current_health, max_health
+	])
+	
+	health_changed.emit(current_health, max_health)
+	update_display()
+	
+	if current_health <= 0:
+		_on_death()
+
+func heal(amount: int):
+	"""Heal for an amount"""
+	var old_health = current_health
+	current_health = min(max_health, current_health + amount)
+	var healed = current_health - old_health
+	
+	print("  💚 %s heals for %d, HP: %d/%d" % [
+		combatant_name, healed, current_health, max_health
+	])
+	
+	health_changed.emit(current_health, max_health)
+	update_display()
+
+func is_alive() -> bool:
+	"""Check if combatant is alive"""
+	return current_health > 0
+
+func _on_death():
+	"""Handle death"""
+	print("☠️ %s has been defeated!" % combatant_name)
+	died.emit()
+
+# ============================================================================
+# DISPLAY
+# ============================================================================
+
+func update_display():
+	"""Update visual display"""
+	if health_label:
+		health_label.text = "%d/%d" % [current_health, max_health]
+	
+	if name_label:
+		name_label.text = combatant_name
+
+# ============================================================================
+# REWARDS (for enemies)
+# ============================================================================
+
+func get_rewards() -> Dictionary:
+	"""Get rewards for defeating this enemy"""
+	if enemy_data:
+		return {
+			"experience": enemy_data.experience_reward,
+			"gold": enemy_data.get_gold_reward(),
+			"loot_table": enemy_data.loot_table_id
+		}
+	return {
+		"experience": 0,
+		"gold": 0,
+		"loot_table": ""
+	}
