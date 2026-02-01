@@ -14,6 +14,7 @@ var menu_button: Button = null
 var combat_button: Button = null
 var player_menu: Control = null
 var post_combat_summary: Control = null
+var map_dice_panel: MapDicePanel = null
 
 # ============================================================================
 # SIGNALS
@@ -81,6 +82,13 @@ func find_ui_nodes():
 		print("  ✅ PostCombatSummary found")
 	else:
 		print("  ❌ PostCombatSummary NOT found")
+		
+	# Find MapDicePanel
+	map_dice_panel = ui_layer.find_child("MapDicePanel", true, false)
+	if map_dice_panel:
+		print("  ✅ MapDicePanel found")
+	else:
+		print("  ❌ MapDicePanel NOT found")
 
 func setup_ui():
 	"""Setup UI connections"""
@@ -142,6 +150,14 @@ func initialize_map(p_player: Player):
 		print("  ❌ Cannot enable combat button - is null")
 	
 	print("  Player HP: %d/%d" % [player.current_hp, player.max_hp])
+	
+	# Initialize MapDicePanel
+	if map_dice_panel:
+		map_dice_panel.initialize(player)
+		print("  ✅ MapDicePanel initialized")
+	else:
+		print("  ⚠️ MapDicePanel not found - cannot initialize")
+	
 	print("🗺️ Map initialization complete")
 
 # ============================================================================

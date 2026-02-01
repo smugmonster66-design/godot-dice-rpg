@@ -28,7 +28,7 @@ var roll_button: Button = null
 # ============================================================================
 # STATE
 # ============================================================================
-var player: Node = null
+var player = null
 var dice_collection: PlayerDiceCollection = null
 
 # ============================================================================
@@ -126,29 +126,40 @@ func _connect_signals():
 # INITIALIZATION WITH PLAYER
 # ============================================================================
 
-func initialize(p_player: Node):
-	"""Initialize with player data"""
+func initialize(p_player):
+	"""Initialize with player data (accepts Resource or Node)"""
 	player = p_player
 	
-	# Get dice collection from player
-	if player.has_node("DiceCollection"):
-		dice_collection = player.get_node("DiceCollection")
-	elif player.get("dice_collection"):
-		dice_collection = player.dice_collection
+	# Get dice collection from player - check for dice_pool (the actual property name)
+	if player.get("dice_pool"):
+		dice_collection = player.dice_pool
+		print("🎲 MapDicePanel: Found dice_pool")
+	elif player.has_node("DicePool"):
+		dice_collection = player.get_node("DicePool")
+		print("🎲 MapDicePanel: Found DicePool node")
+	else:
+		print("⚠️ MapDicePanel: No dice collection found on player")
 	
 	# Initialize dice grid
 	if dice_grid and dice_collection:
 		dice_grid.initialize(dice_collection)
-		dice_collection.dice_changed.connect(_update_dice_count)
+		if not dice_collection.dice_changed.is_connected(_update_dice_count):
+			dice_collection.dice_changed.connect(_update_dice_count)
+		print("🎲 MapDicePanel: DiceGrid initialized")
+	else:
+		print("⚠️ MapDicePanel: Cannot initialize grid (grid=%s, collection=%s)" % [dice_grid != null, dice_collection != null])
 	
 	# Connect player signals
 	if player.has_signal("hp_changed"):
-		player.hp_changed.connect(_on_hp_changed)
+		if not player.hp_changed.is_connected(_on_hp_changed):
+			player.hp_changed.connect(_on_hp_changed)
 	if player.has_signal("mana_changed"):
-		player.mana_changed.connect(_on_mana_changed)
+		if not player.mana_changed.is_connected(_on_mana_changed):
+			player.mana_changed.connect(_on_mana_changed)
 	
 	# Initial update
 	refresh()
+	print("🎲 MapDicePanel: Initialized with player")
 
 func set_dice_collection(collection: PlayerDiceCollection):
 	"""Set dice collection directly"""

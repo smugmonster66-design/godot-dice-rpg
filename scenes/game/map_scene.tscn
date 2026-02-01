@@ -137,8 +137,3 @@ layout_mode = 2
 text = "Close"
 
 [node name="MapDicePanel" parent="UILayer" instance=ExtResource("8_bg5j8")]
-panel_width = null
-portrait_size = null
-grid_columns = null
-slot_size = null
-max_dice_slots = null
