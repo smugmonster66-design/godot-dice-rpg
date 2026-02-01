@@ -1,4 +1,4 @@
-# res://scripts/resources/player_class.gd
+# res://resources/data/player_class.gd
 # Player class definition with starting stats, dice, and skill trees
 extends Resource
 class_name PlayerClass
@@ -76,11 +76,11 @@ enum MainStat {
 @export var skill_tree_3: SkillTree = null
 
 # ============================================================================
-# STARTING EQUIPMENT & ABILITIES
+# STARTING CONFIGURATION
 # ============================================================================
 @export_group("Starting Configuration")
-@export var starting_actions: Array[Dictionary] = []  ## Default combat actions
-@export var unlocked_at_level: int = 1  ## Level required to unlock this class
+@export var starting_actions: Array[Dictionary] = []
+@export var unlocked_at_level: int = 1
 
 # ============================================================================
 # STAT METHODS
@@ -120,7 +120,7 @@ func get_stat_at_level(stat_name: String, level: int) -> int:
 	return base + int(growth * (level - 1))
 
 func get_stat_bonus(stat_name: String) -> int:
-	"""Get base stat bonus (for equipment affinity checks)"""
+	"""Get base stat bonus"""
 	match stat_name:
 		"strength": return base_strength
 		"agility": return base_agility
@@ -201,6 +201,21 @@ func get_skill_tree_count() -> int:
 	if skill_tree_3: count += 1
 	return count
 
+func get_skill_tree_by_index(index: int) -> SkillTree:
+	"""Get skill tree by index (0-2)"""
+	match index:
+		0: return skill_tree_1
+		1: return skill_tree_2
+		2: return skill_tree_3
+		_: return null
+
+func get_skill_tree_by_id(id: String) -> SkillTree:
+	"""Find a skill tree by its ID"""
+	for tree in get_skill_trees():
+		if tree and tree.tree_id == id:
+			return tree
+	return null
+
 func get_all_skills() -> Array[SkillResource]:
 	"""Get all skills from all skill trees"""
 	var skills: Array[SkillResource] = []
@@ -233,11 +248,10 @@ func get_default_actions() -> Array[Dictionary]:
 	if starting_actions.size() > 0:
 		return starting_actions.duplicate(true)
 	
-	# Provide basic default actions if none specified
 	return [
 		{
 			"name": "Attack",
-			"action_type": 0,  # ATTACK
+			"action_type": 0,
 			"base_damage": 0,
 			"damage_multiplier": 1.0,
 			"die_slots": 1,
@@ -245,7 +259,7 @@ func get_default_actions() -> Array[Dictionary]:
 		},
 		{
 			"name": "Defend",
-			"action_type": 1,  # DEFEND
+			"action_type": 1,
 			"base_damage": 0,
 			"damage_multiplier": 0.5,
 			"die_slots": 1,
@@ -276,7 +290,6 @@ func validate() -> Array[String]:
 	if get_skill_tree_count() == 0:
 		warnings.append("Class has no skill trees")
 	
-	# Validate skill trees
 	for tree in get_skill_trees():
 		var tree_warnings = tree.validate()
 		for warning in tree_warnings:

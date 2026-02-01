@@ -1,152 +1,145 @@
 # res://scripts/resources/skill_resource.gd
-# Individual skill definition
+# Skill that grants affixes to the player when learned
 extends Resource
 class_name SkillResource
-
-# ============================================================================
-# ENUMS
-# ============================================================================
-enum SkillType {
-	PASSIVE,      # Always active when learned
-	ACTIVE,       # Must be used manually (adds action)
-	TRIGGERED,    # Activates on specific conditions
-	MODIFIER      # Modifies other skills/actions
-}
-
-enum TargetType {
-	SELF,
-	SINGLE_ENEMY,
-	ALL_ENEMIES,
-	SINGLE_ALLY,
-	ALL_ALLIES
-}
 
 # ============================================================================
 # BASIC INFO
 # ============================================================================
 @export var skill_id: String = ""
 @export var skill_name: String = "New Skill"
-@export_multiline var description: String = ""
 @export var icon: Texture2D = null
-
-@export_group("Skill Type")
-@export var skill_type: SkillType = SkillType.PASSIVE
-@export var target_type: TargetType = TargetType.SELF
+@export_multiline var description: String = ""  ## Supports BBCode
 
 # ============================================================================
-# REQUIREMENTS
+# SKILL TREE PLACEMENT
 # ============================================================================
-@export_group("Requirements")
+@export_group("Skill Tree")
 @export var tier: int = 1  ## Which tier in the skill tree (1-5)
 @export var skill_point_cost: int = 1
-@export var required_skills: Array[SkillResource] = []  ## Must learn these first
-@export var required_class_level: int = 1
+@export var required_skills: Array[SkillResource] = []  ## Prerequisites
 
 # ============================================================================
-# RANKS
+# AFFIXES PER RANK - Drag and drop Affix resources here
 # ============================================================================
-@export_group("Ranks")
-@export var max_rank: int = 3  ## How many times this can be upgraded
-@export var rank_descriptions: Array[String] = []  ## Description per rank
-@export var rank_values: Array[float] = []  ## Value scaling per rank
+@export_group("Rank 1")
+@export var rank_1_affixes: Array[Affix] = []
+
+@export_group("Rank 2")
+@export var rank_2_affixes: Array[Affix] = []
+
+@export_group("Rank 3")
+@export var rank_3_affixes: Array[Affix] = []
+
+@export_group("Rank 4")
+@export var rank_4_affixes: Array[Affix] = []
+
+@export_group("Rank 5")
+@export var rank_5_affixes: Array[Affix] = []
 
 # ============================================================================
-# PASSIVE EFFECTS
-# ============================================================================
-@export_group("Passive Effects")
-@export var stat_bonuses: Dictionary = {}  ## {"strength": 2, "armor": 5}
-@export var damage_bonus_percent: float = 0.0
-@export var defense_bonus_percent: float = 0.0
-@export var dice_modifier: int = 0  ## +/- to all dice rolls
-
-# ============================================================================
-# ACTIVE SKILL (if skill_type == ACTIVE)
-# ============================================================================
-@export_group("Active Skill")
-@export var action_name: String = ""  ## Name shown in combat
-@export var action_type: int = 0  ## 0=Attack, 1=Defend, 2=Heal, 3=Special
-@export var base_damage: int = 0
-@export var damage_multiplier: float = 1.0
-@export var die_slots: int = 1
-@export var cooldown_turns: int = 0
-@export var mana_cost: int = 0
-
-# ============================================================================
-# TRIGGERED EFFECTS
-# ============================================================================
-@export_group("Trigger Conditions")
-@export_enum("ON_ATTACK", "ON_DEFEND", "ON_DAMAGE_TAKEN", "ON_KILL", "ON_TURN_START", "ON_TURN_END", "ON_LOW_HEALTH", "ON_CRITICAL") var trigger_condition: int = 0
-@export var trigger_chance: float = 1.0  ## 0.0 to 1.0
-@export var trigger_value: float = 0.0  ## Damage/heal amount when triggered
-
-# ============================================================================
-# METHODS
+# RANK METHODS
 # ============================================================================
 
-func get_description_for_rank(rank: int) -> String:
-	"""Get the description for a specific rank"""
-	if rank <= 0:
-		return description
+func get_max_rank() -> int:
+	"""Determine max rank based on which arrays have affixes"""
+	if rank_5_affixes.size() > 0: return 5
+	if rank_4_affixes.size() > 0: return 4
+	if rank_3_affixes.size() > 0: return 3
+	if rank_2_affixes.size() > 0: return 2
+	if rank_1_affixes.size() > 0: return 1
+	return 1
+
+# ============================================================================
+# AFFIX METHODS
+# ============================================================================
+
+func get_affixes_for_rank(rank: int) -> Array[Affix]:
+	"""Get affixes granted at a specific rank"""
+	match rank:
+		1: return rank_1_affixes
+		2: return rank_2_affixes
+		3: return rank_3_affixes
+		4: return rank_4_affixes
+		5: return rank_5_affixes
+		_: return []
+
+func get_all_affixes_up_to_rank(rank: int) -> Array[Affix]:
+	"""Get all affixes from rank 1 up to specified rank"""
+	var affixes: Array[Affix] = []
+	for r in range(1, rank + 1):
+		affixes.append_array(get_affixes_for_rank(r))
+	return affixes
+
+func get_affixes_with_source(rank: int, source_prefix: String = "") -> Array[Affix]:
+	"""Get affixes up to rank with source tracking applied"""
+	var affixes: Array[Affix] = []
+	var source_name = source_prefix + skill_name if source_prefix else skill_name
 	
-	var index = rank - 1
-	if index < rank_descriptions.size():
-		return rank_descriptions[index]
+	for r in range(1, rank + 1):
+		for affix in get_affixes_for_rank(r):
+			if affix:
+				var copy = affix.duplicate_with_source(
+					"%s Rank %d" % [source_name, r],
+					"skill"
+				)
+				affixes.append(copy)
 	
-	return description
+	return affixes
 
-func get_value_for_rank(rank: int) -> float:
-	"""Get the scaled value for a specific rank"""
-	if rank <= 0:
-		return 0.0
-	
-	var index = rank - 1
-	if index < rank_values.size():
-		return rank_values[index]
-	
-	# Default scaling if not specified
-	return rank * 1.0
+# ============================================================================
+# PREREQUISITE METHODS
+# ============================================================================
 
-func get_stat_bonus(stat_name: String, rank: int) -> int:
-	"""Get stat bonus scaled by rank"""
-	if not stat_bonuses.has(stat_name):
-		return 0
-	
-	var base = stat_bonuses[stat_name]
-	return int(base * rank)
-
-func can_learn(player_level: int, learned_skills: Array) -> bool:
-	"""Check if this skill can be learned"""
-	# Check level requirement
-	if player_level < required_class_level:
-		return false
-	
-	# Check prerequisite skills
+func can_learn(learned_skill_ids: Array) -> bool:
+	"""Check if prerequisites are met"""
 	for required in required_skills:
-		if required and not learned_skills.has(required.skill_id):
+		if required and not learned_skill_ids.has(required.skill_id):
 			return false
-	
 	return true
 
-func to_action_dict(rank: int = 1) -> Dictionary:
-	"""Convert active skill to action dictionary for combat"""
-	if skill_type != SkillType.ACTIVE:
-		return {}
+# ============================================================================
+# DISPLAY METHODS
+# ============================================================================
+
+func get_rank_description(rank: int) -> String:
+	"""Get description of what a specific rank grants"""
+	var affixes = get_affixes_for_rank(rank)
+	if affixes.is_empty():
+		return "No bonuses"
 	
-	var scaled_damage = base_damage + int(get_value_for_rank(rank))
+	var parts: Array[String] = []
+	for affix in affixes:
+		if affix:
+			parts.append(affix.description)
 	
-	return {
-		"name": action_name if action_name else skill_name,
-		"action_type": action_type,
-		"base_damage": scaled_damage,
-		"damage_multiplier": damage_multiplier,
-		"die_slots": die_slots,
-		"source": "skill",
-		"skill_id": skill_id,
-		"rank": rank,
-		"cooldown": cooldown_turns,
-		"mana_cost": mana_cost,
-		"icon": icon
-	}
+	return ", ".join(parts)
+
+func get_total_affix_count() -> int:
+	"""Count total affixes across all ranks"""
+	var count = 0
+	for rank in range(1, 6):
+		count += get_affixes_for_rank(rank).size()
+	return count
+
+# ============================================================================
+# VALIDATION
+# ============================================================================
+
+func validate() -> Array[String]:
+	"""Validate skill configuration"""
+	var warnings: Array[String] = []
+	
+	if skill_id.is_empty():
+		warnings.append("Skill has no ID")
+	
+	if skill_name.is_empty():
+		warnings.append("Skill has no name")
+	
+	if rank_1_affixes.is_empty():
+		warnings.append("Skill has no rank 1 affixes")
+	
+	return warnings
 
 func _to_string() -> String:
-	return "SkillResource<%s>" % skill_name
+	return "SkillResource<%s: max rank %d, %d affixes>" % [skill_name, get_max_rank(), get_total_affix_count()]

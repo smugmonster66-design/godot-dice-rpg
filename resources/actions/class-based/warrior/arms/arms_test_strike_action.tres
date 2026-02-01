@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="Action" load_steps=2 format=3 uid="uid://bqp2x4md1qdej"]
+
+[ext_resource type="Script" uid="uid://b1kctq61bwysh" path="res://resources/data/action.gd" id="1_0apit"]
+
+[resource]
+script = ExtResource("1_0apit")
+action_name = "Arms Test Strike"
+action_description = "Deals 2d+5 Slashing damage."
+metadata/_custom_type_script = "uid://b1kctq61bwysh"

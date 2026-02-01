@@ -10,6 +10,13 @@ class_name Affix
 @export var icon: Texture2D = null
 
 # ============================================================================
+# GRANTED ACTION (for "new_action" category)
+# ============================================================================
+@export_group("Granted Action")
+## Drag an Action resource here if this affix grants a combat action
+@export var granted_action: Action = null
+
+# ============================================================================
 # CATEGORIZATION
 # ============================================================================
 # Affixes can have multiple category tags
@@ -53,14 +60,17 @@ var source_type: String = ""  # e.g., "item", "skill", "consumable", "buff"
 # ============================================================================
 
 func apply_effect() -> Variant:
-	"""Apply this affix's effect and return the result
+	"""Apply this affix's effect and return the result"""
 	
-	Returns effect_number if set, otherwise effect_data
-	"""
+	# If this grants an action, return it
+	if granted_action and has_category("new_action"):
+		return granted_action
+	
 	if effect_number != 0.0:
 		return effect_number
 	elif effect_data.size() > 0:
 		return effect_data
+	
 	return 0.0
 
 func can_stack_with(other_affix: Affix) -> bool:
