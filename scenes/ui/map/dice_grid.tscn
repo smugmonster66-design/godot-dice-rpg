@@ -10,6 +10,7 @@ theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 6
 columns = 5
 script = ExtResource("1_jqjy0")
+show_empty_slots = false
 
 [node name="DieSlot" parent="." instance=ExtResource("2_ql1br")]
 layout_mode = 2

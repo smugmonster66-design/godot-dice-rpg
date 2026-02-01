@@ -37,6 +37,7 @@ signal scene_changed(new_scene: Node)
 # ============================================================================
 
 func _ready():
+	randomize()
 	print("🎮 GameManager AutoLoad ready (waiting for scene)")
 	
 	# Wait for scene tree to be ready

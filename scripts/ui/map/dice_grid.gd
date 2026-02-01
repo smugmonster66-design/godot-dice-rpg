@@ -84,50 +84,48 @@ func _connect_slot_signals():
 # ============================================================================
 
 func initialize(collection: PlayerDiceCollection):
-	"""Bind to a dice collection"""
-	# Disconnect old signals
-	if dice_collection:
-		if dice_collection.dice_changed.is_connected(refresh):
-			dice_collection.dice_changed.disconnect(refresh)
-		if dice_collection.dice_rolled.is_connected(_on_dice_rolled):
-			dice_collection.dice_rolled.disconnect(_on_dice_rolled)
-		if dice_collection.die_consumed.is_connected(_on_die_consumed):
-			dice_collection.die_consumed.disconnect(_on_die_consumed)
-		if dice_collection.die_restored.is_connected(_on_die_restored):
-			dice_collection.die_restored.disconnect(_on_die_restored)
-	
+	"""Initialize with a dice collection"""
 	dice_collection = collection
 	
-	# Connect new signals
-	if dice_collection:
-		dice_collection.dice_changed.connect(refresh)
-		dice_collection.dice_rolled.connect(_on_dice_rolled)
-		
-		# Hand mode needs consume/restore signals
-		if grid_mode == GridMode.HAND:
-			dice_collection.die_consumed.connect(_on_die_consumed)
-			dice_collection.die_restored.connect(_on_die_restored)
+	if not dice_collection:
+		return
+	
+	# Connect to appropriate signals based on mode
+	if grid_mode == GridMode.POOL:
+		if not dice_collection.dice_changed.is_connected(refresh):
+			dice_collection.dice_changed.connect(refresh)
+	else:  # HAND mode
+		if not dice_collection.hand_changed.is_connected(refresh):
+			dice_collection.hand_changed.connect(refresh)
+		if not dice_collection.hand_rolled.is_connected(_on_hand_rolled):
+			dice_collection.hand_rolled.connect(_on_hand_rolled)
 	
 	refresh()
+	print("🎲 DiceGrid initialized in %s mode" % ("POOL" if grid_mode == GridMode.POOL else "HAND"))
+
+func _on_hand_rolled(_hand: Array[DieResource]):
+	"""Hand was rolled - refresh display"""
+	refresh()
+
 
 func refresh():
-	"""Refresh all slots from the dice collection"""
+	"""Refresh slots from the dice collection"""
 	if not dice_collection:
 		_clear_all_slots()
 		_update_visibility()
 		return
 	
 	# Get dice based on mode
-	var dice: Array[DieResource]
+	var dice_to_show: Array[DieResource]
 	if grid_mode == GridMode.POOL:
-		dice = dice_collection.get_all_dice()
+		dice_to_show = dice_collection.get_all_dice()
 	else:  # HAND mode
-		dice = dice_collection.get_available_dice()
+		dice_to_show = dice_collection.get_hand_dice()
 	
 	for i in range(slots.size()):
 		var slot = slots[i]
-		if i < dice.size():
-			slot.set_die(dice[i])
+		if i < dice_to_show.size():
+			slot.set_die(dice_to_show[i])
 		else:
 			slot.clear_die()
 	
@@ -139,10 +137,13 @@ func _clear_all_slots():
 		slot.clear_die()
 
 func _update_visibility():
-	"""Update which slots are visible"""
+	"""Update which slots are visible
+	POOL mode: respects show_empty_slots setting
+	HAND mode: always hides empty slots
+	"""
 	if not dice_collection:
 		for slot in slots:
-			slot.visible = show_empty_slots
+			slot.visible = show_empty_slots and grid_mode == GridMode.POOL
 		return
 	
 	var dice_count: int
@@ -155,7 +156,12 @@ func _update_visibility():
 		if i < dice_count:
 			slots[i].visible = true
 		else:
-			slots[i].visible = show_empty_slots
+			# HAND mode always hides empty slots
+			# POOL mode respects the show_empty_slots setting
+			if grid_mode == GridMode.HAND:
+				slots[i].visible = false
+			else:
+				slots[i].visible = show_empty_slots
 
 # ============================================================================
 # SIGNAL HANDLERS

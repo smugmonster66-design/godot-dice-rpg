@@ -1,19 +1,20 @@
-# die_visual.gd - Single draggable die visual with DEBUG
+# die_visual.gd - Single draggable die visual
 extends PanelContainer
 
 # ============================================================================
-# NODE REFERENCES
+# NODE REFERENCES - Found in _ready(), NOT @onready
 # ============================================================================
-@onready var vbox = $VBoxContainer
-@onready var type_label = $VBoxContainer/TypeLabel
-@onready var value_label = $VBoxContainer/ValueLabel
-@onready var tags_label = $VBoxContainer/TagsLabel
+var vbox: VBoxContainer = null
+var type_label: Label = null
+var value_label: Label = null
+var tags_label: Label = null
 
 # ============================================================================
 # STATE
 # ============================================================================
 var die_data: DieResource = null
 var can_drag: bool = true
+var _initialized: bool = false
 
 # ============================================================================
 # INITIALIZATION
@@ -23,27 +24,33 @@ func _ready():
 	custom_minimum_size = Vector2(90, 110)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	
-	print("🎲 DieVisual _ready")
-	print("  - mouse_filter: %s" % mouse_filter)
-	print("  - can_drag: %s" % can_drag)
+	# Find nodes NOW that scene is ready
+	vbox = get_node_or_null("VBoxContainer")
+	type_label = get_node_or_null("VBoxContainer/TypeLabel")
+	value_label = get_node_or_null("VBoxContainer/ValueLabel")
+	tags_label = get_node_or_null("VBoxContainer/TagsLabel")
+	
+	# Ensure VBoxContainer doesn't block input
+	if vbox:
+		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# If initialize() was called before _ready(), update display now
+	if die_data:
+		update_display()
 
 func initialize(die: DieResource):
 	"""Initialize with die data"""
 	die_data = die
 	can_drag = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_initialized = true
 	
-	# CRITICAL: Ensure VBoxContainer doesn't block input
-	if vbox:
-		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	update_display()
-	
-	print("🎲 DieVisual initialized")
-	print("  - die: %s" % die.get_display_name())
-	print("  - can_drag: %s" % can_drag)
-	print("  - mouse_filter: %s" % mouse_filter)
-	print("  - is_visible: %s" % is_visible_in_tree())
+	# Only update if nodes are ready (might not be if called before _ready)
+	if is_node_ready():
+		if vbox:
+			vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		update_display()
+	# else: _ready() will call update_display()
 
 func update_display():
 	"""Update visual display"""
@@ -61,15 +68,13 @@ func update_display():
 	if value_label:
 		value_label.text = str(die_data.get_total_value())
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.add_theme_font_size_override("font_size", 32)
+		value_label.add_theme_font_size_override("font_size", 28)
 		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	# Tags
 	if tags_label:
 		if die_data.tags.size() > 0:
 			tags_label.text = "[%s]" % ", ".join(die_data.tags)
-			tags_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			tags_label.add_theme_font_size_override("font_size", 10)
 			tags_label.show()
 		else:
 			tags_label.hide()
@@ -79,67 +84,43 @@ func update_display():
 	modulate = die_data.color
 
 # ============================================================================
-# DRAG & DROP - WITH DEBUG
+# DRAG AND DROP
 # ============================================================================
 
-func _gui_input(event: InputEvent):
-	"""DEBUG: Catch all input events"""
-	if event is InputEventMouseButton:
-		print("🖱️ DieVisual received mouse button: %s, pressed: %s" % [event.button_index, event.pressed])
-
-func _get_drag_data(at_position: Vector2):
-	"""Start dragging"""
-	print("🎲 _get_drag_data called!")
-	print("  - at_position: %s" % at_position)
-	print("  - die_data: %s" % ("EXISTS" if die_data else "NULL"))
-	print("  - can_drag: %s" % can_drag)
-	
-	if not die_data:
-		print("  ❌ FAIL: No die_data")
+func _get_drag_data(_at_position: Vector2):
+	"""Start dragging this die"""
+	if not can_drag or not die_data:
 		return null
-	
-	if not can_drag:
-		print("  ❌ FAIL: can_drag is false")
-		return null
-	
-	print("  ✅ Creating drag preview...")
 	
 	# Create preview
 	var preview = PanelContainer.new()
-	preview.custom_minimum_size = Vector2(90, 110)
-	preview.modulate = Color(1, 1, 1, 0.7)
+	preview.custom_minimum_size = Vector2(70, 90)
+	preview.modulate = Color(1, 1, 1, 0.8)
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
+	style.set_corner_radius_all(4)
+	preview.add_theme_stylebox_override("panel", style)
 	
 	var preview_vbox = VBoxContainer.new()
+	preview_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	preview.add_child(preview_vbox)
 	
-	var preview_label = Label.new()
-	preview_label.text = str(die_data.get_total_value())
-	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	preview_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	preview_label.add_theme_font_size_override("font_size", 32)
-	preview_vbox.add_child(preview_label)
+	var preview_type = Label.new()
+	preview_type.text = "D%d" % die_data.die_type
+	preview_type.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_vbox.add_child(preview_type)
+	
+	var preview_value = Label.new()
+	preview_value.text = str(die_data.get_total_value())
+	preview_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_value.add_theme_font_size_override("font_size", 24)
+	preview_vbox.add_child(preview_value)
 	
 	set_drag_preview(preview)
 	
-	var drag_data = {
+	return {
 		"die": die_data,
 		"visual": self,
-		"value": die_data.get_total_value()
+		"source": "dice_pool"
 	}
-	
-	print("  ✅ DRAG STARTED: %s (value: %d)" % [die_data.get_display_name(), die_data.get_total_value()])
-	
-	return drag_data
-
-func set_dragging_enabled(enabled: bool):
-	"""Enable/disable dragging"""
-	can_drag = enabled
-	
-	if not enabled:
-		modulate.a = 0.5
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-	else:
-		modulate.a = 1.0
-		mouse_filter = Control.MOUSE_FILTER_STOP
-	
-	print("🎲 Dragging %s" % ("ENABLED" if enabled else "DISABLED"))

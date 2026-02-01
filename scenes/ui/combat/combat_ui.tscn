@@ -261,7 +261,6 @@ die_visual_scene = ExtResource("4_l84v8")
 
 [node name="DicePoolLabel" type="Label" parent="MarginContainer/VBox/DicePoolArea"]
 layout_mode = 2
-text = "Hand"
 
 [node name="ButtonArea" type="CenterContainer" parent="MarginContainer/VBox"]
 layout_mode = 2
@@ -290,3 +289,11 @@ size_flags_vertical = 3
 [node name="EndTurnButton" type="Button" parent="MarginContainer/VBox/ButtonArea/VBoxContainer"]
 layout_mode = 2
 text = "End Turn"
+
+[node name="Spacer" type="Control" parent="MarginContainer/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Spacer4" type="Control" parent="MarginContainer/VBox"]
+layout_mode = 2
+size_flags_vertical = 3

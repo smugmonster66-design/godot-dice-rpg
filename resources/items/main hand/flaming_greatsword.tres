@@ -14,7 +14,6 @@ rarity = 4
 equip_slot = 6
 unique_affix = ExtResource("3_ee0ol")
 grants_dice = Array[int]([8])
-dice_tags = Array[String]([""])
 grants_action = true
 action = ExtResource("1_xasjj")
 metadata/_custom_type_script = "uid://gax4pbuq25uv"

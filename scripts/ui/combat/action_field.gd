@@ -328,15 +328,24 @@ func remove_die_at_index(index: int) -> Dictionary:
 	
 	return {"die": die, "visual": visual}
 
+
 func cancel_action():
-	"""Cancel this action and return all dice"""
+	"""Cancel and return all dice to HAND"""
 	print("❌ Canceling %s" % action_name)
 	
-	# Return all dice
+	# Return all dice to hand
 	while placed_dice.size() > 0:
-		var data = remove_die_at_index(0)
-		if data.has("die"):
-			dice_returned.emit(data["die"])
+		var die = placed_dice[0]
+		placed_dice.remove_at(0)
+		dice_returned.emit(die)  # Signal to restore to hand
+	
+	# Clear visuals
+	for visual in dice_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	dice_visuals.clear()
+	
+	_refresh_slot_visuals()
 
 func confirm_action():
 	"""Confirm and execute this action"""
@@ -382,6 +391,60 @@ func is_ready_to_confirm() -> bool:
 # ============================================================================
 # VISUAL UPDATES
 # ============================================================================
+
+func _refresh_slot_visuals():
+	"""Reset slot panels to show empty state"""
+	for i in range(die_slot_panels.size()):
+		var slot_panel = die_slot_panels[i]
+		
+		# Clear any existing children
+		for child in slot_panel.get_children():
+			child.queue_free()
+		
+		# Add empty indicator if no die in this slot
+		if i >= placed_dice.size():
+			var empty_label = Label.new()
+			empty_label.text = "+"
+			empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			empty_label.add_theme_font_size_override("font_size", 24)
+			empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.5))
+			empty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot_panel.add_child(empty_label)
+	
+	update_icon_state()
+
+func clear_placed_dice():
+	"""Clear all placed dice and visuals (after action confirmed - dice are consumed, not returned)"""
+	print("🧹 Clearing placed dice from %s" % action_name)
+	
+	# Clear the array (don't emit dice_returned - they were consumed)
+	placed_dice.clear()
+	
+	# Clear visuals
+	for visual in dice_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	dice_visuals.clear()
+	
+	# Reset slot panels to empty state
+	for slot_panel in die_slot_panels:
+		# Clear existing children
+		for child in slot_panel.get_children():
+			child.queue_free()
+		
+		# Add empty indicator
+		var empty_label = Label.new()
+		empty_label.text = "+"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty_label.add_theme_font_size_override("font_size", 24)
+		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.5))
+		empty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_panel.add_child(empty_label)
+	
+	update_icon_state()
+
 
 func update_icon_state():
 	"""Dim icon when dice are placed"""

@@ -155,6 +155,13 @@ func update_display():
 
 func _show_die():
 	"""Show die information"""
+	print("🎲 DieSlot._show_die() for slot %d" % slot_index)
+	print("  die = %s" % (die.display_name if die else "null"))
+	print("  die.current_value = %d" % die.current_value if die else -1)
+	print("  die.modified_value = %d" % die.modified_value if die else -1)
+	print("  die.get_total_value() = %d" % die.get_total_value() if die else -1)
+	print("  value_label found = %s" % (value_label != null))
+	
 	if die_display:
 		die_display.show()
 	if empty_display:
@@ -163,10 +170,16 @@ func _show_die():
 	# Type label
 	if type_label:
 		type_label.text = die.get_type_string()
+		print("  Set type_label to: %s" % type_label.text)
+	else:
+		print("  ⚠️ type_label is null!")
 	
 	# Value label
 	if value_label:
 		value_label.text = str(die.get_total_value())
+		print("  Set value_label to: %s" % value_label.text)
+	else:
+		print("  ⚠️ value_label is null!")
 	
 	# Modifier label
 	if modifier_label:
