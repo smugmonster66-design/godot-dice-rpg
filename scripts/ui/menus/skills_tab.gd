@@ -1,5 +1,5 @@
 # res://scripts/ui/menus/skills_tab.gd
-# Skills tab with sub-tabs for each skill tree
+# Skills tab with sub-tabs for each skill tree - dynamically builds grid
 extends Control
 class_name SkillsTab
 
@@ -14,6 +14,7 @@ signal skill_learned(skill: SkillResource, new_rank: int)
 @export_group("Header")
 @export var skill_points_label: Label
 @export var class_name_label: Label
+@export var tree_points_label: Label  ## Shows points spent in current tree
 
 @export_group("Tree Tabs")
 @export var tree_tab_container: HBoxContainer
@@ -21,16 +22,24 @@ signal skill_learned(skill: SkillResource, new_rank: int)
 @export var tree_tab_2: Button
 @export var tree_tab_3: Button
 
-@export_group("Content Areas")
-@export var tree_content_1: Control
-@export var tree_content_2: Control
-@export var tree_content_3: Control
+@export_group("Skill Grid")
+@export var skill_grid: GridContainer  ## Single grid, content changes per tree
+
+@export_group("Scenes")
+@export var skill_button_scene: PackedScene  ## res://scenes/ui/menus/skill_button.tscn
+
+# ============================================================================
+# GRID SETTINGS
+# ============================================================================
+const GRID_ROWS: int = 9
+const GRID_COLUMNS: int = 7
 
 # ============================================================================
 # STATE
 # ============================================================================
 var player: Player = null
 var current_tree_index: int = 0
+var skill_buttons: Dictionary = {}  # "row_col" -> SkillButton
 
 # ============================================================================
 # INITIALIZATION
@@ -38,7 +47,6 @@ var current_tree_index: int = 0
 
 func _ready():
 	_connect_tab_buttons()
-	_connect_skill_slots()
 	_show_tree(0)
 	print("🌳 SkillsTab: Ready")
 
@@ -50,27 +58,6 @@ func _connect_tab_buttons():
 		tree_tab_2.pressed.connect(_on_tree_tab_pressed.bind(1))
 	if tree_tab_3:
 		tree_tab_3.pressed.connect(_on_tree_tab_pressed.bind(2))
-
-func _connect_skill_slots():
-	"""Find and connect all SkillSlot nodes in content areas"""
-	for content in [tree_content_1, tree_content_2, tree_content_3]:
-		if not content:
-			continue
-		
-		for slot in _find_skill_slots(content):
-			if not slot.skill_clicked.is_connected(_on_skill_clicked):
-				slot.skill_clicked.connect(_on_skill_clicked)
-
-func _find_skill_slots(node: Node) -> Array[SkillSlot]:
-	"""Recursively find all SkillSlot children"""
-	var slots: Array[SkillSlot] = []
-	
-	for child in node.get_children():
-		if child is SkillSlot:
-			slots.append(child)
-		slots.append_array(_find_skill_slots(child))
-	
-	return slots
 
 # ============================================================================
 # PUBLIC API
@@ -85,14 +72,14 @@ func refresh():
 	"""Refresh entire tab display"""
 	_update_header()
 	_update_tree_tabs()
-	_update_skill_slots()
+	_rebuild_skill_grid()
 
 func on_external_data_change():
 	"""Called when other tabs modify player data"""
 	refresh()
 
 # ============================================================================
-# HELPER - Get skill ranks from active class
+# SKILL RANK HELPERS
 # ============================================================================
 
 func _get_skill_rank(skill_id: String) -> int:
@@ -105,6 +92,38 @@ func _set_skill_rank(skill_id: String, rank: int):
 	"""Set skill rank on player's active class"""
 	if player and player.active_class:
 		player.active_class.set_skill_rank(skill_id, rank)
+
+func _get_current_skill_tree() -> SkillTree:
+	"""Get the currently selected skill tree"""
+	if not player or not player.active_class:
+		return null
+	return player.active_class.get_skill_tree_by_index(current_tree_index)
+
+func _get_skill_rank_callable() -> Callable:
+	"""Get a callable for checking skill ranks (for prerequisite checking)"""
+	return func(skill_id: String) -> int:
+		return _get_skill_rank(skill_id)
+
+# ============================================================================
+# TREE POINTS TRACKING
+# ============================================================================
+
+func _get_points_spent_in_tree(tree: SkillTree) -> int:
+	"""Calculate total points spent in a specific skill tree"""
+	if not tree or not player or not player.active_class:
+		return 0
+	
+	var total = 0
+	for skill in tree.get_all_skills():
+		if skill:
+			var rank = _get_skill_rank(skill.skill_id)
+			total += rank * skill.skill_point_cost
+	
+	return total
+
+func _get_points_spent_in_current_tree() -> int:
+	"""Calculate total points spent in current skill tree"""
+	return _get_points_spent_in_tree(_get_current_skill_tree())
 
 # ============================================================================
 # HEADER
@@ -132,6 +151,15 @@ func _update_header():
 		var available = active_class.get_available_skill_points()
 		var total = active_class.total_skill_points
 		skill_points_label.text = "Skill Points: %d / %d" % [available, total]
+	
+	# Update tree points display
+	if tree_points_label:
+		var tree = _get_current_skill_tree()
+		if tree:
+			var spent = _get_points_spent_in_current_tree()
+			tree_points_label.text = "%s: %d points" % [tree.tree_name, spent]
+		else:
+			tree_points_label.text = ""
 
 # ============================================================================
 # TREE TABS
@@ -170,118 +198,156 @@ func _update_tree_tabs():
 
 func _hide_all_tabs():
 	"""Hide all tree tabs when no class is active"""
-	if tree_tab_1:
-		tree_tab_1.hide()
-	if tree_tab_2:
-		tree_tab_2.hide()
-	if tree_tab_3:
-		tree_tab_3.hide()
+	if tree_tab_1: tree_tab_1.hide()
+	if tree_tab_2: tree_tab_2.hide()
+	if tree_tab_3: tree_tab_3.hide()
 
 func _update_tab_highlight():
 	"""Highlight the active tab"""
 	var tabs = [tree_tab_1, tree_tab_2, tree_tab_3]
-	
 	for i in range(tabs.size()):
-		var tab = tabs[i]
-		if tab:
-			tab.button_pressed = (i == current_tree_index)
+		if tabs[i]:
+			tabs[i].button_pressed = (i == current_tree_index)
 
 func _on_tree_tab_pressed(index: int):
 	"""Switch to a different skill tree"""
 	_show_tree(index)
 
 func _show_tree(index: int):
-	"""Show the specified tree content, hide others"""
+	"""Show the specified tree"""
 	current_tree_index = index
-	
-	if tree_content_1:
-		tree_content_1.visible = (index == 0)
-	if tree_content_2:
-		tree_content_2.visible = (index == 1)
-	if tree_content_3:
-		tree_content_3.visible = (index == 2)
-	
 	_update_tab_highlight()
+	_rebuild_skill_grid()
+	_update_header()  # Update tree points display
 
 # ============================================================================
-# SKILL SLOTS
+# SKILL GRID BUILDING
 # ============================================================================
 
-func _update_skill_slots():
-	"""Update all skill slot states based on player data"""
-	if not player or not player.active_class:
+func _rebuild_skill_grid():
+	"""Rebuild the entire skill grid for current tree"""
+	if not skill_grid:
+		push_error("🌳 SkillsTab: No skill_grid assigned!")
 		return
 	
-	for content in [tree_content_1, tree_content_2, tree_content_3]:
-		if not content:
-			continue
+	# Clear existing grid
+	_clear_skill_grid()
+	
+	# Get current skill tree
+	var tree = _get_current_skill_tree()
+	if not tree:
+		print("🌳 No skill tree for index %d" % current_tree_index)
+		return
+	
+	# Set grid columns
+	skill_grid.columns = GRID_COLUMNS
+	
+	# Build grid row by row
+	var skill_grid_data = tree.get_skill_grid()
+	
+	for row in range(GRID_ROWS):
+		for col in range(GRID_COLUMNS):
+			var skill = skill_grid_data[row][col]
+			var cell = _create_grid_cell(row, col, skill)
+			skill_grid.add_child(cell)
+	
+	# Update all button states
+	_update_all_skill_buttons()
+	
+	print("🌳 Built grid for %s: %d skills" % [tree.tree_name, tree.get_all_skills().size()])
+
+func _clear_skill_grid():
+	"""Remove all children from the grid"""
+	skill_buttons.clear()
+	for child in skill_grid.get_children():
+		child.queue_free()
+
+func _create_grid_cell(row: int, col: int, skill: SkillResource) -> Control:
+	"""Create a cell for the grid - either a SkillButton or spacer"""
+	if skill and skill_button_scene:
+		# Create skill button
+		var button = skill_button_scene.instantiate() as SkillButton
+		button.skill = skill
+		button.skill_clicked.connect(_on_skill_clicked)
 		
-		for slot in _find_skill_slots(content):
-			_update_single_skill_slot(slot)
+		# Track for updates
+		var key = "%d_%d" % [row, col]
+		skill_buttons[key] = button
+		
+		return button
+	else:
+		# Create empty spacer
+		return _create_spacer()
 
-func _update_single_skill_slot(slot: SkillSlot):
-	"""Update a single skill slot's state"""
-	var skill = slot.get_skill()
-	if not skill:
+func _create_spacer() -> Control:
+	"""Create an empty spacer control"""
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(80, 100)  # Match skill button size
+	return spacer
+
+# ============================================================================
+# SKILL BUTTON UPDATES
+# ============================================================================
+
+func _update_all_skill_buttons():
+	"""Update all skill button states"""
+	for key in skill_buttons:
+		_update_skill_button(skill_buttons[key])
+
+func _update_skill_button(button: SkillButton):
+	"""Update a single skill button's state"""
+	if not button or not button.skill:
 		return
 	
+	var skill = button.skill
 	var skill_id = skill.skill_id
 	var current_rank = _get_skill_rank(skill_id)
 	
-	slot.set_rank(current_rank)
+	button.set_rank(current_rank)
 	
-	if _are_prerequisites_met(skill):
+	# Check if skill can be learned using new prerequisite system
+	var tree_points = _get_points_spent_in_current_tree()
+	var can_learn = skill.can_learn(_get_skill_rank_callable(), tree_points)
+	
+	if can_learn:
 		if current_rank >= skill.get_max_rank():
-			slot.set_state(SkillButton.State.MAXED)
+			button.set_state(SkillButton.State.MAXED)
 		else:
-			slot.set_state(SkillButton.State.AVAILABLE)
+			button.set_state(SkillButton.State.AVAILABLE)
 	else:
-		slot.set_state(SkillButton.State.LOCKED)
-
-func _are_prerequisites_met(skill: SkillResource) -> bool:
-	"""Check if all prerequisites for a skill are met"""
-	if skill.required_skills.is_empty():
-		return true
-	
-	for required_skill in skill.required_skills:
-		if not required_skill:
-			continue
-		
-		var required_id = required_skill.skill_id
-		var current_rank = _get_skill_rank(required_id)
-		
-		if current_rank < 1:
-			return false
-	
-	return true
+		button.set_state(SkillButton.State.LOCKED)
 
 # ============================================================================
 # SKILL LEARNING
 # ============================================================================
 
 func _on_skill_clicked(skill: SkillResource):
-	"""Handle skill slot click"""
+	"""Handle skill button click"""
 	if not player or not player.active_class:
 		print("🌳 No player or class")
 		return
 	
 	if not skill:
-		print("🌳 No skill on clicked slot")
+		print("🌳 No skill on clicked button")
 		return
 	
 	var skill_id = skill.skill_id
 	var current_rank = _get_skill_rank(skill_id)
 	var max_rank = skill.get_max_rank()
 	
+	# Check if already maxed
 	if current_rank >= max_rank:
 		print("🌳 %s is already maxed (%d/%d)" % [skill.skill_name, current_rank, max_rank])
 		return
 	
-	if not _are_prerequisites_met(skill):
-		print("🌳 Prerequisites not met for %s" % skill.skill_name)
-		_show_missing_prerequisites(skill)
+	# Check requirements using new system
+	var tree_points = _get_points_spent_in_current_tree()
+	if not skill.can_learn(_get_skill_rank_callable(), tree_points):
+		print("🌳 Requirements not met for %s" % skill.skill_name)
+		_log_missing_requirements(skill, tree_points)
 		return
 	
+	# Check skill points
 	var available_points = player.active_class.get_available_skill_points()
 	if available_points < skill.skill_point_cost:
 		print("🌳 Not enough skill points for %s (need %d, have %d)" % [
@@ -291,17 +357,20 @@ func _on_skill_clicked(skill: SkillResource):
 	
 	_learn_skill(skill)
 
-func _show_missing_prerequisites(skill: SkillResource):
-	"""Log which prerequisites are missing"""
-	for required_skill in skill.required_skills:
-		if not required_skill:
-			continue
-		
-		var required_id = required_skill.skill_id
-		var current_rank = _get_skill_rank(required_id)
-		
-		if current_rank < 1:
-			print("  ❌ Missing: %s" % required_skill.skill_name)
+func _log_missing_requirements(skill: SkillResource, tree_points: int):
+	"""Log detailed info about missing requirements"""
+	# Check tree points
+	if tree_points < skill.tree_points_required:
+		print("  ❌ Need %d tree points (have %d)" % [skill.tree_points_required, tree_points])
+	
+	# Check prerequisites
+	var missing = skill.get_missing_prerequisites(_get_skill_rank_callable())
+	for prereq_data in missing:
+		print("  ❌ Need %s Rank %d (have Rank %d)" % [
+			prereq_data.skill.skill_name,
+			prereq_data.required,
+			prereq_data.current
+		])
 
 func _learn_skill(skill: SkillResource):
 	"""Actually learn/rank up a skill"""
@@ -332,87 +401,45 @@ func _learn_skill(skill: SkillResource):
 	refresh()
 
 # ============================================================================
-# SKILL REFUND
+# RESET
 # ============================================================================
 
-func refund_skill(skill: SkillResource) -> bool:
-	"""Remove a rank from a skill and refund the point"""
-	if not player or not player.active_class:
-		return false
+func reset_current_tree():
+	"""Reset all skills in the current tree"""
+	var tree = _get_current_skill_tree()
+	if not tree or not player or not player.active_class:
+		return
 	
-	if not skill:
-		return false
-	
-	var skill_id = skill.skill_id
-	var current_rank = _get_skill_rank(skill_id)
-	
-	if current_rank <= 0:
-		print("🌳 %s has no ranks to refund" % skill.skill_name)
-		return false
-	
-	if _is_skill_required_by_others(skill):
-		print("🌳 Cannot refund %s - other skills require it" % skill.skill_name)
-		return false
-	
-	# Remove affixes from current rank
-	player.affix_manager.remove_affixes_by_source(skill.skill_name)
-	
-	# Reduce rank
-	var new_rank = current_rank - 1
-	_set_skill_rank(skill_id, new_rank)
-	
-	# Refund skill point(s)
-	for i in range(skill.skill_point_cost):
-		player.active_class.refund_skill_point()
-	
-	print("🌳 Refunded %s to rank %d" % [skill.skill_name, new_rank])
-	
-	refresh()
-	return true
-
-func _is_skill_required_by_others(skill: SkillResource) -> bool:
-	"""Check if any learned skills require this one"""
-	for content in [tree_content_1, tree_content_2, tree_content_3]:
-		if not content:
+	for skill in tree.get_all_skills():
+		if not skill:
 			continue
 		
-		for slot in _find_skill_slots(content):
-			var other_skill = slot.get_skill()
-			if not other_skill or other_skill == skill:
-				continue
-			
-			var other_id = other_skill.skill_id
-			var other_rank = _get_skill_rank(other_id)
-			
-			if other_rank <= 0:
-				continue
-			
-			for required in other_skill.required_skills:
-				if required and required.skill_id == skill.skill_id:
-					return true
+		var rank = _get_skill_rank(skill.skill_id)
+		if rank <= 0:
+			continue
+		
+		# Remove affixes
+		player.affix_manager.remove_affixes_by_source(skill.skill_name)
+		
+		# Refund points
+		for i in range(rank * skill.skill_point_cost):
+			player.active_class.refund_skill_point()
+		
+		# Clear rank
+		_set_skill_rank(skill.skill_id, 0)
 	
-	return false
+	print("🌳 Reset %s tree" % tree.tree_name)
+	refresh()
 
-# ============================================================================
-# RESET ALL SKILLS
-# ============================================================================
-
-func reset_all_skills():
-	"""Reset all skills and refund all points"""
+func reset_all_trees():
+	"""Reset all skills across all trees"""
 	if not player or not player.active_class:
 		return
 	
-	# Remove all skill affixes
-	for content in [tree_content_1, tree_content_2, tree_content_3]:
-		if not content:
-			continue
-		
-		for slot in _find_skill_slots(content):
-			var skill = slot.get_skill()
-			if skill:
-				player.affix_manager.remove_affixes_by_source(skill.skill_name)
+	for skill in player.active_class.get_all_skills():
+		if skill:
+			player.affix_manager.remove_affixes_by_source(skill.skill_name)
 	
-	# Reset on the class itself
 	player.active_class.reset_all_skills()
 	
 	print("🌳 All skills reset!")
@@ -431,3 +458,26 @@ func print_learned_skills():
 	print("=== Learned Skills for %s ===" % player.active_class.player_class_name)
 	for skill_id in player.active_class.skill_ranks:
 		print("  %s: Rank %d" % [skill_id, player.active_class.skill_ranks[skill_id]])
+
+func print_tree_status():
+	"""Debug: Print current tree status"""
+	var tree = _get_current_skill_tree()
+	if not tree:
+		print("No current tree")
+		return
+	
+	print("=== %s Tree Status ===" % tree.tree_name)
+	print("  Points spent: %d" % _get_points_spent_in_current_tree())
+	
+	for skill in tree.get_all_skills():
+		if not skill:
+			continue
+		var rank = _get_skill_rank(skill.skill_id)
+		var tree_points = _get_points_spent_in_current_tree()
+		var can_learn = skill.can_learn(_get_skill_rank_callable(), tree_points)
+		print("  [%d,%d] %s: Rank %d/%d %s" % [
+			skill.tier, skill.column,
+			skill.skill_name,
+			rank, skill.get_max_rank(),
+			"✓" if can_learn else "✗"
+		])

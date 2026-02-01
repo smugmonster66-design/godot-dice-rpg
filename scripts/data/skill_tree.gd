@@ -1,5 +1,4 @@
 # res://scripts/resources/skill_tree.gd
-# Skill tree containing skills organized by tier - supports drag-drop in Inspector
 extends Resource
 class_name SkillTree
 
@@ -7,27 +6,39 @@ class_name SkillTree
 # BASIC INFO
 # ============================================================================
 @export var tree_id: String = ""
-@export var tree_name: String = "New Skill Tree"
+@export var tree_name: String = "New Tree"
 @export_multiline var description: String = ""
 @export var icon: Texture2D = null
 
 # ============================================================================
-# SKILLS BY TIER - Drag and drop SkillResource items here
+# SKILLS BY TIER (rows 1-9)
 # ============================================================================
-@export_group("Tier 1 - Basic")
+@export_group("Tier 1 (Row 1)")
 @export var tier_1_skills: Array[SkillResource] = []
 
-@export_group("Tier 2 - Intermediate")
+@export_group("Tier 2 (Row 2)")
 @export var tier_2_skills: Array[SkillResource] = []
 
-@export_group("Tier 3 - Advanced")
+@export_group("Tier 3 (Row 3)")
 @export var tier_3_skills: Array[SkillResource] = []
 
-@export_group("Tier 4 - Expert")
+@export_group("Tier 4 (Row 4)")
 @export var tier_4_skills: Array[SkillResource] = []
 
-@export_group("Tier 5 - Mastery")
+@export_group("Tier 5 (Row 5)")
 @export var tier_5_skills: Array[SkillResource] = []
+
+@export_group("Tier 6 (Row 6)")
+@export var tier_6_skills: Array[SkillResource] = []
+
+@export_group("Tier 7 (Row 7)")
+@export var tier_7_skills: Array[SkillResource] = []
+
+@export_group("Tier 8 (Row 8)")
+@export var tier_8_skills: Array[SkillResource] = []
+
+@export_group("Tier 9 (Row 9)")
+@export var tier_9_skills: Array[SkillResource] = []
 
 # ============================================================================
 # TIER UNLOCK REQUIREMENTS
@@ -37,29 +48,47 @@ class_name SkillTree
 @export var tier_3_points_required: int = 6
 @export var tier_4_points_required: int = 10
 @export var tier_5_points_required: int = 15
+@export var tier_6_points_required: int = 21
+@export var tier_7_points_required: int = 28
+@export var tier_8_points_required: int = 36
+@export var tier_9_points_required: int = 45
 
 # ============================================================================
-# SKILL RETRIEVAL METHODS
+# GRID CONSTANTS
+# ============================================================================
+const GRID_ROWS: int = 9
+const GRID_COLUMNS: int = 7
+
+# ============================================================================
+# SKILL ACCESS
 # ============================================================================
 
 func get_all_skills() -> Array[SkillResource]:
 	"""Get all skills from all tiers"""
-	var all_skills: Array[SkillResource] = []
-	all_skills.append_array(tier_1_skills)
-	all_skills.append_array(tier_2_skills)
-	all_skills.append_array(tier_3_skills)
-	all_skills.append_array(tier_4_skills)
-	all_skills.append_array(tier_5_skills)
-	return all_skills
+	var skills: Array[SkillResource] = []
+	skills.append_array(tier_1_skills)
+	skills.append_array(tier_2_skills)
+	skills.append_array(tier_3_skills)
+	skills.append_array(tier_4_skills)
+	skills.append_array(tier_5_skills)
+	skills.append_array(tier_6_skills)
+	skills.append_array(tier_7_skills)
+	skills.append_array(tier_8_skills)
+	skills.append_array(tier_9_skills)
+	return skills
 
 func get_skills_for_tier(tier: int) -> Array[SkillResource]:
-	"""Get all skills for a specific tier"""
+	"""Get skills for a specific tier"""
 	match tier:
 		1: return tier_1_skills
 		2: return tier_2_skills
 		3: return tier_3_skills
 		4: return tier_4_skills
 		5: return tier_5_skills
+		6: return tier_6_skills
+		7: return tier_7_skills
+		8: return tier_8_skills
+		9: return tier_9_skills
 		_: return []
 
 func get_skill_by_id(id: String) -> SkillResource:
@@ -69,48 +98,50 @@ func get_skill_by_id(id: String) -> SkillResource:
 			return skill
 	return null
 
-func get_skill_by_name(p_skill_name: String) -> SkillResource:
-	"""Find a skill by name"""
-	for skill in get_all_skills():
-		if skill and skill.skill_name == p_skill_name:
+func get_skill_at_position(row: int, col: int) -> SkillResource:
+	"""Get skill at a specific grid position (row 0-8, col 0-6)"""
+	var tier = row + 1  # Convert 0-indexed row to 1-indexed tier
+	var tier_skills = get_skills_for_tier(tier)
+	
+	for skill in tier_skills:
+		if skill and skill.column == col:
 			return skill
+	
 	return null
 
-# ============================================================================
-# TIER METHODS
-# ============================================================================
+func get_skill_grid() -> Array:
+	"""Get a 2D array representing the skill grid [row][col]"""
+	var grid: Array = []
+	
+	for row in range(GRID_ROWS):
+		var row_array: Array = []
+		for col in range(GRID_COLUMNS):
+			row_array.append(get_skill_at_position(row, col))
+		grid.append(row_array)
+	
+	return grid
 
-func is_tier_unlocked(tier: int, total_points_spent: int) -> bool:
-	"""Check if a tier is unlocked based on points spent in this tree"""
-	match tier:
-		1: return true
-		2: return total_points_spent >= tier_2_points_required
-		3: return total_points_spent >= tier_3_points_required
-		4: return total_points_spent >= tier_4_points_required
-		5: return total_points_spent >= tier_5_points_required
-		_: return false
+# ============================================================================
+# TIER UNLOCK CHECKING
+# ============================================================================
 
 func get_points_required_for_tier(tier: int) -> int:
 	"""Get points required to unlock a tier"""
 	match tier:
+		1: return 0
 		2: return tier_2_points_required
 		3: return tier_3_points_required
 		4: return tier_4_points_required
 		5: return tier_5_points_required
-		_: return 0
+		6: return tier_6_points_required
+		7: return tier_7_points_required
+		8: return tier_8_points_required
+		9: return tier_9_points_required
+		_: return 999
 
-func get_tier_count() -> int:
-	"""Get the highest tier that has skills"""
-	if tier_5_skills.size() > 0: return 5
-	if tier_4_skills.size() > 0: return 4
-	if tier_3_skills.size() > 0: return 3
-	if tier_2_skills.size() > 0: return 2
-	if tier_1_skills.size() > 0: return 1
-	return 0
-
-func get_skill_count() -> int:
-	"""Get total number of skills in this tree"""
-	return get_all_skills().size()
+func is_tier_unlocked(tier: int, points_spent_in_tree: int) -> bool:
+	"""Check if a tier is unlocked based on points spent"""
+	return points_spent_in_tree >= get_points_required_for_tier(tier)
 
 # ============================================================================
 # VALIDATION
@@ -121,28 +152,30 @@ func validate() -> Array[String]:
 	var warnings: Array[String] = []
 	
 	if tree_id.is_empty():
-		warnings.append("Skill tree has no ID")
+		warnings.append("Tree has no ID")
 	
 	if tree_name.is_empty():
-		warnings.append("Skill tree has no name")
+		warnings.append("Tree has no name")
 	
-	# Check for duplicate skill IDs
-	var seen_ids: Dictionary = {}
+	# Check for position conflicts
+	var positions: Dictionary = {}
 	for skill in get_all_skills():
-		if skill:
-			if skill.skill_id.is_empty():
-				warnings.append("Skill '%s' has no ID" % skill.skill_name)
-			elif seen_ids.has(skill.skill_id):
-				warnings.append("Duplicate skill ID: %s" % skill.skill_id)
-			seen_ids[skill.skill_id] = true
-	
-	# Check skill tiers match their placement
-	for i in range(1, 6):
-		for skill in get_skills_for_tier(i):
-			if skill and skill.tier != i:
-				warnings.append("Skill '%s' has tier %d but is in tier_%d_skills" % [skill.skill_name, skill.tier, i])
+		if not skill:
+			continue
+		
+		var pos_key = "%d_%d" % [skill.tier, skill.column]
+		if positions.has(pos_key):
+			warnings.append("Position conflict at tier %d, column %d: %s and %s" % [
+				skill.tier, skill.column, positions[pos_key], skill.skill_name
+			])
+		else:
+			positions[pos_key] = skill.skill_name
+		
+		var skill_warnings = skill.validate()
+		for warning in skill_warnings:
+			warnings.append("[%s] %s" % [skill.skill_name, warning])
 	
 	return warnings
 
 func _to_string() -> String:
-	return "SkillTree<%s: %d skills across %d tiers>" % [tree_name, get_skill_count(), get_tier_count()]
+	return "SkillTree<%s: %d skills>" % [tree_name, get_all_skills().size()]

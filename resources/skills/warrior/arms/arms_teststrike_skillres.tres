@@ -9,5 +9,6 @@ script = ExtResource("2_hxjes")
 skill_id = "arms_test_strike"
 skill_name = "Arms Test Strike"
 description = "Gain a new action: Arms Test Strike."
+column = 4
 rank_1_affixes = Array[ExtResource("1_yt0ck")]([ExtResource("2_ryasl")])
 metadata/_custom_type_script = "uid://bd327xjbfmua2"
