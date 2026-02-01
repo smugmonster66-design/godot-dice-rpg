@@ -1,39 +1,425 @@
-[gd_scene load_steps=2 format=3 uid="uid://u4538t4heese"]
+[gd_scene load_steps=3 format=3 uid="uid://u4538t4heese"]
 
 [ext_resource type="Script" uid="uid://b6e5135cvd8vj" path="res://scripts/ui/menus/skills_tab.gd" id="1_l3cke"]
+[ext_resource type="PackedScene" uid="uid://oquaqbwome63" path="res://scenes/ui/menus/skill_button.tscn" id="2_5ah0g"]
 
-[node name="Skills" type="Control"]
-visible = false
+[node name="SkillsTab" type="Control" node_paths=PackedStringArray("skill_points_label", "class_name_label", "tree_tab_container", "tree_tab_1", "tree_tab_2", "tree_tab_3", "tree_content_1", "tree_content_2", "tree_content_3") groups=["player_menu_tab_content"]]
 layout_mode = 3
 anchors_preset = 0
 script = ExtResource("1_l3cke")
+skill_points_label = NodePath("VBoxContainer/Header/SkillPointsLabel")
+class_name_label = NodePath("VBoxContainer/Header/ClassNameLabel")
+tree_tab_container = NodePath("VBoxContainer/TreeTabContainer")
+tree_tab_1 = NodePath("VBoxContainer/TreeTabContainer/TreeTab1")
+tree_tab_2 = NodePath("VBoxContainer/TreeTabContainer/TreeTab2")
+tree_tab_3 = NodePath("VBoxContainer/TreeTabContainer/TreeTab3")
+tree_content_1 = NodePath("VBoxContainer/ContentContainer/TreeContent1")
+tree_content_2 = NodePath("VBoxContainer/ContentContainer/TreeContent2")
+tree_content_3 = NodePath("VBoxContainer/ContentContainer/TreeContent3")
 metadata/_tab_index = 1
+metadata/tab_name = "Skills"
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
 custom_minimum_size = Vector2(400, 600)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ClassNameLabel" type="Label" parent="VBoxContainer/Header"]
+layout_mode = 2
+text = "CLASS"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/Header"]
+layout_mode = 2
+
+[node name="SkillPointsLabel" type="Label" parent="VBoxContainer/Header"]
+layout_mode = 2
+text = "Skill Points 0/0"
+
+[node name="TreeTabContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="TreeTab1" type="Button" parent="VBoxContainer/TreeTabContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Tree 1"
+
+[node name="TreeTab2" type="Button" parent="VBoxContainer/TreeTabContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Tree 2"
+
+[node name="TreeTab3" type="Button" parent="VBoxContainer/TreeTabContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "Tree 3"
+
+[node name="ContentContainer" type="Control" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TreeContent1" type="Control" parent="VBoxContainer/ContentContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SkillGrid1" type="GridContainer" parent="VBoxContainer/ContentContainer/TreeContent1"]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
-theme_override_constants/separation = 10
+columns = 7
 
-[node name="SkillPointsLabel" type="Label" parent="VBox"]
+[node name="SkillButton1" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
 layout_mode = 2
-text = "Available Skill Points: 0"
-metadata/ui_role = "\"skill_points_label\""
 
-[node name="ClassLabel" type="Label" parent="VBox"]
+[node name="SkillButton2" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
 layout_mode = 2
-text = "Class: None"
-metadata/ui_role = "\"class_label\""
 
-[node name="TreeTabs" type="TabContainer" parent="VBox"]
-custom_minimum_size = Vector2(400, 600)
+[node name="SkillButton3" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
 layout_mode = 2
-size_flags_vertical = 3
-clip_tabs = false
-metadata/ui_role = "\"tree_tabs\""
 
-[node name="ResetButton" type="Button" parent="VBox"]
+[node name="SkillButton4" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
 layout_mode = 2
-text = "Reset Skills"
-metadata/ui_role = "\"reset_button"
+
+[node name="SkillButton5" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton6" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton7" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton8" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton9" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton10" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton11" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton12" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton13" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton14" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton15" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton16" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton17" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton18" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton19" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton20" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton21" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton22" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton23" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton24" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton25" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton26" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton27" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton28" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton29" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton30" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton31" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton32" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton33" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton34" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton35" parent="VBoxContainer/ContentContainer/TreeContent1/SkillGrid1" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="TreeContent2" type="Control" parent="VBoxContainer/ContentContainer"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SkillGrid2" type="GridContainer" parent="VBoxContainer/ContentContainer/TreeContent2"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+columns = 7
+
+[node name="SkillButton1" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton2" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton3" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton4" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton5" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton6" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton7" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton8" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton9" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton10" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton11" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton12" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton13" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton14" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton15" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton16" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton17" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton18" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton19" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton20" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton21" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton22" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton23" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton24" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton25" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton26" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton27" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton28" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton29" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton30" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton31" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton32" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton33" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton34" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton35" parent="VBoxContainer/ContentContainer/TreeContent2/SkillGrid2" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="TreeContent3" type="Control" parent="VBoxContainer/ContentContainer"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SkillGrid3" type="GridContainer" parent="VBoxContainer/ContentContainer/TreeContent3"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+columns = 7
+
+[node name="SkillButton1" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton2" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton3" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton4" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton5" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton6" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton7" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton8" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton9" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton10" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton11" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton12" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton13" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton14" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton15" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton16" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton17" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton18" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton19" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton20" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton21" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton22" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton23" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton24" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton25" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton26" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton27" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton28" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton29" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton30" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton31" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton32" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton33" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton34" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2
+
+[node name="SkillButton35" parent="VBoxContainer/ContentContainer/TreeContent3/SkillGrid3" instance=ExtResource("2_5ah0g")]
+layout_mode = 2

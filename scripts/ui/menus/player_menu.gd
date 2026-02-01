@@ -70,6 +70,10 @@ func _register_tab(tab: Control):
 	
 	if tab.has_signal("data_changed"):
 		tab.data_changed.connect(_on_tab_data_changed.bind(tab))
+	
+	# Connect skill_learned signal from SkillsTab
+	if tab.has_signal("skill_learned"):
+		tab.skill_learned.connect(_on_skill_learned)
 
 # ============================================================================
 # PUBLIC API
@@ -145,7 +149,7 @@ func _show_tab(tab_name: String):
 		print("📋 Switched to tab: %s" % tab_name)
 
 # ============================================================================
-# SIGNAL HANDLERS (bubbled up from children)
+# SIGNAL HANDLERS
 # ============================================================================
 
 func _on_tab_button_toggled(button_pressed: bool, tab_name: String):
@@ -154,20 +158,28 @@ func _on_tab_button_toggled(button_pressed: bool, tab_name: String):
 		_show_tab(tab_name)
 
 func _on_close_pressed():
-	"""Close button pressed (bubbled from UI)"""
+	"""Close button pressed"""
 	close_menu()
 
 func _on_tab_refresh_requested(tab: Control):
-	"""Tab requested a refresh (bubbled from tab)"""
+	"""Tab requested a refresh"""
 	if player and tab.has_method("set_player"):
 		tab.set_player(player)
 
 func _on_tab_data_changed(tab: Control):
-	"""Tab reports data changed (bubbled from tab)"""
-	# Notify other tabs that might need to update
+	"""Tab reports data changed - notify other tabs"""
 	for other_tab in active_tabs:
 		if other_tab != tab and other_tab.has_method("on_external_data_change"):
 			other_tab.on_external_data_change()
+
+func _on_skill_learned(skill: SkillResource, new_rank: int):
+	"""A skill was learned - notify other tabs"""
+	print("📋 PlayerMenu: Skill learned - %s rank %d" % [skill.skill_name, new_rank])
+	
+	# Notify all other tabs that data changed
+	for tab in active_tabs:
+		if tab.has_method("on_external_data_change"):
+			tab.on_external_data_change()
 
 # ============================================================================
 # INPUT HANDLING
