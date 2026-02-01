@@ -28,7 +28,7 @@ signal item_equipped(item: Dictionary)
 # ============================================================================
 var player: Player = null
 var selected_item: Dictionary = {}
-var item_buttons: Array[Button] = []
+var item_buttons: Array[TextureButton] = []
 var category_buttons: Array[Button] = []
 
 # UI references
