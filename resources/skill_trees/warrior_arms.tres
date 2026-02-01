@@ -1,17 +1,13 @@
-[gd_resource type="Resource" script_class="SkillTree" load_steps=5 format=3 uid="uid://35lrxcygw5uc"]
+[gd_resource type="Resource" script_class="SkillTree" load_steps=4 format=3 uid="uid://35lrxcygw5uc"]
 
 [ext_resource type="Script" uid="uid://cukfw0heumnic" path="res://scripts/data/skill_tree.gd" id="1_fed6w"]
 [ext_resource type="Script" uid="uid://bd327xjbfmua2" path="res://scripts/resources/skill_resource.gd" id="2_58ahb"]
-[ext_resource type="Script" uid="uid://c8ianog20smkw" path="res://resources/data/affix.gd" id="3_q6jt2"]
-
-[sub_resource type="Resource" id="Resource_785x0"]
-script = ExtResource("2_58ahb")
-skill_id = "arms_test_strike"
-skill_name = "Test Strike"
-description = "A test skill for the arms tree."
-metadata/_custom_type_script = "uid://bd327xjbfmua2"
+[ext_resource type="Resource" uid="uid://dehqol3khl2ij" path="res://resources/skills/warrior/arms/arms_teststrike_skillres.tres" id="3_q6jt2"]
 
 [resource]
 script = ExtResource("1_fed6w")
-tier_1_skills = Array[ExtResource("2_58ahb")]([SubResource("Resource_785x0")])
+tree_id = "arms"
+tree_name = "Arms"
+description = "TO ARMS!!!!"
+tier_1_skills = Array[ExtResource("2_58ahb")]([ExtResource("3_q6jt2")])
 metadata/_custom_type_script = "uid://cukfw0heumnic"
