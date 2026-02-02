@@ -102,16 +102,38 @@ func _load_die_face(die_type: DieResource.DieType):
 	# Try to load scene
 	var scene = _get_die_face_scene(die_type)
 	
+	print("🎲 _load_die_face called for D%d" % die_type)
+	print("  scene found: %s" % (scene != null))
+	
 	if scene:
 		# Instantiate new die face
 		current_die_face = scene.instantiate()
 		die_face_container.add_child(current_die_face)
 		
+		# Force the die face to fill the container
+		current_die_face.set_anchors_preset(Control.PRESET_FULL_RECT)
+		current_die_face.set_offsets_preset(Control.PRESET_FULL_RECT)
+		
+		# Find TextureRect and force it to fill
+		var tex = current_die_face.find_child("TextureRect", true, false) as TextureRect
+		if tex:
+			tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+			tex.set_offsets_preset(Control.PRESET_FULL_RECT)
+		
+		# Debug sizes
+		print("  container size: %s" % die_face_container.size)
+		print("  container min_size: %s" % die_face_container.custom_minimum_size)
+		print("  die_face size: %s" % current_die_face.size)
+		print("  die_face min_size: %s" % current_die_face.custom_minimum_size)
+		if tex:
+			print("  texture_rect size: %s" % tex.size)
+			print("  texture exists: %s" % (tex.texture != null))
+		
 		# Find nodes in the new die face
 		value_label = current_die_face.find_child("ValueLabel", true, false) as Label
-		texture_rect = current_die_face.find_child("TextureRect", true, false) as TextureRect
+		texture_rect = tex
 	else:
-		# Fallback: create simple display
+		print("  ⚠️ No scene found, using fallback")
 		_create_fallback_display(die_type)
 
 func _create_fallback_display(die_type: DieResource.DieType):
@@ -194,20 +216,20 @@ func _get_drag_data(_at_position: Vector2):
 
 func _create_drag_preview() -> Control:
 	"""Create a preview for dragging"""
-	var preview = PanelContainer.new()
-	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
+	var preview = Control.new()
 	
-	# Make transparent
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color.TRANSPARENT
-	preview.add_theme_stylebox_override("panel", style)
-	
-	# Load die face scene - it defines its own size
+	# Try to load die face scene
 	var scene = _get_die_face_scene(die_data.die_type) if die_data else null
 	
 	if scene:
 		var face = scene.instantiate()
 		preview.add_child(face)
+		
+		# Match size to die face
+		preview.custom_minimum_size = face.custom_minimum_size
+		
+		# Position at origin (anchors will handle the rest)
+		face.position = Vector2.ZERO
 		
 		# Update value
 		var label = face.find_child("ValueLabel", true, false) as Label
@@ -219,17 +241,18 @@ func _create_drag_preview() -> Control:
 		if tex and die_data.color != Color.WHITE:
 			tex.modulate = die_data.color
 	else:
-		# Fallback needs a size since there's no scene
+		# Fallback preview
 		preview.custom_minimum_size = Vector2(64, 64)
-		var vbox = VBoxContainer.new()
-		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		preview.add_child(vbox)
 		
 		var label = Label.new()
 		label.text = str(die_data.get_total_value()) if die_data else "?"
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_anchors_preset(Control.PRESET_FULL_RECT)
 		label.add_theme_font_size_override("font_size", 24)
-		vbox.add_child(label)
+		preview.add_child(label)
+	
+	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
 	
 	return preview
 

@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3 uid="uid://bkh3rbo3i8wbo"]
+
+[ext_resource type="PackedScene" uid="uid://d3857al3f5842" path="res://scenes/ui/components/dice/die_face_base.tscn" id="1_2jhwf"]
+[ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="2_l6pj5"]
+
+[node name="DiceFace" instance=ExtResource("1_2jhwf")]
+
+[node name="TextureRect" parent="." index="0"]
+offset_right = -822.0
+offset_bottom = -1662.0
+texture = ExtResource("2_l6pj5")
+expand_mode = 0
+
+[node name="ValueLabel" parent="." index="1"]
+offset_left = -51.0
+offset_top = -197.0
+offset_right = 234.0
+offset_bottom = 485.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 40
+theme_override_font_sizes/font_size = 80
+text = "X"

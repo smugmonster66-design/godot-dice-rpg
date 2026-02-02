@@ -11,4 +11,6 @@ script = ExtResource("1_fgpu3")
 
 [node name="DieFaceContainer" type="Control" parent="."]
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 mouse_filter = 2
