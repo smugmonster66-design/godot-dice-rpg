@@ -257,8 +257,11 @@ func roll_all_dice():
 	roll_hand()
 
 func consume_die(die: DieResource):
-	"""Legacy compatibility - calls consume_from_hand()"""
-	consume_from_hand(die)
+	"""Remove a die from the hand (it was used in an action)"""
+	var idx = hand.find(die)
+	if idx >= 0:
+		hand.remove_at(idx)
+		hand_changed.emit()
 
 func restore_die(die: DieResource):
 	"""Legacy compatibility - calls restore_to_hand()"""

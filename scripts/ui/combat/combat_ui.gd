@@ -29,6 +29,9 @@ var enemy_action_label: Label = null
 var enemy_dice_visuals: Array[Control] = []
 var current_enemy_display: Combatant = null
 
+# Temp animation visuals (for cleanup)
+var temp_animation_visuals: Array[Control] = []
+
 # ============================================================================
 # STATE
 # ============================================================================
@@ -228,6 +231,9 @@ func initialize_ui(p_player: Player, p_enemies):
 	# Initial field refresh
 	refresh_action_fields()
 	
+	# Reset all charges for combat start
+	reset_action_charges_for_combat()
+	
 	print("🎮 CombatUI initialization complete")
 
 func _setup_health_display():
@@ -338,7 +344,7 @@ func on_turn_start():
 	
 	# Reset action fields
 	for field in action_fields:
-		if field.has_method("cancel_action") and field.placed_dice.size() > 0:
+		if is_instance_valid(field) and field.has_method("cancel_action") and field.placed_dice.size() > 0:
 			field.cancel_action()
 	
 	# Hide action buttons
@@ -364,6 +370,9 @@ func on_turn_start():
 	
 	# Refresh player actions
 	refresh_action_fields()
+	
+	# Reset per-turn charges
+	reset_action_charges_for_turn()
 	
 	# Select first living enemy as default
 	if enemy_panel:
@@ -392,6 +401,30 @@ func refresh_dice_pool():
 	"""Refresh the dice pool/hand display"""
 	if dice_pool_display and dice_pool_display.has_method("refresh"):
 		dice_pool_display.refresh()
+
+# ============================================================================
+# CHARGE MANAGEMENT
+# ============================================================================
+
+func reset_action_charges_for_combat():
+	"""Reset all action charges at combat start"""
+	for field in action_fields:
+		if is_instance_valid(field) and field.action_resource:
+			field.action_resource.reset_charges_for_combat()
+			field.refresh_charge_state()
+
+func reset_action_charges_for_turn():
+	"""Reset per-turn action charges"""
+	for field in action_fields:
+		if is_instance_valid(field) and field.action_resource:
+			field.action_resource.reset_charges_for_turn()
+			field.refresh_charge_state()
+
+func on_action_used(field: ActionField):
+	"""Called when an action is confirmed - consume charge"""
+	if field and field.action_resource:
+		field.consume_charge()
+		field.refresh_charge_state()
 
 # ============================================================================
 # ACTION FIELD MANAGEMENT - PLAYER
@@ -487,7 +520,7 @@ func _on_action_field_confirmed(action_data: Dictionary):
 	"""Action was confirmed from field directly"""
 	action_confirmed.emit(action_data)
 
-func _on_dice_returned(die: DieResource):
+func _on_dice_returned(die: DieResource, _target_position: Vector2 = Vector2.ZERO):
 	"""Die was returned from action field"""
 	print("🎲 Die returned: %s" % die.display_name)
 	# Dice pool will refresh automatically via signals
@@ -555,7 +588,7 @@ func _create_enemy_action_field(action_data: Dictionary) -> ActionField:
 func find_action_field_by_name(action_name: String) -> ActionField:
 	"""Find an action field by its action name"""
 	for field in action_fields:
-		if field.action_name == action_name:
+		if is_instance_valid(field) and field.action_name == action_name:
 			return field
 	return null
 
@@ -588,11 +621,14 @@ func animate_die_to_action_field(die_visual: Control, action_name: String, die: 
 		# Get start position
 		var start_pos = die_visual.global_position
 		
-		# Create a temporary animated visual in a CanvasLayer so it's on top
+		# Create a temporary animated visual
 		var temp_visual = _create_temp_die_visual(die if die else null, die_visual)
 		get_tree().root.add_child(temp_visual)
 		temp_visual.global_position = start_pos
 		temp_visual.z_index = 100
+		
+		# Track for cleanup
+		temp_animation_visuals.append(temp_visual)
 		
 		# Hide source
 		die_visual.hide()
@@ -611,16 +647,18 @@ func animate_die_to_action_field(die_visual: Control, action_name: String, die: 
 		move_tween.chain().tween_property(temp_visual, "scale", Vector2(1.0, 1.0), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 		await move_tween.finished
 		
-		# Remove temp visual
-		temp_visual.queue_free()
+		# Remove temp visual from tracking and free it
+		if is_instance_valid(temp_visual):
+			temp_animation_visuals.erase(temp_visual)
+			temp_visual.queue_free()
 	
-	# Now place the die in the action field slot (this creates the permanent visual)
+	# Now place the die in the action field slot
 	if die:
 		_place_die_in_field_slot(field, die, slot_index)
 	elif die_visual and die_visual.has_method("get_die"):
 		_place_die_in_field_slot(field, die_visual.get_die(), slot_index)
 
-func _create_temp_die_visual(die: DieResource, source_visual: Control) -> Control:
+func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Control:
 	"""Create a temporary visual for animation"""
 	var container = PanelContainer.new()
 	container.custom_minimum_size = Vector2(50, 60)
@@ -655,7 +693,7 @@ func _create_temp_die_visual(die: DieResource, source_visual: Control) -> Contro
 		if die.color != Color.WHITE:
 			container.modulate = die.color
 	else:
-		# Fallback: try to copy from source visual
+		# Fallback
 		var value_label = Label.new()
 		value_label.text = "?"
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -695,31 +733,53 @@ func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: 
 		var tween = create_tween()
 		tween.tween_interval(0.2)
 		tween.tween_callback(func():
-			var revert_style = StyleBoxFlat.new()
-			revert_style.bg_color = Color(0.2, 0.2, 0.25)
-			revert_style.border_color = Color(0.4, 0.5, 0.4)
-			revert_style.set_border_width_all(1)
-			revert_style.set_corner_radius_all(4)
-			slot_panel.add_theme_stylebox_override("panel", revert_style)
+			if is_instance_valid(slot_panel):
+				var revert_style = StyleBoxFlat.new()
+				revert_style.bg_color = Color(0.2, 0.2, 0.25)
+				revert_style.border_color = Color(0.4, 0.5, 0.4)
+				revert_style.set_border_width_all(1)
+				revert_style.set_corner_radius_all(4)
+				slot_panel.add_theme_stylebox_override("panel", revert_style)
 		)
 	
 	field.update_icon_state()
 
 func animate_enemy_action_confirm(action_name: String) -> void:
-	"""Animate the enemy confirming their action"""
+	"""Animate the enemy confirming their action and clear dice"""
 	var field = find_action_field_by_name(action_name)
 	if not field:
 		return
 	
-	# Flash confirm effect
+	# Animate each placed die being consumed
+	for visual in field.dice_visuals:
+		if is_instance_valid(visual):
+			_animate_die_consumed(visual)
+	
+	# Flash confirm effect on the field
 	var tween = create_tween()
 	tween.tween_property(field, "modulate", Color(1.5, 1.0, 0.5), 0.15)
 	tween.tween_property(field, "modulate", Color.WHITE, 0.15)
 	await tween.finished
+	
+	# Clear the field
+	if is_instance_valid(field):
+		field.clear_dice()
 
 func clear_enemy_turn_display():
 	"""Clear enemy turn display and restore player actions"""
 	is_enemy_turn = false
+	
+	# Clean up any lingering temp animation visuals
+	for visual in temp_animation_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	temp_animation_visuals.clear()
+	
+	# Clear dice from enemy action fields before freeing them
+	for field in enemy_action_fields:
+		if is_instance_valid(field):
+			field.clear_dice()
+	
 	enemy_action_fields.clear()
 
 # ============================================================================
@@ -735,23 +795,31 @@ func _on_confirm_pressed():
 		print("⚠️ Action not ready - need more dice")
 		return
 	
-	# Build action data
+	# Consume charge
+	on_action_used(selected_action_field)
+	
+	# Build action data (copy dice before clearing)
+	var placed_dice_copy = selected_action_field.placed_dice.duplicate()
+	
 	var action_data = {
 		"name": selected_action_field.action_name,
 		"action_type": selected_action_field.action_type,
 		"base_damage": selected_action_field.base_damage,
 		"damage_multiplier": selected_action_field.damage_multiplier,
-		"placed_dice": selected_action_field.placed_dice.duplicate(),
+		"placed_dice": placed_dice_copy,
 		"source": selected_action_field.source,
 		"action_resource": selected_action_field.action_resource,
 		"target": get_selected_target(),
 		"target_index": get_selected_target_index()
 	}
 	
-	print("✅ Confirming action: %s with %d dice" % [action_data.name, action_data.placed_dice.size()])
+	print("✅ Confirming action: %s with %d dice" % [action_data.name, placed_dice_copy.size()])
 	
-	# Clear the action field
-	selected_action_field.clear_dice()
+	# Consume dice from player's pool
+	_consume_placed_dice(placed_dice_copy)
+	
+	# Clear the action field visually (with animation)
+	_clear_action_field_with_animation(selected_action_field)
 	
 	# Hide buttons
 	if action_buttons_container:
@@ -769,6 +837,50 @@ func _on_confirm_pressed():
 	
 	# Emit signal
 	action_confirmed.emit(action_data)
+
+func _consume_placed_dice(dice: Array):
+	"""Consume dice from player's dice pool"""
+	if not player or not player.dice_pool:
+		return
+	
+	for die in dice:
+		if player.dice_pool.has_method("consume_die"):
+			player.dice_pool.consume_die(die)
+		elif player.dice_pool.has_method("remove_from_hand"):
+			player.dice_pool.remove_from_hand(die)
+	
+	# Refresh the dice pool display
+	refresh_dice_pool()
+
+func _clear_action_field_with_animation(field: ActionField):
+	"""Clear action field slots with a consume animation"""
+	if not field:
+		return
+	
+	# Animate each die visual being consumed
+	for i in range(field.dice_visuals.size()):
+		var visual = field.dice_visuals[i]
+		if is_instance_valid(visual):
+			_animate_die_consumed(visual)
+	
+	# Clear the field data after a short delay
+	var tween = create_tween()
+	tween.tween_interval(0.25)
+	tween.tween_callback(func():
+		if is_instance_valid(field):
+			field.clear_dice()
+	)
+
+func _animate_die_consumed(visual: Control):
+	"""Animate a die being consumed (shrink and fade)"""
+	if not is_instance_valid(visual):
+		return
+	
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(visual, "modulate", Color(1.5, 1.2, 0.5, 1.0), 0.1)
+	tween.chain().tween_property(visual, "modulate:a", 0.0, 0.15)
+	tween.tween_property(visual, "scale", Vector2(0.3, 0.3), 0.25).set_ease(Tween.EASE_IN)
 
 func _on_cancel_pressed():
 	"""Cancel button pressed"""
@@ -791,7 +903,7 @@ func _on_end_turn_pressed():
 	
 	# Return any placed dice
 	for field in action_fields:
-		if field.has_method("cancel_action") and field.placed_dice.size() > 0:
+		if is_instance_valid(field) and field.has_method("cancel_action") and field.placed_dice.size() > 0:
 			field.cancel_action()
 	
 	if action_buttons_container:
@@ -858,6 +970,12 @@ func hide_enemy_hand():
 			visual.queue_free()
 	enemy_dice_visuals.clear()
 	
+	# Clean up temp animation visuals
+	for visual in temp_animation_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	temp_animation_visuals.clear()
+	
 	# Clear enemy turn display
 	clear_enemy_turn_display()
 
@@ -883,7 +1001,7 @@ func show_enemy_action(enemy_combatant: Combatant, action: Dictionary):
 		enemy_panel.show_current_action(action_name)
 
 func animate_enemy_die_placement(_enemy_combatant: Combatant, _die: DieResource, die_index: int):
-	"""Animate a die being consumed"""
+	"""Animate a die being consumed (legacy method)"""
 	if die_index >= enemy_dice_visuals.size():
 		await get_tree().create_timer(0.4).timeout
 		return
