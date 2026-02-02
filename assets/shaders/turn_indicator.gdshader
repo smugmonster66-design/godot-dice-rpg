@@ -20,7 +20,7 @@ float circle_sdf(vec2 p, float radius) {
 }
 
 void fragment() {
-	vec2 uv = UV * 2.0 - 1.0;  // Center UV (-1 to 1)
+	vec2 uv = UV * 2.0 - 1.0;
 	float time = TIME * spin_speed;
 	
 	// Calculate distance from edge
@@ -32,12 +32,11 @@ void fragment() {
 	}
 	
 	// Create outline band
-	float outline = smoothstep(0.0, 0.02, abs(dist) - 0.02);
 	float edge = 1.0 - smoothstep(0.0, glow_width * 0.01, abs(dist));
 	
 	// Calculate angle for spinning segments
 	float angle = atan(uv.y, uv.x);
-	float normalized_angle = (angle + PI) / TAU;  // 0 to 1
+	float normalized_angle = (angle + PI) / TAU;
 	float spinning_angle = fract(normalized_angle + time / TAU);
 	
 	// Create segments
@@ -55,10 +54,6 @@ void fragment() {
 	float outer_glow = (1.0 - smoothstep(0.0, glow_width * 0.025, dist)) * 0.4 * segment_mask * pulse;
 	glow += outer_glow;
 	
-	// Output
-	vec4 original = texture(TEXTURE, UV);
-	vec3 final_color = mix(original.rgb, glow_color.rgb, glow * glow_color.a);
-	float final_alpha = max(original.a, glow * glow_color.a);
-	
-	COLOR = vec4(final_color, final_alpha);
+	// Output - just the glow effect, fully transparent elsewhere
+	COLOR = vec4(glow_color.rgb, glow * glow_color.a);
 }
