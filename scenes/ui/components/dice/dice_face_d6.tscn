@@ -4,9 +4,11 @@
 [ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="2_nuh3k"]
 
 [node name="DiceFace" instance=ExtResource("1_6yigf")]
+custom_minimum_size = Vector2(500, 500)
 
 [node name="TextureRect" parent="." index="0"]
 texture = ExtResource("2_nuh3k")
+expand_mode = 0
 
 [node name="ValueLabel" parent="." index="1"]
 offset_left = 234.0

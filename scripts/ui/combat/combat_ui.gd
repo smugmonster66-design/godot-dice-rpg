@@ -661,7 +661,6 @@ func animate_die_to_action_field(die_visual: Control, action_name: String, die: 
 func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Control:
 	"""Create a temporary visual for animation using die face scene"""
 	var container = PanelContainer.new()
-	container.custom_minimum_size = Vector2(64, 64)
 	
 	# Make transparent
 	var style = StyleBoxFlat.new()
@@ -669,18 +668,12 @@ func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Contr
 	container.add_theme_stylebox_override("panel", style)
 	
 	if die:
-		# Load die face scene
-		const DIE_FACE_SCENES := {
-			DieResource.DieType.D4: preload("res://scenes/ui/components/dice/die_face_d4.tscn"),
-			DieResource.DieType.D6: preload("res://scenes/ui/components/dice/die_face_d6.tscn"),
-			DieResource.DieType.D8: preload("res://scenes/ui/components/dice/die_face_d8.tscn"),
-			DieResource.DieType.D10: preload("res://scenes/ui/components/dice/die_face_d10.tscn"),
-			DieResource.DieType.D12: preload("res://scenes/ui/components/dice/die_face_d12.tscn"),
-			DieResource.DieType.D20: preload("res://scenes/ui/components/dice/die_face_d20.tscn"),
-		}
+		# Load die face scene - it defines its own size
+		var scene_path = "res://scenes/ui/components/dice/die_face_d%d.tscn" % die.die_type
+		var scene = load(scene_path)
 		
-		if DIE_FACE_SCENES.has(die.die_type):
-			var face = DIE_FACE_SCENES[die.die_type].instantiate()
+		if scene:
+			var face = scene.instantiate()
 			container.add_child(face)
 			
 			# Update value
@@ -692,19 +685,25 @@ func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Contr
 			var tex = face.find_child("TextureRect", true, false) as TextureRect
 			if tex and die.color != Color.WHITE:
 				tex.modulate = die.color
+		else:
+			_add_fallback_die_visual(container, die)
 	else:
-		# Fallback - simple label
-		var vbox = VBoxContainer.new()
-		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		container.add_child(vbox)
-		
-		var value_label = Label.new()
-		value_label.text = "?"
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.add_theme_font_size_override("font_size", 18)
-		vbox.add_child(value_label)
+		_add_fallback_die_visual(container, null)
 	
 	return container
+
+func _add_fallback_die_visual(container: PanelContainer, die: DieResource):
+	"""Add a simple fallback visual when die face scene isn't available"""
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	container.add_child(vbox)
+	
+	var value_label = Label.new()
+	value_label.text = str(die.get_total_value()) if die else "?"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value_label.add_theme_font_size_override("font_size", 18)
+	vbox.add_child(value_label)
+
 
 func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: int):
 	"""Place a die directly into an action field slot"""

@@ -387,11 +387,11 @@ func _create_placed_die_visual(die: DieResource) -> Control:
 	if visual:
 		visual.can_drag = false
 		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		visual.custom_minimum_size = Vector2(40, 40)
+		# Scale down to fit in action slots instead of forcing a size
+		visual.scale = Vector2(0.6, 0.6)
 		visual.set_die(die)
 	
 	return visual
-
 # ============================================================================
 # ACTION STATE
 # ============================================================================

@@ -3,16 +3,21 @@ extends PanelContainer
 class_name DieVisual
 
 # ============================================================================
-# DIE FACE SCENES - One per die type
+# DIE FACE SCENES - Lazy loaded (class-level cache)
 # ============================================================================
-const DIE_FACE_SCENES := {
-	DieResource.DieType.D4: preload("res://scenes/ui/components/dice/die_face_d4.tscn"),
-	DieResource.DieType.D6: preload("res://scenes/ui/components/dice/die_face_d6.tscn"),
-	DieResource.DieType.D8: preload("res://scenes/ui/components/dice/die_face_d8.tscn"),
-	DieResource.DieType.D10: preload("res://scenes/ui/components/dice/die_face_d10.tscn"),
-	DieResource.DieType.D12: preload("res://scenes/ui/components/dice/die_face_d12.tscn"),
-	DieResource.DieType.D20: preload("res://scenes/ui/components/dice/die_face_d20.tscn"),
-}
+static var _die_face_cache: Dictionary = {}
+
+static func _get_die_face_scene(die_type: DieResource.DieType) -> PackedScene:
+	"""Lazy load die face scene for a die type"""
+	if _die_face_cache.has(die_type):
+		return _die_face_cache[die_type]
+	
+	var path = "res://scenes/ui/components/dice/die_face_d%d.tscn" % die_type
+	if ResourceLoader.exists(path):
+		_die_face_cache[die_type] = load(path)
+		return _die_face_cache[die_type]
+	
+	return null
 
 # ============================================================================
 # NODE REFERENCES
@@ -27,7 +32,7 @@ var texture_rect: TextureRect = null
 # ============================================================================
 var die_data: DieResource = null
 var can_drag: bool = true
-var current_die_type: DieResource.DieType = -1  # Invalid initial value
+var current_die_type: int = -1
 
 # ============================================================================
 # SIGNALS
@@ -41,17 +46,22 @@ signal die_clicked(die: DieResource)
 func _ready():
 	_discover_nodes()
 	_setup_transparent_style()
+	
+	# If die was set before ready, load it now
+	if die_data and current_die_type == -1:
+		_load_die_face(die_data.die_type)
+		current_die_type = die_data.die_type
+		update_display()
 
 func _discover_nodes():
 	"""Find the die face container"""
 	die_face_container = find_child("DieFaceContainer", true, false) as Control
 	
 	if not die_face_container:
-		# Create container if missing
 		die_face_container = Control.new()
 		die_face_container.name = "DieFaceContainer"
-		die_face_container.custom_minimum_size = Vector2(64, 64)
 		die_face_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# No minimum size - let the die face scene define it
 		add_child(die_face_container)
 
 func _setup_transparent_style():
@@ -70,37 +80,62 @@ func set_die(die: DieResource):
 	die_data = die
 	
 	if not is_node_ready():
-		await ready
+		# Will be handled in _ready()
+		return
 	
 	# Load correct die face if type changed
-	if not die or die.die_type != current_die_type or not current_die_face:
+	if die.die_type != current_die_type or not current_die_face:
 		_load_die_face(die.die_type)
 		current_die_type = die.die_type
 	
 	update_display()
 
 func _load_die_face(die_type: DieResource.DieType):
-	"""Load and instantiate the correct die face scene"""
-	if not DIE_FACE_SCENES.has(die_type):
-		push_warning("No die face scene for type: %s" % die_type)
-		return
-	
+	"""Load and instantiate the correct die face scene (synchronous)"""
 	# Clear existing die face
 	if current_die_face and is_instance_valid(current_die_face):
 		current_die_face.queue_free()
 		current_die_face = null
+		value_label = null
+		texture_rect = null
 	
-	# Wait a frame for cleanup
-	await get_tree().process_frame
+	# Try to load scene
+	var scene = _get_die_face_scene(die_type)
 	
-	# Instantiate new die face
-	var scene = DIE_FACE_SCENES[die_type]
-	current_die_face = scene.instantiate()
+	if scene:
+		# Instantiate new die face
+		current_die_face = scene.instantiate()
+		die_face_container.add_child(current_die_face)
+		
+		# Find nodes in the new die face
+		value_label = current_die_face.find_child("ValueLabel", true, false) as Label
+		texture_rect = current_die_face.find_child("TextureRect", true, false) as TextureRect
+	else:
+		# Fallback: create simple display
+		_create_fallback_display(die_type)
+
+func _create_fallback_display(die_type: DieResource.DieType):
+	"""Create a simple fallback when no die face scene exists"""
+	current_die_face = VBoxContainer.new()
+	current_die_face.alignment = BoxContainer.ALIGNMENT_CENTER
+	current_die_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	die_face_container.add_child(current_die_face)
 	
-	# Find nodes in the new die face
-	value_label = current_die_face.find_child("ValueLabel", true, false) as Label
-	texture_rect = current_die_face.find_child("TextureRect", true, false) as TextureRect
+	# Type label
+	var type_label = Label.new()
+	type_label.text = "D%d" % die_type
+	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	type_label.add_theme_font_size_override("font_size", 12)
+	type_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	current_die_face.add_child(type_label)
+	
+	# Value label
+	value_label = Label.new()
+	value_label.name = "ValueLabel"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value_label.add_theme_font_size_override("font_size", 24)
+	value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	current_die_face.add_child(value_label)
 
 func update_display():
 	"""Update visual to match die data"""
@@ -158,9 +193,8 @@ func _get_drag_data(_at_position: Vector2):
 	}
 
 func _create_drag_preview() -> Control:
-	"""Create a preview for dragging - uses same die face"""
+	"""Create a preview for dragging"""
 	var preview = PanelContainer.new()
-	preview.custom_minimum_size = Vector2(64, 64)
 	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
 	
 	# Make transparent
@@ -168,9 +202,11 @@ func _create_drag_preview() -> Control:
 	style.bg_color = Color.TRANSPARENT
 	preview.add_theme_stylebox_override("panel", style)
 	
-	# Load same die face scene for preview
-	if die_data and DIE_FACE_SCENES.has(die_data.die_type):
-		var face = DIE_FACE_SCENES[die_data.die_type].instantiate()
+	# Load die face scene - it defines its own size
+	var scene = _get_die_face_scene(die_data.die_type) if die_data else null
+	
+	if scene:
+		var face = scene.instantiate()
 		preview.add_child(face)
 		
 		# Update value
@@ -182,6 +218,18 @@ func _create_drag_preview() -> Control:
 		var tex = face.find_child("TextureRect", true, false) as TextureRect
 		if tex and die_data.color != Color.WHITE:
 			tex.modulate = die_data.color
+	else:
+		# Fallback needs a size since there's no scene
+		preview.custom_minimum_size = Vector2(64, 64)
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		preview.add_child(vbox)
+		
+		var label = Label.new()
+		label.text = str(die_data.get_total_value()) if die_data else "?"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 24)
+		vbox.add_child(label)
 	
 	return preview
 

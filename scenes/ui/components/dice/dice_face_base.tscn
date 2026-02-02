@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d3857al3f5842"]
 
 [node name="DiceFace" type="Control"]
-custom_minimum_size = Vector2(64, 64)
+custom_minimum_size = Vector2(258, 258)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
