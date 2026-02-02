@@ -19,10 +19,10 @@ enum Category {
 	INTELLECT_MULTIPLIER,
 	LUCK_MULTIPLIER,
 	# Global Combat Modifiers
-	DAMAGE_BONUS,          # Flat bonus to ALL damage
-	DAMAGE_MULTIPLIER,     # Multiplier to ALL damage
-	DEFENSE_BONUS,         # Flat bonus to ALL defense
-	DEFENSE_MULTIPLIER,    # Multiplier to ALL defense
+	DAMAGE_BONUS,
+	DAMAGE_MULTIPLIER,
+	DEFENSE_BONUS,
+	DEFENSE_MULTIPLIER,
 	# Physical Defense
 	ARMOR_BONUS,
 	# Elemental Resistances

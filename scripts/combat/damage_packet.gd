@@ -2,22 +2,15 @@
 extends RefCounted
 class_name DamagePacket
 
-# ============================================================================
-# DAMAGE TYPE ENUM (mirrors ActionEffect.DamageType)
-# ============================================================================
-enum DamageType {
-	SLASHING,
-	BLUNT,
-	PIERCING,
-	FIRE,
-	ICE,
-	SHOCK,
-	POISON,
-	SHADOW
-}
+# Use ActionEffect's DamageType enum (don't redefine it)
+const DamageType = ActionEffect.DamageType
 
 # Physical types (reduced by armor)
-const PHYSICAL_TYPES = [DamageType.SLASHING, DamageType.BLUNT, DamageType.PIERCING]
+const PHYSICAL_TYPES = [
+	ActionEffect.DamageType.SLASHING,
+	ActionEffect.DamageType.BLUNT,
+	ActionEffect.DamageType.PIERCING
+]
 
 # ============================================================================
 # DAMAGE VALUES BY TYPE
@@ -30,14 +23,14 @@ var damages: Dictionary = {}  # DamageType -> float
 
 func _init():
 	# Initialize all damage types to 0
-	for type in DamageType.values():
+	for type in ActionEffect.DamageType.values():
 		damages[type] = 0.0
 
 # ============================================================================
 # ADD DAMAGE
 # ============================================================================
 
-func add_damage(type: DamageType, amount: float):
+func add_damage(type: ActionEffect.DamageType, amount: float):
 	"""Add damage of a specific type"""
 	damages[type] += amount
 
@@ -50,7 +43,7 @@ func add_damage_from_effect(effect: ActionEffect, dice_total: int):
 
 func merge(other: DamagePacket):
 	"""Merge another packet into this one"""
-	for type in DamageType.values():
+	for type in ActionEffect.DamageType.values():
 		damages[type] += other.damages[type]
 
 # ============================================================================
@@ -62,7 +55,7 @@ func apply_multiplier(multiplier: float):
 	for type in damages:
 		damages[type] *= multiplier
 
-func apply_type_multiplier(type: DamageType, multiplier: float):
+func apply_type_multiplier(type: ActionEffect.DamageType, multiplier: float):
 	"""Apply multiplier to a specific damage type"""
 	damages[type] *= multiplier
 
@@ -84,7 +77,7 @@ func calculate_final_damage(defender_stats: Dictionary, defense_mult: float = 1.
 	"""
 	var total: float = 0.0
 	
-	for type in DamageType.values():
+	for type in ActionEffect.DamageType.values():
 		var damage = damages[type]
 		if damage <= 0:
 			continue
@@ -93,22 +86,24 @@ func calculate_final_damage(defender_stats: Dictionary, defense_mult: float = 1.
 		var final = max(0.0, damage - reduction)
 		total += final
 	
-	return int(total)
+	return roundi(total)
 
-func _get_reduction_for_type(type: DamageType, stats: Dictionary) -> float:
+func _get_reduction_for_type(type: ActionEffect.DamageType, stats: Dictionary) -> float:
 	"""Get the appropriate resistance for a damage type"""
 	match type:
-		DamageType.SLASHING, DamageType.BLUNT, DamageType.PIERCING:
+		ActionEffect.DamageType.SLASHING, \
+		ActionEffect.DamageType.BLUNT, \
+		ActionEffect.DamageType.PIERCING:
 			return stats.get("armor", 0)
-		DamageType.FIRE:
+		ActionEffect.DamageType.FIRE:
 			return stats.get("fire_resist", 0)
-		DamageType.ICE:
+		ActionEffect.DamageType.ICE:
 			return stats.get("ice_resist", 0)
-		DamageType.SHOCK:
+		ActionEffect.DamageType.SHOCK:
 			return stats.get("shock_resist", 0)
-		DamageType.POISON:
+		ActionEffect.DamageType.POISON:
 			return stats.get("poison_resist", 0)
-		DamageType.SHADOW:
+		ActionEffect.DamageType.SHADOW:
 			return stats.get("shadow_resist", 0)
 		_:
 			return 0.0
@@ -122,7 +117,7 @@ func get_breakdown() -> Dictionary:
 	var breakdown = {}
 	for type in damages:
 		if damages[type] > 0:
-			breakdown[DamageType.keys()[type]] = damages[type]
+			breakdown[ActionEffect.DamageType.keys()[type]] = damages[type]
 	return breakdown
 
 func get_total_raw() -> float:
@@ -136,5 +131,5 @@ func _to_string() -> String:
 	var parts = []
 	for type in damages:
 		if damages[type] > 0:
-			parts.append("%s: %.1f" % [DamageType.keys()[type], damages[type]])
+			parts.append("%s: %.1f" % [ActionEffect.DamageType.keys()[type], damages[type]])
 	return "DamagePacket[%s]" % ", ".join(parts)

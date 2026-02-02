@@ -1,9 +1,8 @@
-[gd_scene load_steps=6 format=3 uid="uid://0uycurmcavjg"]
+[gd_scene load_steps=5 format=3 uid="uid://0uycurmcavjg"]
 
 [ext_resource type="Script" uid="uid://e624lj2ycb0m" path="res://scripts/ui/components/stat_display.gd" id="1_gwlns"]
 [ext_resource type="PackedScene" uid="uid://dofeq3txtonis" path="res://scenes/ui/combat/enemy_panel.tscn" id="2_8bf5m"]
 [ext_resource type="PackedScene" uid="uid://bb07mxj58qxpy" path="res://scenes/ui/combat/dice_pool_display.tscn" id="2_bo0no"]
-[ext_resource type="Script" uid="uid://ckcnmmdmj10wo" path="res://scripts/ui/combat/action_field.gd" id="2_l84v8"]
 [ext_resource type="PackedScene" uid="uid://ctpamire6rmbu" path="res://scenes/ui/components/die_visual.tscn" id="4_l84v8"]
 
 [node name="CombatUILayer" type="CanvasLayer"]
@@ -70,6 +69,7 @@ layout_mode = 2
 
 [node name="Control2" type="Control" parent="MarginContainer/VBox/TopBar"]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="Spacer1" type="Control" parent="MarginContainer/VBox"]
 layout_mode = 2
@@ -85,173 +85,27 @@ custom_minimum_size = Vector2(0, 400)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="CenterContainer" type="CenterContainer" parent="MarginContainer/VBox/ActionFieldsArea"]
+[node name="ActionFieldsScroll" type="ScrollContainer" parent="MarginContainer/VBox/ActionFieldsArea"]
 layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="ActionFieldsGrid" type="GridContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer"]
+[node name="CenterContainer" type="CenterContainer" parent="MarginContainer/VBox/ActionFieldsArea/ActionFieldsScroll"]
 layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActionFieldsGrid" type="GridContainer" parent="MarginContainer/VBox/ActionFieldsArea/ActionFieldsScroll/CenterContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 columns = 2
 
-[node name="ActionField1" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField2" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField3" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField4" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField5" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField6" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField7" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField8" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField9" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField10" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField11" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField12" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField13" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField14" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField15" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
-[node name="ActionField16" type="PanelContainer" parent="MarginContainer/VBox/ActionFieldsArea/CenterContainer/ActionFieldsGrid"]
-visible = false
-custom_minimum_size = Vector2(150, 150)
-layout_mode = 2
-script = ExtResource("2_l84v8")
-metadata/_custom_type_script = "uid://ckcnmmdmj10wo"
-
 [node name="Spacer2" type="Control" parent="MarginContainer/VBox"]
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 size_flags_vertical = 3
-
-[node name="ActionAreaContainer" type="VBoxContainer" parent="MarginContainer/VBox"]
-layout_mode = 2
-alignment = 1
-
-[node name="CategoryNavigation" type="HBoxContainer" parent="MarginContainer/VBox/ActionAreaContainer"]
-layout_mode = 2
-alignment = 1
-
-[node name="LeftButton" type="Button" parent="MarginContainer/VBox/ActionAreaContainer/CategoryNavigation"]
-layout_mode = 2
-text = "LEFT"
-
-[node name="CategoryLabel" type="Label" parent="MarginContainer/VBox/ActionAreaContainer/CategoryNavigation"]
-layout_mode = 2
-text = "Items"
-
-[node name="RightButton" type="Button" parent="MarginContainer/VBox/ActionAreaContainer/CategoryNavigation"]
-layout_mode = 2
-text = "RIGHT"
-
-[node name="ActionFieldsScroller" type="Control" parent="MarginContainer/VBox/ActionAreaContainer"]
-layout_mode = 2
-
-[node name="ItemsColumn" type="ScrollContainer" parent="MarginContainer/VBox/ActionAreaContainer/ActionFieldsScroller"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="ItemsGrid" type="GridContainer" parent="MarginContainer/VBox/ActionAreaContainer/ActionFieldsScroller/ItemsColumn"]
-layout_mode = 2
-columns = 2
-
-[node name="SkillsColumn" type="ScrollContainer" parent="MarginContainer/VBox/ActionAreaContainer/ActionFieldsScroller"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="SkillsGrid" type="GridContainer" parent="MarginContainer/VBox/ActionAreaContainer/ActionFieldsScroller/SkillsColumn"]
-layout_mode = 2
-columns = 2
 
 [node name="Spacer3" type="Control" parent="MarginContainer/VBox"]
 custom_minimum_size = Vector2(0, 20)

@@ -8,6 +8,10 @@ theme_override_constants/separation = 16
 alignment = 1
 script = ExtResource("1_o7t4d")
 
+[node name="Control2" type="Control" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="EnemySlot1" parent="." instance=ExtResource("2_g7aqa")]
 layout_mode = 2
 
@@ -16,3 +20,7 @@ layout_mode = 2
 
 [node name="EnemySlot3" parent="." instance=ExtResource("2_g7aqa")]
 layout_mode = 2
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3

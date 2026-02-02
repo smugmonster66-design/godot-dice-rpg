@@ -361,21 +361,23 @@ func _on_action_confirmed(action_data: Dictionary):
 	
 	var action_name = action_data.get("name", "Unknown")
 	var action_type = action_data.get("action_type", 0)
-	var damage = _calculate_damage(action_data)
+	
+	# Get target for damage calculation
+	var target = action_data.get("target", null) as Combatant
+	var target_index = action_data.get("target_index", 0)
+	
+	# Fallback to first living enemy if no target specified
+	if not target or not target.is_alive():
+		target = _get_first_living_enemy()
+		target_index = enemy_combatants.find(target)
+	
+	# Calculate damage with attacker (player) and defender (target)
+	var damage = _calculate_damage(action_data, player, target)  # ← FIXED
 	
 	print("⚔️ Player uses %s (type=%d, value=%d)" % [action_name, action_type, damage])
 	
 	match action_type:
 		0:  # ATTACK
-			# Get target from action_data (set by combat_ui)
-			var target = action_data.get("target", null) as Combatant
-			var target_index = action_data.get("target_index", 0)
-			
-			# Fallback to first living enemy if no target specified
-			if not target or not target.is_alive():
-				target = _get_first_living_enemy()
-				target_index = enemy_combatants.find(target)
-			
 			if target:
 				print("  → Attacking %s" % target.combatant_name)
 				target.take_damage(damage)
@@ -447,6 +449,7 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 	if combat_ui and combat_ui.has_method("show_enemy_action"):
 		combat_ui.show_enemy_action(enemy, decision.action)
 	
+	# Animate dice placement
 	for i in range(decision.dice.size()):
 		var die = decision.dice[i]
 		
@@ -462,27 +465,71 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 	
 	await get_tree().create_timer(0.3).timeout
 	
-	var result = enemy.execute_prepared_action()
+	# Build action_data with placed dice for damage calculation
+	var action_data = decision.action.duplicate()
+	action_data["placed_dice"] = decision.dice
+	
 	var action_type = decision.action.get("action_type", 0)
 	
 	match action_type:
 		0:  # ATTACK
-			print("  💥 %s attacks player for %d!" % [enemy.combatant_name, result])
-			player_combatant.take_damage(result)
+			# Calculate damage using new system (enemy attacks player)
+			var damage = _calculate_damage(action_data, enemy, player)
+			print("  💥 %s attacks player for %d!" % [enemy.combatant_name, damage])
+			player_combatant.take_damage(damage)
 			_update_player_health()
 			if _check_player_death():
 				return
 		1:  # DEFEND
 			print("  🛡️ %s defends" % enemy.combatant_name)
+			# Could add block/armor buff here
 		2:  # HEAL
-			print("  💚 %s heals for %d" % [enemy.combatant_name, result])
-			enemy.heal(result)
+			# For healing, calculate against self (no defense reduction)
+			var heal_amount = _calculate_heal(action_data, enemy)
+			print("  💚 %s heals for %d" % [enemy.combatant_name, heal_amount])
+			enemy.heal(heal_amount)
 			_update_enemy_health(enemy_combatants.find(enemy))
+	
+	# Emit action executed signal
+	enemy.action_executed.emit(decision.action, 0)
 	
 	await get_tree().create_timer(enemy.action_delay).timeout
 	
 	combat_state = CombatState.ENEMY_TURN
 	_process_enemy_turn(enemy)
+
+func _calculate_heal(action_data: Dictionary, healer) -> int:
+	"""Calculate healing amount"""
+	var placed_dice: Array = action_data.get("placed_dice", [])
+	
+	# Get dice values
+	var dice_total = 0
+	for die in placed_dice:
+		if die is DieResource:
+			dice_total += die.get_total_value()
+	
+	# Get heal values from action
+	var base_heal = action_data.get("base_damage", 0)  # Reuse base_damage for heal
+	var multiplier = action_data.get("damage_multiplier", 1.0)
+	
+	# Check for ActionEffect-based healing
+	var effects: Array[ActionEffect] = []
+	if action_data.has("action_resource") and action_data.action_resource is Action:
+		effects = action_data.action_resource.effects
+	elif action_data.has("effects"):
+		effects = action_data.effects
+	
+	# If we have heal effects, use those
+	for effect in effects:
+		if effect and effect.effect_type == ActionEffect.EffectType.HEAL:
+			var effect_dice_total = 0
+			if effect.heal_uses_dice:
+				effect_dice_total = dice_total
+			return int((effect_dice_total + effect.base_heal) * effect.heal_multiplier)
+	
+	# Legacy fallback
+	return int((dice_total + base_heal) * multiplier)
+
 
 func _finish_enemy_turn(enemy: Combatant):
 	"""Finish enemy's turn"""
@@ -515,10 +562,13 @@ func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
 	var effects: Array[ActionEffect] = []
 	if action_data.has("action_resource") and action_data.action_resource is Action:
 		effects = action_data.action_resource.effects
-	elif action_data.has("effects"):
-		effects = action_data.effects
-	else:
-		# Legacy fallback - create a basic damage effect
+	elif action_data.has("effects") and action_data.effects is Array:
+		for effect in action_data.effects:
+			if effect is ActionEffect:
+				effects.append(effect)
+	
+	# Legacy fallback - create a basic damage effect if no effects found
+	if effects.is_empty():
 		var legacy_effect = ActionEffect.new()
 		legacy_effect.effect_type = ActionEffect.EffectType.DAMAGE
 		legacy_effect.base_damage = action_data.get("base_damage", 0)
@@ -526,30 +576,21 @@ func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
 		legacy_effect.dice_count = dice_values.size()
 		effects = [legacy_effect]
 	
-	# Get attacker's affix manager
+	# Get attacker's affix manager (players have one, enemies might not)
 	var attacker_affixes: AffixPoolManager
-	if attacker is Player or (attacker.has("affix_manager") and attacker.affix_manager):
+	if attacker is Player:
+		attacker_affixes = attacker.affix_manager
+	elif attacker is Combatant and attacker.has_method("get_affix_manager"):
+		attacker_affixes = attacker.get_affix_manager()
+	elif attacker != null and "affix_manager" in attacker and attacker.affix_manager != null:
 		attacker_affixes = attacker.affix_manager
 	else:
-		attacker_affixes = AffixPoolManager.new()  # Empty for enemies without affixes
+		attacker_affixes = AffixPoolManager.new()  # Empty for basic enemies
 	
 	# Get defender stats
-	var defender_stats: Dictionary
-	if defender is Player or defender.has_method("get_defense_stats"):
-		defender_stats = defender.get_defense_stats()
-	elif defender is Combatant:
-		defender_stats = {
-			"armor": defender.armor,
-			"fire_resist": 0,
-			"ice_resist": 0,
-			"shock_resist": 0,
-			"poison_resist": 0,
-			"shadow_resist": 0
-		}
-	else:
-		defender_stats = {"armor": 0}
+	var defender_stats: Dictionary = _get_defender_stats(defender)
 	
-	# Calculate!
+	# Calculate using CombatCalculator
 	var result = CombatCalculator.calculate_attack_damage(
 		attacker_affixes,
 		effects,
@@ -560,6 +601,35 @@ func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
 	print("💥 Damage calculation: %s → %d total" % [result.breakdown, result.total_damage])
 	
 	return result.total_damage
+
+
+func _get_defender_stats(defender) -> Dictionary:
+	"""Get defensive stats from any defender type"""
+	if defender is Player:
+		return defender.get_defense_stats()
+	elif defender is Combatant:
+		return {
+			"armor": defender.armor,
+			"barrier": defender.barrier,
+			"fire_resist": 0,
+			"ice_resist": 0,
+			"shock_resist": 0,
+			"poison_resist": 0,
+			"shadow_resist": 0,
+			"defense_mult": 1.0
+		}
+	elif defender != null and defender.has_method("get_defense_stats"):
+		return defender.get_defense_stats()
+	else:
+		return {
+			"armor": 0,
+			"fire_resist": 0,
+			"ice_resist": 0,
+			"shock_resist": 0,
+			"poison_resist": 0,
+			"shadow_resist": 0,
+			"defense_mult": 1.0
+		}
 
 # ============================================================================
 # HEALTH MANAGEMENT

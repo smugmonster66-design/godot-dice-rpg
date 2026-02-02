@@ -13,6 +13,11 @@ border_color = Color(0.9853031, 0.7671745, 0, 1)
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("1_8vtss")
+slot_index = null
+empty_slot_color = null
+filled_slot_color = null
+selected_slot_color = null
+dead_slot_color = null
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 2

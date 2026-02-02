@@ -4,9 +4,8 @@ class_name ActionManager
 
 var player: Player = null
 
-# Tracked actions
-var item_actions: Array[Dictionary] = []  # {name, icon, description, die_slots, etc.}
-var skill_actions: Array[Dictionary] = []
+# All actions in one list (no more item/skill separation)
+var actions: Array[Dictionary] = []
 
 signal actions_changed()
 
@@ -14,95 +13,65 @@ func initialize(p_player: Player):
 	"""Initialize with player"""
 	player = p_player
 	
-	# Connect to equipment changes
 	if player:
 		player.equipment_changed.connect(_on_equipment_changed)
 	
-	# Build initial action list
 	rebuild_actions()
 
 func rebuild_actions():
-	"""Rebuild action lists from player state"""
-	item_actions.clear()
-	skill_actions.clear()
+	"""Rebuild action list from player state"""
+	actions.clear()
 	
 	# Add actions from equipped items
-	add_item_actions()
+	_add_item_actions()
 	
-	# Add actions from learned skills
-	add_skill_actions()
+	# Add actions granted by affixes (NEW_ACTION category)
+	_add_affix_granted_actions()
 	
 	actions_changed.emit()
-	print("📋 Actions rebuilt: %d items, %d skills" % [item_actions.size(), skill_actions.size()])
+	print("📋 Actions rebuilt: %d total" % actions.size())
 
-func add_item_actions():
+func _add_item_actions():
 	"""Add actions from equipped items"""
 	if not player:
 		return
 	
 	print("📋 Scanning equipped items for actions...")
 	
-	# Track items we've already processed (to avoid duplicates from heavy weapons)
 	var processed_items: Array = []
 	
 	for slot in player.equipment:
 		var item = player.equipment[slot]
 		
-		# Skip if no item or already processed (heavy weapons appear in both hands)
 		if not item or item in processed_items:
 			continue
 		
-		# Mark as processed
 		processed_items.append(item)
 		
-		# Add actions from this item
 		if item.has("actions"):
-			print("  Found item with actions: %s" % item.get("name"))
 			for action_data in item.actions:
-				print("    Action data: %s" % str(action_data))
 				var action = action_data.duplicate()
 				action["source"] = item.get("name", "Unknown Item")
-				action["category"] = ActionField.ActionCategory.ITEM
-				item_actions.append(action)
-				print("    ✅ Added action: %s from %s" % [action.get("name", "NO NAME"), action.get("source")])
+				actions.append(action)
+				print("  ✅ Added action: %s from %s" % [action.get("name", "?"), action.get("source")])
 
-func add_skill_actions():
-	"""Add actions from learned skills"""
-	if not player or not player.active_class:
+func _add_affix_granted_actions():
+	"""Add actions granted by NEW_ACTION affixes"""
+	if not player or not player.affix_manager:
 		return
 	
-	# Get actions from class
-	if player.active_class.combat_actions:
-		for action_name in player.active_class.combat_actions:
-			var action = create_skill_action(action_name)
-			if action:
-				skill_actions.append(action)
-
-func create_skill_action(action_name: String) -> Dictionary:
-	"""Create action data for a skill"""
-	# This would look up skill data - for now, placeholder
-	return {
-		"name": action_name,
-		"description": "A powerful skill.",
-		"icon": null,
-		"die_slots": 1,
-		"action_type": ActionField.ActionType.SPECIAL,
-		"category": ActionField.ActionCategory.SKILL,
-		"source": "Class Skill",
-		"base_damage": 0,
-		"damage_multiplier": 1.0,
-		"required_tags": [],
-		"restricted_tags": []
-	}
+	var granted_actions = player.affix_manager.get_granted_actions()
+	for action_resource in granted_actions:
+		if action_resource:
+			var action_dict = action_resource.to_dict()
+			action_dict["action_resource"] = action_resource
+			actions.append(action_dict)
+			print("  ✅ Added affix action: %s" % action_dict.get("name", "?"))
 
 func _on_equipment_changed(_slot: String, _item):
 	"""Rebuild when equipment changes"""
 	rebuild_actions()
 
-func get_item_actions() -> Array[Dictionary]:
-	"""Get all item actions"""
-	return item_actions
-
-func get_skill_actions() -> Array[Dictionary]:
-	"""Get all skill actions"""
-	return skill_actions
+func get_actions() -> Array[Dictionary]:
+	"""Get all available actions"""
+	return actions

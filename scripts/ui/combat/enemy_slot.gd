@@ -1,5 +1,5 @@
 # res://scripts/ui/combat/enemy_slot.gd
-# Individual enemy slot - attach to PanelContainer with child nodes
+# Individual enemy slot with dice pool display - uses scene nodes
 extends PanelContainer
 class_name EnemySlot
 
@@ -15,6 +15,7 @@ signal slot_unhovered(slot: EnemySlot)
 # ============================================================================
 @export var slot_index: int = 0
 @export var default_portrait: Texture2D = null
+@export var die_icon_size: Vector2 = Vector2(24, 24)
 
 @export_group("Colors")
 @export var empty_slot_color: Color = Color(0.2, 0.2, 0.2, 0.5)
@@ -23,13 +24,14 @@ signal slot_unhovered(slot: EnemySlot)
 @export var dead_slot_color: Color = Color(0.15, 0.1, 0.1, 0.8)
 
 # ============================================================================
-# NODE REFERENCES - Found via groups or names
+# NODE REFERENCES - Found from scene
 # ============================================================================
-var portrait_rect: TextureRect = null
-var name_label: Label = null
-var health_bar: ProgressBar = null
-var health_label: Label = null
-var selection_indicator: Control = null
+@onready var dice_pool_bar: HBoxContainer = $MarginContainer/VBox/DicePoolBar
+@onready var portrait_rect: TextureRect = $MarginContainer/VBox/Portrait
+@onready var selection_indicator: Panel = $MarginContainer/VBox/Portrait/SelectionIndicator
+@onready var name_label: Label = $MarginContainer/VBox/NameLabel
+@onready var health_bar: ProgressBar = $MarginContainer/VBox/HealthBar
+@onready var health_label: Label = $MarginContainer/VBox/HealthLabel
 
 # ============================================================================
 # STATE
@@ -39,80 +41,19 @@ var enemy_data: EnemyData = null
 var is_selected: bool = false
 var is_empty: bool = true
 var style_box: StyleBoxFlat = null
+var dice_icons: Array[TextureRect] = []
 
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
 
 func _ready():
-	_discover_nodes()
 	_setup_style()
 	_connect_signals()
 	set_empty()
 
-func _discover_nodes():
-	"""Find child nodes by group or name"""
-	# Portrait - look for group first, then by name
-	var portraits = _find_in_group("enemy_portrait")
-	if portraits.size() > 0:
-		portrait_rect = portraits[0] as TextureRect
-	else:
-		portrait_rect = find_child("Portrait", true, false) as TextureRect
-		if not portrait_rect:
-			portrait_rect = find_child("PortraitRect", true, false) as TextureRect
-	
-	# Name label
-	var names = _find_in_group("enemy_name")
-	if names.size() > 0:
-		name_label = names[0] as Label
-	else:
-		name_label = find_child("NameLabel", true, false) as Label
-		if not name_label:
-			name_label = find_child("Name", true, false) as Label
-	
-	# Health bar
-	var bars = _find_in_group("enemy_health_bar")
-	if bars.size() > 0:
-		health_bar = bars[0] as ProgressBar
-	else:
-		health_bar = find_child("HealthBar", true, false) as ProgressBar
-	
-	# Health label
-	var health_labels = _find_in_group("enemy_health_label")
-	if health_labels.size() > 0:
-		health_label = health_labels[0] as Label
-	else:
-		health_label = find_child("HealthLabel", true, false) as Label
-	
-	# Selection indicator (optional overlay)
-	var indicators = _find_in_group("selection_indicator")
-	if indicators.size() > 0:
-		selection_indicator = indicators[0]
-	else:
-		selection_indicator = find_child("SelectionIndicator", true, false)
-	
-	# Debug output
-	print("🎯 EnemySlot%d nodes:" % slot_index)
-	print("  Portrait: %s" % ("✓" if portrait_rect else "✗"))
-	print("  Name: %s" % ("✓" if name_label else "✗"))
-	print("  HealthBar: %s" % ("✓" if health_bar else "✗"))
-	print("  HealthLabel: %s" % ("✓" if health_label else "✗"))
-	print("  SelectionIndicator: %s" % ("✓" if selection_indicator else "✗"))
-
-func _find_in_group(group_name: String) -> Array:
-	"""Find children in a specific group"""
-	var result = []
-	for child in get_children():
-		if child.is_in_group(group_name):
-			result.append(child)
-		# Check grandchildren too
-		for grandchild in child.get_children():
-			if grandchild.is_in_group(group_name):
-				result.append(grandchild)
-	return result
-
 func _setup_style():
-	"""Setup or get the panel's StyleBox"""
+	"""Setup panel StyleBox"""
 	var current_style = get_theme_stylebox("panel")
 	if current_style is StyleBoxFlat:
 		style_box = current_style.duplicate()
@@ -144,8 +85,8 @@ func set_enemy(p_enemy: Combatant, p_enemy_data: EnemyData = null):
 	enemy_data = p_enemy_data
 	is_empty = false
 	
-	# Update visuals
 	_update_display()
+	_update_dice_pool_display()
 	
 	# Connect to enemy signals
 	if enemy:
@@ -174,6 +115,10 @@ func set_empty():
 	
 	if health_label:
 		health_label.text = ""
+	
+	if dice_pool_bar:
+		_clear_dice_icons()
+		dice_pool_bar.hide()
 	
 	if style_box:
 		style_box.bg_color = empty_slot_color
@@ -206,6 +151,10 @@ func update_health(current: int, maximum: int):
 	if health_label:
 		health_label.text = "%d / %d" % [current, maximum]
 
+func refresh_dice_display():
+	"""Refresh the dice pool icons"""
+	_update_dice_pool_display()
+
 func get_enemy() -> Combatant:
 	"""Get the enemy in this slot"""
 	return enemy
@@ -213,6 +162,68 @@ func get_enemy() -> Combatant:
 func is_alive() -> bool:
 	"""Check if enemy is alive"""
 	return enemy != null and enemy.is_alive()
+
+# ============================================================================
+# DICE POOL DISPLAY
+# ============================================================================
+
+func _update_dice_pool_display():
+	"""Update the dice pool bar with enemy's dice icons"""
+	if not dice_pool_bar:
+		return
+	
+	_clear_dice_icons()
+	
+	if not enemy or not enemy.dice_collection:
+		dice_pool_bar.hide()
+		return
+	
+	dice_pool_bar.show()
+	
+	# Get all dice in pool
+	var pool_dice = enemy.dice_collection.get_pool_dice()
+	
+	for die in pool_dice:
+		var icon = _create_die_icon(die)
+		dice_pool_bar.add_child(icon)
+		dice_icons.append(icon)
+
+func _create_die_icon(die: DieResource) -> TextureRect:
+	"""Create a small icon for a die"""
+	var icon = TextureRect.new()
+	icon.custom_minimum_size = die_icon_size
+	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	
+	if die.icon:
+		icon.texture = die.icon
+	
+	# Color based on die type
+	icon.modulate = _get_die_type_color(die)
+	icon.tooltip_text = "%s (d%d)" % [die.display_name, die.sides]
+	
+	return icon
+
+func _get_die_type_color(die: DieResource) -> Color:
+	"""Get color based on die type"""
+	match die.die_type:
+		DieResource.DieType.ATTACK:
+			return Color(0.9, 0.3, 0.3)
+		DieResource.DieType.DEFENSE:
+			return Color(0.3, 0.5, 0.9)
+		DieResource.DieType.MAGIC:
+			return Color(0.7, 0.3, 0.9)
+		DieResource.DieType.SUPPORT:
+			return Color(0.3, 0.9, 0.5)
+		_:
+			return Color.WHITE
+
+func _clear_dice_icons():
+	"""Clear all dice icons"""
+	for icon in dice_icons:
+		if is_instance_valid(icon):
+			icon.queue_free()
+	dice_icons.clear()
 
 # ============================================================================
 # PRIVATE METHODS
@@ -299,5 +310,8 @@ func _on_enemy_died():
 	
 	if selection_indicator:
 		selection_indicator.hide()
+	
+	if dice_pool_bar:
+		dice_pool_bar.modulate = Color(0.5, 0.5, 0.5, 0.5)
 	
 	is_selected = false

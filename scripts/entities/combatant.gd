@@ -36,6 +36,7 @@ var current_action_dice: Array[DieResource] = []
 # Selection shader for targeting
 var selection_shader: ShaderMaterial = null
 var is_target_selected: bool = false
+var affix_manager: AffixPoolManager = null
 
 # ============================================================================
 # NODE REFERENCES
@@ -101,11 +102,26 @@ func _initialize_from_enemy_data():
 	if enemy_data.sprite_texture and sprite:
 		sprite.texture = enemy_data.sprite_texture
 	
+	# Create affix manager for this enemy
+	affix_manager = AffixPoolManager.new()
+	
+	# If enemy_data has affixes, add them
+	if enemy_data.has_method("get_affixes"):
+		for affix in enemy_data.get_affixes():
+			affix_manager.add_affix(affix)
+	
+	
 	print("  ✅ %s: HP=%d, Armor=%d, Dice=%d, Actions=%d" % [
 		combatant_name, max_health, armor, 
 		dice_collection.get_pool_count() if dice_collection else 0, 
 		actions.size()
 	])
+
+func get_affix_manager() -> AffixPoolManager:
+	"""Get this combatant's affix manager"""
+	if not affix_manager:
+		affix_manager = AffixPoolManager.new()
+	return affix_manager
 
 func _setup_dice_collection_from_enemy_data():
 	"""Setup dice collection from EnemyData"""

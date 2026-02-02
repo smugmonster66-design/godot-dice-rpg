@@ -1,17 +1,21 @@
 # res://scripts/ui/combat/combat_ui.gd
-# Combat UI - finds all nodes from scene, no programmatic creation
+# Combat UI - dynamically creates action fields in scrollable grid
 extends CanvasLayer
 
 # ============================================================================
 # NODE REFERENCES - All found from scene
 # ============================================================================
+var action_fields_scroll: ScrollContainer = null
 var action_fields_grid: GridContainer = null
 var player_health_display = null
 var dice_pool_display = null
 var end_turn_button: Button = null
 var enemy_panel: EnemyPanel = null
 
-# Action fields (pre-created in scene)
+# Action field scene for dynamic creation
+var action_field_scene: PackedScene = null
+
+# Dynamically created action fields
 var action_fields: Array[ActionField] = []
 
 # Action buttons (existing in scene)
@@ -52,6 +56,11 @@ signal target_selected(enemy: Combatant, index: int)
 func _ready():
 	print("🎮 CombatUI initializing...")
 	
+	# Load action field scene
+	action_field_scene = load("res://scenes/ui/combat/action_field.tscn")
+	if not action_field_scene:
+		push_error("Failed to load action_field.tscn!")
+	
 	# Find all UI nodes from scene
 	_discover_all_nodes()
 	
@@ -64,9 +73,8 @@ func _discover_all_nodes():
 	"""Find all UI nodes from the scene tree"""
 	print("  🔍 Discovering UI nodes...")
 	
-	# Action fields grid
-	action_fields_grid = find_child("ActionFieldsGrid", true, false) as GridContainer
-	print("    ActionFieldsGrid: %s" % ("✓" if action_fields_grid else "✗"))
+	# Ensure scrollable grid exists
+	_ensure_scrollable_grid()
 	
 	# Player health display
 	player_health_display = find_child("PlayerHealth", true, false)
@@ -102,44 +110,50 @@ func _discover_all_nodes():
 	if enemy_hand_container:
 		enemy_action_label = enemy_hand_container.find_child("ActionLabel", true, false) as Label
 	print("    EnemyHandDisplay: %s" % ("✓" if enemy_hand_container else "✗"))
-	
-	# Discover action fields
-	_discover_action_fields()
 
-func _discover_action_fields():
-	"""Find all pre-created action fields"""
-	action_fields.clear()
-	
-	if not action_fields_grid:
-		print("    ⚠️ Cannot discover action fields - grid not found")
+func _ensure_scrollable_grid():
+	"""Find scrollable action grid from scene"""
+	var fields_area = find_child("ActionFieldsArea", true, false)
+	if not fields_area:
+		push_error("ActionFieldsArea not found!")
 		return
 	
-	# Find ActionField nodes by name pattern
-	for i in range(1, 17):  # ActionField1 through ActionField16
-		var field = action_fields_grid.find_child("ActionField%d" % i, true, false) as ActionField
-		if field:
-			action_fields.append(field)
+	# Find scroll container
+	action_fields_scroll = fields_area.find_child("ActionFieldsScroll", true, false) as ScrollContainer
+	if not action_fields_scroll:
+		push_error("ActionFieldsScroll not found!")
+		return
 	
-	# Fallback: find any ActionField children
-	if action_fields.size() == 0:
-		for child in action_fields_grid.get_children():
-			if child is ActionField:
-				action_fields.append(child)
+	# Find grid (inside CenterContainer)
+	action_fields_grid = action_fields_scroll.find_child("ActionFieldsGrid", true, false) as GridContainer
+	if not action_fields_grid:
+		push_error("ActionFieldsGrid not found!")
+		return
 	
-	print("    ActionFields: %d found" % action_fields.size())
+	# Configure scroll settings
+	_configure_scroll_container()
+	
+	print("    ActionFieldsScroll: ✓")
+	print("    ActionFieldsGrid: ✓")
+
+func _configure_scroll_container():
+	"""Configure scroll container settings"""
+	if not action_fields_scroll:
+		return
+	
+	# Hide scrollbars but allow scrolling
+	action_fields_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	action_fields_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	
+	# Make vertical scrollbar invisible
+	var v_scrollbar = action_fields_scroll.get_v_scroll_bar()
+	if v_scrollbar:
+		v_scrollbar.modulate.a = 0
+
 
 func _connect_all_signals():
 	"""Connect signals from discovered nodes"""
 	print("  🔗 Connecting signals...")
-	
-	# Action fields
-	for field in action_fields:
-		if field.has_signal("action_selected") and not field.action_selected.is_connected(_on_action_field_selected):
-			field.action_selected.connect(_on_action_field_selected)
-		if field.has_signal("action_confirmed") and not field.action_confirmed.is_connected(_on_action_field_confirmed):
-			field.action_confirmed.connect(_on_action_field_confirmed)
-		if field.has_signal("dice_returned") and not field.dice_returned.is_connected(_on_dice_returned):
-			field.dice_returned.connect(_on_dice_returned)
 	
 	# Confirm/Cancel buttons
 	if confirm_button and not confirm_button.pressed.is_connected(_on_confirm_pressed):
@@ -198,8 +212,8 @@ func initialize_ui(p_player: Player, p_enemies):
 		action_manager = ActionManager.new()
 		action_manager.name = "ActionManager"
 		add_child(action_manager)
-		if action_manager.has_signal("actions_changed") and not action_manager.actions_changed.is_connected(refresh_action_fields):
-			action_manager.actions_changed.connect(refresh_action_fields)
+		if action_manager.has_signal("actions_changed") and not action_manager.actions_changed.is_connected(_on_actions_changed):
+			action_manager.actions_changed.connect(_on_actions_changed)
 	
 	# Initialize ActionManager with player
 	action_manager.initialize(player)
@@ -319,9 +333,8 @@ func on_turn_start():
 	
 	# Reset action fields
 	for field in action_fields:
-		if field.visible and field.has_method("cancel_action"):
-			if field.placed_dice.size() > 0:
-				field.cancel_action()
+		if field.has_method("cancel_action") and field.placed_dice.size() > 0:
+			field.cancel_action()
 	
 	# Hide action buttons
 	if action_buttons_container:
@@ -374,25 +387,63 @@ func refresh_dice_pool():
 # ACTION FIELD MANAGEMENT
 # ============================================================================
 
+func _on_actions_changed():
+	"""Called when ActionManager rebuilds actions"""
+	refresh_action_fields()
+
 func refresh_action_fields():
-	"""Update visible action fields with player's current actions"""
-	if not action_manager:
+	"""Rebuild action fields grid from available actions"""
+	if not action_manager or not action_fields_grid:
+		print("⚠️ Cannot refresh action fields - missing manager or grid")
 		return
 	
-	var item_actions = action_manager.get_item_actions()
-	var skill_actions = action_manager.get_skill_actions()
-	var all_actions = item_actions + skill_actions
+	# Clear existing fields
+	for child in action_fields_grid.get_children():
+		child.queue_free()
+	action_fields.clear()
 	
-	for i in range(action_fields.size()):
-		var field = action_fields[i]
-		
-		if i < all_actions.size():
-			var action_data = all_actions[i]
-			if field.has_method("configure_from_dict"):
-				field.configure_from_dict(action_data)
-			field.show()
-		else:
-			field.hide()
+	# Get all actions (unified list, no categories)
+	var all_actions = action_manager.get_actions()
+	
+	print("🎮 Creating %d action fields" % all_actions.size())
+	
+	# Wait a frame for children to be freed
+	await get_tree().process_frame
+	
+	# Create action field for each action
+	for action_data in all_actions:
+		var field = _create_action_field(action_data)
+		if field:
+			action_fields_grid.add_child(field)
+			action_fields.append(field)
+	
+	# Show message if no actions
+	if all_actions.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No actions available\nEquip items to gain actions"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		action_fields_grid.add_child(empty_label)
+
+func _create_action_field(action_data: Dictionary) -> ActionField:
+	"""Create a single action field from data"""
+	if not action_field_scene:
+		push_error("ActionField scene not loaded!")
+		return null
+	
+	var field = action_field_scene.instantiate() as ActionField
+	if not field:
+		push_error("Failed to instantiate ActionField!")
+		return null
+	
+	# Configure from data
+	field.configure_from_dict(action_data)
+	
+	# Connect signals
+	field.action_selected.connect(_on_action_field_selected)
+	field.dice_returned.connect(_on_dice_returned)
+	
+	return field
 
 func _on_action_field_selected(field: ActionField):
 	"""Action field was clicked or had die dropped"""
@@ -416,21 +467,16 @@ func _on_action_field_selected(field: ActionField):
 		end_turn_button.disabled = true
 
 func _on_action_field_confirmed(action_data: Dictionary):
-	"""Action field auto-confirmed"""
-	pass
+	"""Action was confirmed from field directly"""
+	action_confirmed.emit(action_data)
 
 func _on_dice_returned(die: DieResource):
 	"""Die was returned from action field"""
-	if player and player.dice_pool:
-		if player.dice_pool.has_method("restore_to_hand"):
-			player.dice_pool.restore_to_hand(die)
-		elif player.dice_pool.has_method("restore_die"):
-			player.dice_pool.restore_die(die)
-	
-	refresh_dice_pool()
+	print("🎲 Die returned: %s" % die.display_name)
+	# Dice pool will refresh automatically via signals
 
 # ============================================================================
-# ACTION BUTTON HANDLERS
+# ACTION BUTTONS
 # ============================================================================
 
 func _on_confirm_pressed():
@@ -438,64 +484,71 @@ func _on_confirm_pressed():
 	if not selected_action_field:
 		return
 	
-	print("✅ Confirming action: %s" % selected_action_field.action_name)
+	if not selected_action_field.is_ready_to_confirm():
+		print("⚠️ Action not ready - need more dice")
+		return
 	
-	# Get action data
-	var action_data = {}
-	if selected_action_field.has_method("get_action_data"):
-		action_data = selected_action_field.get_action_data()
+	# Build action data
+	var action_data = {
+		"name": selected_action_field.action_name,
+		"action_type": selected_action_field.action_type,
+		"base_damage": selected_action_field.base_damage,
+		"damage_multiplier": selected_action_field.damage_multiplier,
+		"placed_dice": selected_action_field.placed_dice.duplicate(),
+		"source": selected_action_field.source,
+		"action_resource": selected_action_field.action_resource,
+		"target": get_selected_target(),
+		"target_index": get_selected_target_index()
+	}
 	
-	# Add target for attack actions
-	if selected_action_field.action_type == ActionField.ActionType.ATTACK:
-		action_data["target_index"] = get_selected_target_index()
-		action_data["target"] = get_selected_target()
+	print("✅ Confirming action: %s with %d dice" % [action_data.name, action_data.placed_dice.size()])
+	
+	# Clear the action field
+	selected_action_field.clear_dice()
+	
+	# Hide buttons
+	if action_buttons_container:
+		action_buttons_container.hide()
+	
+	# Re-enable end turn
+	if end_turn_button:
+		end_turn_button.disabled = false
+	
+	# Disable target selection
+	disable_target_selection()
+	
+	# Clear selection
+	selected_action_field = null
 	
 	# Emit signal
 	action_confirmed.emit(action_data)
-	
-	# Cleanup
-	if action_buttons_container:
-		action_buttons_container.hide()
-	
-	disable_target_selection()
-	
-	if end_turn_button:
-		end_turn_button.disabled = false
-	
-	if selected_action_field.has_method("clear_placed_dice"):
-		selected_action_field.clear_placed_dice()
-	
-	selected_action_field = null
 
 func _on_cancel_pressed():
 	"""Cancel button pressed"""
-	if not selected_action_field:
-		return
-	
-	print("❌ Canceling action: %s" % selected_action_field.action_name)
-	
-	if selected_action_field.has_method("cancel_action"):
+	if selected_action_field:
 		selected_action_field.cancel_action()
+	
+	selected_action_field = null
 	
 	if action_buttons_container:
 		action_buttons_container.hide()
 	
-	disable_target_selection()
-	
 	if end_turn_button:
 		end_turn_button.disabled = false
 	
-	selected_action_field = null
+	disable_target_selection()
 
 func _on_end_turn_pressed():
 	"""End turn button pressed"""
 	print("🎮 End turn pressed")
 	
+	# Return any placed dice
+	for field in action_fields:
+		if field.has_method("cancel_action") and field.placed_dice.size() > 0:
+			field.cancel_action()
+	
 	if action_buttons_container:
 		action_buttons_container.hide()
-	
-	disable_target_selection()
-	selected_action_field = null
 	
 	turn_ended.emit()
 
@@ -504,74 +557,59 @@ func _on_end_turn_pressed():
 # ============================================================================
 
 func show_enemy_hand(enemy_combatant: Combatant):
-	"""Show an enemy's dice hand"""
+	"""Show enemy's dice hand during their turn"""
 	current_enemy_display = enemy_combatant
 	
-	if enemy_hand_container:
-		enemy_hand_container.show()
-		_refresh_enemy_hand_display(enemy_combatant)
-		
-		if enemy_action_label:
-			enemy_action_label.text = "%s's Turn" % enemy_combatant.combatant_name
-
-func hide_enemy_hand():
-	"""Hide enemy hand display"""
-	if enemy_hand_container:
-		enemy_hand_container.hide()
-	current_enemy_display = null
-
-func _refresh_enemy_hand_display(enemy_combatant: Combatant):
-	"""Refresh enemy dice display"""
 	if not enemy_hand_container:
 		return
 	
-	var dice_row = enemy_hand_container.find_child("DiceRow", true, false)
-	if not dice_row:
-		return
+	enemy_hand_container.show()
 	
-	# Clear existing
-	for child in dice_row.get_children():
-		child.queue_free()
+	# Clear previous dice
+	for visual in enemy_dice_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
 	enemy_dice_visuals.clear()
 	
-	# Create visuals
-	var dice_array = enemy_combatant.get_available_dice()
-	for die in dice_array:
-		var visual = _create_enemy_die_visual(die)
-		dice_row.add_child(visual)
-		enemy_dice_visuals.append(visual)
+	# Get dice grid
+	var dice_grid = enemy_hand_container.find_child("DiceGrid", true, false) as GridContainer
+	if not dice_grid:
+		return
+	
+	# Clear grid
+	for child in dice_grid.get_children():
+		child.queue_free()
+	
+	# Add dice visuals
+	var hand_dice = enemy_combatant.get_available_dice()
+	for die in hand_dice:
+		var die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
+		if die_visual_scene:
+			var visual = die_visual_scene.instantiate()
+			if visual.has_method("set_die"):
+				visual.set_die(die)
+			dice_grid.add_child(visual)
+			enemy_dice_visuals.append(visual)
 
-func _create_enemy_die_visual(die: DieResource) -> Control:
-	"""Create a simple die visual for enemy display"""
-	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(70, 90)
+func hide_enemy_hand():
+	"""Hide enemy hand display"""
+	current_enemy_display = null
 	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.5, 0.2, 0.2, 0.95)
-	style.set_corner_radius_all(8)
-	style.set_border_width_all(2)
-	style.border_color = Color(0.8, 0.3, 0.3)
-	panel.add_theme_stylebox_override("panel", style)
+	if enemy_hand_container:
+		enemy_hand_container.hide()
 	
-	var vbox = VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(vbox)
-	
-	var type_lbl = Label.new()
-	type_lbl.text = "D%d" % die.die_type
-	type_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(type_lbl)
-	
-	var value_lbl = Label.new()
-	value_lbl.text = str(die.get_total_value())
-	value_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value_lbl.add_theme_font_size_override("font_size", 28)
-	vbox.add_child(value_lbl)
-	
-	return panel
+	for visual in enemy_dice_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	enemy_dice_visuals.clear()
+
+func refresh_enemy_hand(enemy_combatant: Combatant):
+	"""Refresh enemy hand after dice used"""
+	if current_enemy_display == enemy_combatant:
+		show_enemy_hand(enemy_combatant)
 
 func show_enemy_action(enemy_combatant: Combatant, action: Dictionary):
-	"""Show what action the enemy is using"""
+	"""Show what action enemy is using"""
 	if enemy_action_label:
 		enemy_action_label.text = "%s uses %s!" % [
 			enemy_combatant.combatant_name,

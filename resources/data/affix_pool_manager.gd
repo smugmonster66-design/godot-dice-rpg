@@ -56,9 +56,12 @@ func remove_affixes_by_source(p_source: String):
 # QUERY POOLS
 # ============================================================================
 
-func get_pool(category: Affix.Category) -> Array[Affix]:
+func get_pool(category: Affix.Category) -> Array:
 	"""Get all affixes in a category"""
-	return pools.get(category, [])
+	if pools.has(category):
+		return pools[category]
+	return []
+
 
 func get_affixes_by_source(p_source: String) -> Array[Affix]:
 	"""Get all affixes from a specific source"""
@@ -136,9 +139,9 @@ func calculate_defense(base_defense: float) -> float:
 # GET SPECIAL AFFIXES
 # ============================================================================
 
-func get_granted_actions() -> Array[Action]:
+func get_granted_actions() -> Array:
 	"""Get all actions granted by affixes"""
-	var actions: Array[Action] = []
+	var actions: Array = []
 	
 	for affix in get_pool(Affix.Category.NEW_ACTION):
 		if affix.granted_action:

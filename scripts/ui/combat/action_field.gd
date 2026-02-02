@@ -5,11 +5,6 @@ class_name ActionField
 # ============================================================================
 # ENUMS
 # ============================================================================
-enum ActionCategory {
-	ITEM,
-	SKILL
-}
-
 enum ActionType {
 	ATTACK,
 	DEFEND,
@@ -20,7 +15,7 @@ enum ActionType {
 # ============================================================================
 # EXPORTS
 # ============================================================================
-@export var action_category: ActionCategory = ActionCategory.ITEM
+
 @export var action_type: ActionType = ActionType.ATTACK
 @export var action_name: String = "Action"
 @export var action_icon: Texture2D = null
@@ -28,8 +23,8 @@ enum ActionType {
 @export var die_slots: int = 1  # How many dice this action can hold
 @export var base_damage: int = 0
 @export var damage_multiplier: float = 1.0
-@export var required_tags: Array[String] = []
-@export var restricted_tags: Array[String] = []
+@export var required_tags: Array = []
+@export var restricted_tags: Array = []
 
 # Source tracking (for removal when item unequipped)
 var source: String = ""  # e.g., "Iron Sword", "Power Strike Skill"
@@ -242,7 +237,6 @@ func get_action_data() -> Dictionary:
 		"name": action_name,
 		"description": action_description,
 		"action_type": action_type,
-		"category": action_category,
 		"base_damage": base_damage,
 		"damage_multiplier": damage_multiplier,
 		"placed_dice": placed_dice.duplicate(),
@@ -466,7 +460,6 @@ func configure_from_dict(action_data: Dictionary):
 	action_name = action_data.get("name", "Action")
 	action_description = action_data.get("description", "")
 	action_icon = action_data.get("icon", null)
-	action_category = action_data.get("category", ActionCategory.ITEM)
 	action_type = action_data.get("action_type", ActionType.ATTACK)
 	die_slots = action_data.get("die_slots", 1)
 	base_damage = action_data.get("base_damage", 0)
