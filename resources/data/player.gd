@@ -17,6 +17,15 @@ var intellect: int = 10
 var luck: int = 10
 
 # ============================================================================
+# ELEMENTAL RESISTANCES
+# ============================================================================
+var fire_resist: int = 0
+var ice_resist: int = 0
+var shock_resist: int = 0
+var poison_resist: int = 0
+var shadow_resist: int = 0
+
+# ============================================================================
 # EQUIPMENT
 # ============================================================================
 var equipment: Dictionary = {
@@ -485,3 +494,22 @@ func _add_item_affixes(item: Dictionary):
 func _remove_item_affixes(item: Dictionary):
 	var item_name = item.get("name", "Unknown Item")
 	affix_manager.remove_affixes_by_source(item_name)
+
+
+func get_defense_stats() -> Dictionary:
+	"""Get all defensive stats for damage calculation"""
+	return {
+		"armor": get_armor(),
+		"fire_resist": get_resist("fire"),
+		"ice_resist": get_resist("ice"),
+		"shock_resist": get_resist("shock"),
+		"poison_resist": get_resist("poison"),
+		"shadow_resist": get_resist("shadow")
+	}
+
+func get_resist(element: String) -> int:
+	"""Get total resist for an element"""
+	var base = get(element + "_resist") if (element + "_resist") in self else 0
+	var equipment_bonus = get_equipment_stat_bonus(element + "_resist")
+	# Could add affix bonuses here too
+	return base + equipment_bonus

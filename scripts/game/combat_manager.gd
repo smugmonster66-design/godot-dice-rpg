@@ -501,17 +501,65 @@ func _on_combatant_turn_completed(_combatant: Combatant):
 # DAMAGE CALCULATION
 # ============================================================================
 
-func _calculate_damage(action_data: Dictionary) -> int:
-	var base = action_data.get("base_damage", 0)
-	var mult = action_data.get("damage_multiplier", 1.0)
+func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
+	"""Calculate damage using the new system"""
 	var placed_dice: Array = action_data.get("placed_dice", [])
 	
-	var dice_total = 0
+	# Get dice values
+	var dice_values: Array[int] = []
 	for die in placed_dice:
 		if die is DieResource:
-			dice_total += die.get_total_value()
+			dice_values.append(die.get_total_value())
 	
-	return int(base + (dice_total * mult))
+	# Get action effects (from Action resource if available)
+	var effects: Array[ActionEffect] = []
+	if action_data.has("action_resource") and action_data.action_resource is Action:
+		effects = action_data.action_resource.effects
+	elif action_data.has("effects"):
+		effects = action_data.effects
+	else:
+		# Legacy fallback - create a basic damage effect
+		var legacy_effect = ActionEffect.new()
+		legacy_effect.effect_type = ActionEffect.EffectType.DAMAGE
+		legacy_effect.base_damage = action_data.get("base_damage", 0)
+		legacy_effect.damage_multiplier = action_data.get("damage_multiplier", 1.0)
+		legacy_effect.dice_count = dice_values.size()
+		effects = [legacy_effect]
+	
+	# Get attacker's affix manager
+	var attacker_affixes: AffixPoolManager
+	if attacker is Player or (attacker.has("affix_manager") and attacker.affix_manager):
+		attacker_affixes = attacker.affix_manager
+	else:
+		attacker_affixes = AffixPoolManager.new()  # Empty for enemies without affixes
+	
+	# Get defender stats
+	var defender_stats: Dictionary
+	if defender is Player or defender.has_method("get_defense_stats"):
+		defender_stats = defender.get_defense_stats()
+	elif defender is Combatant:
+		defender_stats = {
+			"armor": defender.armor,
+			"fire_resist": 0,
+			"ice_resist": 0,
+			"shock_resist": 0,
+			"poison_resist": 0,
+			"shadow_resist": 0
+		}
+	else:
+		defender_stats = {"armor": 0}
+	
+	# Calculate!
+	var result = CombatCalculator.calculate_attack_damage(
+		attacker_affixes,
+		effects,
+		dice_values,
+		defender_stats
+	)
+	
+	print("💥 Damage calculation: %s → %d total" % [result.breakdown, result.total_damage])
+	
+	return result.total_damage
 
 # ============================================================================
 # HEALTH MANAGEMENT
