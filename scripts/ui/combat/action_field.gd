@@ -380,35 +380,17 @@ func place_die(die: DieResource):
 	place_die_animated(die, global_position, null, -1)
 
 func _create_placed_die_visual(die: DieResource) -> Control:
-	"""Create a visual for a placed die"""
-	var container = CenterContainer.new()
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	"""Create a visual for a placed die using DieVisual scene"""
+	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
+	var visual = die_visual_scene.instantiate() as DieVisual
 	
-	var vbox = VBoxContainer.new()
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	container.add_child(vbox)
+	if visual:
+		visual.can_drag = false
+		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		visual.custom_minimum_size = Vector2(40, 40)
+		visual.set_die(die)
 	
-	# Show icon if available
-	if die.icon:
-		var icon = TextureRect.new()
-		icon.texture = die.icon
-		icon.custom_minimum_size = Vector2(24, 24)
-		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if die.color != Color.WHITE:
-			icon.modulate = die.color
-		vbox.add_child(icon)
-	
-	var value_label = Label.new()
-	value_label.text = str(die.get_total_value())
-	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value_label.add_theme_font_size_override("font_size", 16)
-	value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(value_label)
-	
-	return container
+	return visual
 
 # ============================================================================
 # ACTION STATE

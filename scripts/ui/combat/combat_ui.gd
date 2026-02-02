@@ -659,41 +659,45 @@ func animate_die_to_action_field(die_visual: Control, action_name: String, die: 
 		_place_die_in_field_slot(field, die_visual.get_die(), slot_index)
 
 func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Control:
-	"""Create a temporary visual for animation"""
+	"""Create a temporary visual for animation using die face scene"""
 	var container = PanelContainer.new()
-	container.custom_minimum_size = Vector2(50, 60)
+	container.custom_minimum_size = Vector2(64, 64)
 	
+	# Make transparent
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
-	style.set_corner_radius_all(4)
+	style.bg_color = Color.TRANSPARENT
 	container.add_theme_stylebox_override("panel", style)
 	
-	var vbox = VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	container.add_child(vbox)
-	
 	if die:
-		# Show icon if available
-		if die.icon:
-			var icon = TextureRect.new()
-			icon.texture = die.icon
-			icon.custom_minimum_size = Vector2(28, 28)
-			icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			if die.color != Color.WHITE:
-				icon.modulate = die.color
-			vbox.add_child(icon)
+		# Load die face scene
+		const DIE_FACE_SCENES := {
+			DieResource.DieType.D4: preload("res://scenes/ui/components/dice/die_face_d4.tscn"),
+			DieResource.DieType.D6: preload("res://scenes/ui/components/dice/die_face_d6.tscn"),
+			DieResource.DieType.D8: preload("res://scenes/ui/components/dice/die_face_d8.tscn"),
+			DieResource.DieType.D10: preload("res://scenes/ui/components/dice/die_face_d10.tscn"),
+			DieResource.DieType.D12: preload("res://scenes/ui/components/dice/die_face_d12.tscn"),
+			DieResource.DieType.D20: preload("res://scenes/ui/components/dice/die_face_d20.tscn"),
+		}
 		
-		var value_label = Label.new()
-		value_label.text = str(die.get_total_value())
-		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.add_theme_font_size_override("font_size", 18)
-		vbox.add_child(value_label)
-		
-		if die.color != Color.WHITE:
-			container.modulate = die.color
+		if DIE_FACE_SCENES.has(die.die_type):
+			var face = DIE_FACE_SCENES[die.die_type].instantiate()
+			container.add_child(face)
+			
+			# Update value
+			var label = face.find_child("ValueLabel", true, false) as Label
+			if label:
+				label.text = str(die.get_total_value())
+			
+			# Apply color
+			var tex = face.find_child("TextureRect", true, false) as TextureRect
+			if tex and die.color != Color.WHITE:
+				tex.modulate = die.color
 	else:
-		# Fallback
+		# Fallback - simple label
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		container.add_child(vbox)
+		
 		var value_label = Label.new()
 		value_label.text = "?"
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
