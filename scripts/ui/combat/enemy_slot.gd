@@ -30,7 +30,7 @@ signal slot_unhovered(slot: EnemySlot)
 @onready var portrait_rect: TextureRect = $MarginContainer/VBox/Portrait
 @onready var selection_indicator: Panel = $MarginContainer/VBox/Portrait/SelectionIndicator
 @onready var name_label: Label = $MarginContainer/VBox/NameLabel
-@onready var health_bar: ProgressBar = $MarginContainer/VBox/HealthBar
+@onready var health_bar: TextureProgressBar = $MarginContainer/VBox/HealthBar
 @onready var health_label: Label = $MarginContainer/VBox/HealthLabel
 
 # ============================================================================
@@ -195,26 +195,36 @@ func _create_die_icon(die: DieResource) -> TextureRect:
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	
+	# Use die's icon if available
 	if die.icon:
 		icon.texture = die.icon
 	
-	# Color based on die type
-	icon.modulate = _get_die_type_color(die)
-	icon.tooltip_text = "%s (d%d)" % [die.display_name, die.sides]
+	# Use die's color, or default based on die size
+	if die.color != Color.WHITE:
+		icon.modulate = die.color
+	else:
+		icon.modulate = _get_die_size_color(die.die_type)
+	
+	# Tooltip shows die info
+	icon.tooltip_text = "%s (D%d)" % [die.display_name, die.die_type]
 	
 	return icon
 
-func _get_die_type_color(die: DieResource) -> Color:
-	"""Get color based on die type"""
-	match die.die_type:
-		DieResource.DieType.ATTACK:
-			return Color(0.9, 0.3, 0.3)
-		DieResource.DieType.DEFENSE:
-			return Color(0.3, 0.5, 0.9)
-		DieResource.DieType.MAGIC:
-			return Color(0.7, 0.3, 0.9)
-		DieResource.DieType.SUPPORT:
-			return Color(0.3, 0.9, 0.5)
+func _get_die_size_color(die_type: DieResource.DieType) -> Color:
+	"""Get color based on die size"""
+	match die_type:
+		DieResource.DieType.D4:
+			return Color(0.7, 0.7, 0.7)  # Gray
+		DieResource.DieType.D6:
+			return Color(0.9, 0.9, 0.9)  # White
+		DieResource.DieType.D8:
+			return Color(0.6, 0.8, 0.6)  # Light green
+		DieResource.DieType.D10:
+			return Color(0.6, 0.6, 0.9)  # Light blue
+		DieResource.DieType.D12:
+			return Color(0.9, 0.7, 0.5)  # Orange
+		DieResource.DieType.D20:
+			return Color(0.9, 0.6, 0.9)  # Pink/purple
 		_:
 			return Color.WHITE
 

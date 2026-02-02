@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://c6e0qeqjwtccy" path="res://scripts/ui/combat/enemy_slot.gd" id="1_8vtss"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8vtss"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
 border_width_left = 3
 border_width_top = 3
 border_width_right = 3
@@ -13,11 +14,6 @@ border_color = Color(0.9853031, 0.7671745, 0, 1)
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("1_8vtss")
-slot_index = null
-empty_slot_color = null
-filled_slot_color = null
-selected_slot_color = null
-dead_slot_color = null
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 2
@@ -29,16 +25,26 @@ theme_override_constants/margin_bottom = 8
 [node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
 
+[node name="DicePoolBar" type="HBoxContainer" parent="MarginContainer/VBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+alignment = 1
+
 [node name="Portrait" type="TextureRect" parent="MarginContainer/VBox"]
 custom_minimum_size = Vector2(100, 80)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="SelectionIndicator" type="Panel" parent="MarginContainer/VBox"]
+[node name="SelectionIndicator" type="Panel" parent="MarginContainer/VBox/Portrait"]
 visible = false
 custom_minimum_size = Vector2(100, 80)
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_8vtss")
 
