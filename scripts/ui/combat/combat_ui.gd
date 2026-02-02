@@ -668,7 +668,7 @@ func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Contr
 	container.add_theme_stylebox_override("panel", style)
 	
 	if die:
-		# Load die face scene - it defines its own size
+		# Load die face scene
 		var scene_path = "res://scenes/ui/components/dice/die_face_d%d.tscn" % die.die_type
 		var scene = load(scene_path)
 		
@@ -683,14 +683,82 @@ func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Contr
 			
 			# Apply color
 			var tex = face.find_child("TextureRect", true, false) as TextureRect
-			if tex and die.color != Color.WHITE:
-				tex.modulate = die.color
+			if tex:
+				if die.color != Color.WHITE:
+					tex.modulate = die.color
+				
+				# Apply affix visual effects
+				_apply_temp_visual_affix_effects(container, face, tex, die)
 		else:
 			_add_fallback_die_visual(container, die)
 	else:
 		_add_fallback_die_visual(container, null)
 	
 	return container
+
+func _apply_temp_visual_affix_effects(container: Control, face: Control, tex: TextureRect, die: DieResource):
+	"""Apply affix visual effects to temp animation visual"""
+	if not die:
+		return
+	
+	var face_size = Vector2(124, 124)
+	
+	for affix in die.get_all_affixes():
+		match affix.visual_effect_type:
+			DiceAffix.VisualEffectType.COLOR_TINT:
+				if tex:
+					tex.modulate = tex.modulate * affix.effect_color
+			
+			DiceAffix.VisualEffectType.SHADER:
+				if tex and affix.shader_material:
+					tex.material = affix.shader_material.duplicate()
+			
+			DiceAffix.VisualEffectType.OVERLAY_TEXTURE:
+				if affix.overlay_texture:
+					var overlay = TextureRect.new()
+					overlay.texture = affix.overlay_texture
+					overlay.custom_minimum_size = face_size
+					overlay.size = face_size
+					overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+					overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+					overlay.modulate.a = affix.overlay_opacity
+					
+					if affix.overlay_blend_mode > 0:
+						var mat = CanvasItemMaterial.new()
+						match affix.overlay_blend_mode:
+							1: mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+							2: mat.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+						overlay.material = mat
+					
+					container.add_child(overlay)
+			
+			DiceAffix.VisualEffectType.BORDER_GLOW:
+				var glow = Panel.new()
+				glow.custom_minimum_size = face_size
+				glow.size = face_size
+				
+				var glow_style = StyleBoxFlat.new()
+				glow_style.bg_color = Color.TRANSPARENT
+				glow_style.border_color = affix.effect_color
+				glow_style.set_border_width_all(3)
+				glow_style.set_corner_radius_all(8)
+				glow_style.shadow_color = affix.effect_color
+				glow_style.shadow_size = 6
+				glow.add_theme_stylebox_override("panel", glow_style)
+				
+				container.add_child(glow)
+				container.move_child(glow, 0)
+			
+			DiceAffix.VisualEffectType.PARTICLE:
+				if affix.particle_scene:
+					var particles = affix.particle_scene.instantiate()
+					if particles is GPUParticles2D:
+						particles.position = face_size / 2
+						particles.emitting = true
+						container.add_child(particles)
+
+
+
 
 func _add_fallback_die_visual(container: PanelContainer, die: DieResource):
 	"""Add a simple fallback visual when die face scene isn't available"""
@@ -927,6 +995,12 @@ func show_enemy_hand(enemy_combatant: Combatant):
 	"""Show enemy's dice hand and actions during their turn"""
 	current_enemy_display = enemy_combatant
 	
+	# Show turn indicator
+	if enemy_panel:
+		var enemy_index = enemy_panel.get_enemy_index(enemy_combatant)
+		enemy_panel.show_turn_indicator(enemy_index)
+	
+	
 	# Show enemy actions in the action fields grid
 	await show_enemy_actions(enemy_combatant)
 	
@@ -964,6 +1038,11 @@ func show_enemy_hand(enemy_combatant: Combatant):
 func hide_enemy_hand():
 	"""Hide enemy hand display and restore player UI"""
 	current_enemy_display = null
+	
+	# Hide turn indicator
+	if enemy_panel:
+		enemy_panel.hide_all_turn_indicators()
+	
 	
 	# Hide enemy panel dice hand
 	if enemy_panel and enemy_panel.has_method("hide_dice_hand"):

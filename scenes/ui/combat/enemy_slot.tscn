@@ -36,6 +36,14 @@ layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
+[node name="TurnIndicatorRect" type="ColorRect" parent="MarginContainer/VBox/Portrait"]
+visible = false
+custom_minimum_size = Vector2(110, 90)
+layout_mode = 0
+offset_right = 110.0
+offset_bottom = 90.0
+mouse_filter = 2
+
 [node name="SelectionIndicator" type="Panel" parent="MarginContainer/VBox/Portrait"]
 visible = false
 custom_minimum_size = Vector2(100, 80)

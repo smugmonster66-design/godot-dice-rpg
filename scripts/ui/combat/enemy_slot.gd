@@ -32,6 +32,8 @@ signal slot_unhovered(slot: EnemySlot)
 @onready var name_label: Label = $MarginContainer/VBox/NameLabel
 @onready var health_bar: TextureProgressBar = $MarginContainer/VBox/HealthBar
 @onready var health_label: Label = $MarginContainer/VBox/HealthLabel
+@onready var turn_indicator: ColorRect = $MarginContainer/VBox/TurnIndicatorRect
+
 
 # ============================================================================
 # STATE
@@ -42,6 +44,7 @@ var is_selected: bool = false
 var is_empty: bool = true
 var style_box: StyleBoxFlat = null
 var dice_icons: Array[TextureRect] = []
+var turn_indicator_material: ShaderMaterial = null
 
 # ============================================================================
 # INITIALIZATION
@@ -49,6 +52,7 @@ var dice_icons: Array[TextureRect] = []
 
 func _ready():
 	_setup_style()
+	_setup_turn_indicator()
 	_connect_signals()
 	set_empty()
 
@@ -74,6 +78,32 @@ func _connect_signals():
 		mouse_entered.connect(_on_mouse_entered)
 	if not mouse_exited.is_connected(_on_mouse_exited):
 		mouse_exited.connect(_on_mouse_exited)
+
+# Add new function
+func _setup_turn_indicator():
+	"""Setup turn indicator shader"""
+	if not turn_indicator:
+		# Create it if not in scene
+		turn_indicator = ColorRect.new()
+		turn_indicator.name = "TurnIndicatorRect"
+		turn_indicator.custom_minimum_size = Vector2(110, 90)
+		turn_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		turn_indicator.visible = false
+		
+		# Insert before portrait
+		var vbox = $MarginContainer/VBox
+		if vbox and portrait_rect:
+			vbox.add_child(turn_indicator)
+			vbox.move_child(turn_indicator, portrait_rect.get_index())
+	
+	# Load and apply shader material
+	var shader_path = "res://resources/materials/turn_indicator_material.tres"
+	if ResourceLoader.exists(shader_path):
+		var base_material = load(shader_path) as ShaderMaterial
+		if base_material:
+			turn_indicator_material = base_material.duplicate()
+			turn_indicator.material = turn_indicator_material
+
 
 # ============================================================================
 # PUBLIC METHODS
@@ -162,6 +192,27 @@ func get_enemy() -> Combatant:
 func is_alive() -> bool:
 	"""Check if enemy is alive"""
 	return enemy != null and enemy.is_alive()
+
+# Add public methods
+func show_turn_indicator():
+	"""Show the turn indicator for this enemy's turn"""
+	if turn_indicator:
+		# Check if we have a portrait
+		var has_portrait = portrait_rect and portrait_rect.texture != null
+		if turn_indicator_material:
+			turn_indicator_material.set_shader_parameter("is_circle", not has_portrait)
+		turn_indicator.visible = true
+
+func hide_turn_indicator():
+	"""Hide the turn indicator"""
+	if turn_indicator:
+		turn_indicator.visible = false
+
+func set_turn_indicator_color(color: Color):
+	"""Change the turn indicator color"""
+	if turn_indicator_material:
+		turn_indicator_material.set_shader_parameter("glow_color", color)
+
 
 # ============================================================================
 # DICE POOL DISPLAY

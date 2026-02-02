@@ -47,32 +47,6 @@ script = ExtResource("1_yjpty")
 
 [node name="UILayer" type="CanvasLayer" parent="."]
 
-[node name="TopBar" type="HBoxContainer" parent="UILayer"]
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_top = -108.5
-offset_right = 794.0
-offset_bottom = 108.5
-grow_vertical = 2
-alignment = 1
-
-[node name="MenuButton" type="Button" parent="UILayer/TopBar"]
-layout_mode = 2
-text = "Menu"
-
-[node name="CombatButton" type="Button" parent="UILayer/TopBar"]
-layout_mode = 2
-text = "Begin Combat"
-script = ExtResource("2_t547c")
-encounter = ExtResource("3_o83tl")
-
-[node name="AddStartingGearButton" type="Button" parent="UILayer/TopBar"]
-layout_mode = 2
-text = "Add Starting Gear"
-script = ExtResource("2_2b48g")
-starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c"), ExtResource("8_5osyn")])
-
 [node name="PlayerMenu" parent="UILayer" instance=ExtResource("2_gvwpr")]
 visible = false
 custom_minimum_size = Vector2(300, 400)
@@ -141,4 +115,35 @@ layout_mode = 2
 layout_mode = 2
 text = "Close"
 
-[node name="MapDicePanel" parent="UILayer" instance=ExtResource("8_bg5j8")]
+[node name="VBoxContainer" type="VBoxContainer" parent="UILayer"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -257.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+
+[node name="TopBar" type="HBoxContainer" parent="UILayer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="MenuButton" type="Button" parent="UILayer/VBoxContainer/TopBar"]
+layout_mode = 2
+text = "Menu"
+
+[node name="CombatButton" type="Button" parent="UILayer/VBoxContainer/TopBar"]
+layout_mode = 2
+text = "Begin Combat"
+script = ExtResource("2_t547c")
+encounter = ExtResource("3_o83tl")
+
+[node name="AddStartingGearButton" type="Button" parent="UILayer/VBoxContainer/TopBar"]
+layout_mode = 2
+text = "Add Starting Gear"
+script = ExtResource("2_2b48g")
+starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("4_bg5j8"), ExtResource("5_t547c"), ExtResource("8_5osyn")])
+
+[node name="MapDicePanel" parent="UILayer/VBoxContainer" instance=ExtResource("8_bg5j8")]
+layout_mode = 2

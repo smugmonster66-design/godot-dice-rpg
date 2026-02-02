@@ -265,6 +265,37 @@ func animate_die_used(die_index: int) -> void:
 # PRIVATE HELPERS
 # ============================================================================
 
+func show_turn_indicator(enemy_index: int):
+	"""Show turn indicator for a specific enemy"""
+	# Hide all first
+	hide_all_turn_indicators()
+	
+	if enemy_index >= 0 and enemy_index < enemy_slots.size():
+		var slot = enemy_slots[enemy_index]
+		if slot.has_method("show_turn_indicator"):
+			slot.show_turn_indicator()
+
+func hide_turn_indicator(enemy_index: int):
+	"""Hide turn indicator for a specific enemy"""
+	if enemy_index >= 0 and enemy_index < enemy_slots.size():
+		var slot = enemy_slots[enemy_index]
+		if slot.has_method("hide_turn_indicator"):
+			slot.hide_turn_indicator()
+
+func hide_all_turn_indicators():
+	"""Hide all turn indicators"""
+	for slot in enemy_slots:
+		if slot.has_method("hide_turn_indicator"):
+			slot.hide_turn_indicator()
+
+func get_enemy_index(enemy: Combatant) -> int:
+	"""Get slot index for an enemy"""
+	for i in range(enemy_slots.size()):
+		if enemy_slots[i].enemy == enemy:
+			return i
+	return -1
+
+
 func _create_die_visual(die: DieResource) -> Control:
 	"""Create a die visual for the hand"""
 	if not die_visual_scene:
