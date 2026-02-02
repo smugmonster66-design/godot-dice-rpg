@@ -875,15 +875,20 @@ func _clear_action_field_with_animation(field: ActionField):
 	)
 
 func _animate_die_consumed(visual: Control):
-	"""Animate a die being consumed (shrink and fade)"""
+	"""Animate a die being consumed (shrink and fade centered)"""
 	if not is_instance_valid(visual):
 		return
+	
+	# Set pivot to center so it shrinks toward center
+	visual.pivot_offset = visual.size / 2
 	
 	var tween = create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(visual, "modulate", Color(1.5, 1.2, 0.5, 1.0), 0.1)
 	tween.chain().tween_property(visual, "modulate:a", 0.0, 0.15)
 	tween.tween_property(visual, "scale", Vector2(0.3, 0.3), 0.25).set_ease(Tween.EASE_IN)
+
+
 
 func _on_cancel_pressed():
 	"""Cancel button pressed"""

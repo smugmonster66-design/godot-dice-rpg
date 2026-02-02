@@ -89,39 +89,35 @@ func create_die_slots():
 		push_warning("DieSlotsGrid not found in ActionField!")
 		return
 	
-	# Clear existing
+	# Clear existing slots
 	for child in die_slots_grid.get_children():
 		child.queue_free()
 	die_slot_panels.clear()
 	
-	# Update columns
-	die_slots_grid.columns = mini(die_slots, 3)
-	
+	# Create new slot panels
 	for i in range(die_slots):
 		var slot_panel = PanelContainer.new()
-		slot_panel.custom_minimum_size = Vector2(40, 40)
+		slot_panel.custom_minimum_size = Vector2(62, 62)  # 62x62 slots
 		
+		# Style the slot
 		var slot_style = StyleBoxFlat.new()
 		slot_style.bg_color = Color(0.15, 0.15, 0.2)
-		slot_style.set_border_width_all(1)
 		slot_style.border_color = Color(0.3, 0.3, 0.4)
+		slot_style.set_border_width_all(1)
 		slot_style.set_corner_radius_all(4)
 		slot_panel.add_theme_stylebox_override("panel", slot_style)
 		
-		die_slots_grid.add_child(slot_panel)
-		die_slot_panels.append(slot_panel)
-		
-		# Empty slot indicator
+		# Add empty indicator
 		var empty_label = Label.new()
-		empty_label.text = "?"
+		empty_label.text = "+"
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		empty_label.add_theme_font_size_override("font_size", 24)
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.5))
-		empty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
 		slot_panel.add_child(empty_label)
-	
-	update_icon_state()
+		
+		die_slots_grid.add_child(slot_panel)
+		die_slot_panels.append(slot_panel)
+
 
 func setup_drop_target():
 	"""Setup as drop target for dice"""
@@ -384,14 +380,26 @@ func _create_placed_die_visual(die: DieResource) -> Control:
 	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
 	var visual = die_visual_scene.instantiate() as DieVisual
 	
-	if visual:
-		visual.can_drag = false
-		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# Scale down to fit in action slots instead of forcing a size
-		visual.scale = Vector2(0.6, 0.6)
-		visual.set_die(die)
+	if not visual:
+		return null
 	
-	return visual
+	visual.can_drag = false
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.set_die(die)
+	
+	# Create a container to hold and scale the visual
+	var container = Control.new()
+	container.custom_minimum_size = Vector2(62, 62)
+	container.clip_contents = true
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Add visual and scale it
+	container.add_child(visual)
+	visual.scale = Vector2(0.5, 0.5)
+	visual.position = Vector2.ZERO
+	
+	return container
+
 # ============================================================================
 # ACTION STATE
 # ============================================================================

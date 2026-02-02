@@ -72,6 +72,17 @@ enum EffectType {
 	CONDITIONAL,             # Effect only if condition met
 }
 
+
+enum VisualEffectType {
+	NONE,              # No visual effect
+	COLOR_TINT,        # Tint the die a color
+	OVERLAY_TEXTURE,   # Overlay a texture on top
+	PARTICLE,          # Add particle effect
+	SHADER,            # Apply a shader
+	BORDER_GLOW,       # Glowing border effect
+}
+
+
 # ============================================================================
 # BASIC DATA
 # ============================================================================
@@ -113,6 +124,38 @@ enum EffectType {
 ## - CONDITIONAL: {"condition": "neighbor_has_tag", "tag": "fire", "then_effect": {...}}
 ## - ADD_DAMAGE_TYPE: {"type": "fire", "percent": 0.5}
 @export var effect_data: Dictionary = {}
+
+
+# ============================================================================
+# VISUAL EFFECTS
+# ============================================================================
+@export_group("Visual Effect")
+@export var visual_effect_type: VisualEffectType = VisualEffectType.NONE
+
+## Color for COLOR_TINT and BORDER_GLOW effects
+@export var effect_color: Color = Color.WHITE
+
+## Texture overlaid on die for OVERLAY_TEXTURE effect
+@export var overlay_texture: Texture2D = null
+
+## Overlay blend mode (0=Mix, 1=Add, 2=Multiply)
+@export_range(0, 2) var overlay_blend_mode: int = 0
+
+## Overlay opacity
+@export_range(0.0, 1.0) var overlay_opacity: float = 0.5
+
+## Particle scene for PARTICLE effect
+@export var particle_scene: PackedScene = null
+
+## Shader material for SHADER effect
+@export var shader_material: ShaderMaterial = null
+
+## Animation to play (if die face has AnimationPlayer)
+@export var animation_name: String = ""
+
+## Effect priority (higher = applied later/on top)
+@export var visual_priority: int = 0
+
 
 # ============================================================================
 # SOURCE TRACKING
