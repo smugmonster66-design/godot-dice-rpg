@@ -442,9 +442,9 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 					die_visual = vis
 					break
 		
-		# Animate die to action field
-		if die_visual and combat_ui.has_method("animate_die_to_action_field"):
-			await combat_ui.animate_die_to_action_field(die_visual, action_name)
+		# Animate die to action field - pass the actual die resource
+		if combat_ui.has_method("animate_die_to_action_field"):
+			await combat_ui.animate_die_to_action_field(die_visual, action_name, die)
 		else:
 			await get_tree().create_timer(enemy.dice_drag_duration).timeout
 		

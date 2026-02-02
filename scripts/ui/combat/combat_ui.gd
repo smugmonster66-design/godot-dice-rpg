@@ -567,36 +567,143 @@ func highlight_enemy_action(action_name: String):
 		var tween = create_tween()
 		tween.tween_property(field, "modulate", Color(1.3, 1.2, 0.8), 0.2)
 
-func animate_die_to_action_field(die_visual: Control, action_name: String) -> void:
-	"""Animate a die moving from hand to action field"""
+func animate_die_to_action_field(die_visual: Control, action_name: String, die: DieResource = null) -> void:
+	"""Animate a die moving from hand to action field and place it in the slot"""
 	var field = find_action_field_by_name(action_name)
-	if not field or not is_instance_valid(die_visual):
+	if not field:
 		await get_tree().create_timer(0.3).timeout
 		return
 	
-	# Get target position (center of action field)
-	var target_pos = field.global_position + field.size / 2 - die_visual.size / 2
+	# Get the target slot in the action field
+	var slot_index = field.placed_dice.size()
+	if slot_index >= field.die_slot_panels.size():
+		await get_tree().create_timer(0.3).timeout
+		return
 	
-	# Flash the die
-	var flash_tween = create_tween()
-	flash_tween.tween_property(die_visual, "modulate", Color(1.5, 1.5, 0.5), 0.1)
-	flash_tween.tween_property(die_visual, "modulate", Color.WHITE, 0.1)
-	await flash_tween.finished
+	var target_slot = field.die_slot_panels[slot_index]
+	var target_pos = target_slot.global_position + target_slot.size / 2
 	
-	# Move die to action field
-	var move_tween = create_tween()
-	move_tween.set_parallel(true)
-	move_tween.tween_property(die_visual, "global_position", target_pos, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	move_tween.tween_property(die_visual, "scale", Vector2(0.7, 0.7), 0.35)
-	await move_tween.finished
+	# If we have a valid source visual, animate it
+	if die_visual and is_instance_valid(die_visual):
+		# Get start position
+		var start_pos = die_visual.global_position
+		
+		# Create a temporary animated visual in a CanvasLayer so it's on top
+		var temp_visual = _create_temp_die_visual(die if die else null, die_visual)
+		get_tree().root.add_child(temp_visual)
+		temp_visual.global_position = start_pos
+		temp_visual.z_index = 100
+		
+		# Hide source
+		die_visual.hide()
+		
+		# Flash the temp visual
+		var flash_tween = create_tween()
+		flash_tween.tween_property(temp_visual, "modulate", Color(1.5, 1.5, 0.5), 0.1)
+		flash_tween.tween_property(temp_visual, "modulate", Color.WHITE, 0.1)
+		await flash_tween.finished
+		
+		# Move to target slot
+		var move_tween = create_tween()
+		move_tween.set_parallel(true)
+		move_tween.tween_property(temp_visual, "global_position", target_pos - temp_visual.size / 2, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		move_tween.tween_property(temp_visual, "scale", Vector2(0.8, 0.8), 0.2)
+		move_tween.chain().tween_property(temp_visual, "scale", Vector2(1.0, 1.0), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		await move_tween.finished
+		
+		# Remove temp visual
+		temp_visual.queue_free()
 	
-	# Fade out but DON'T free - panel will clean up later
-	var fade_tween = create_tween()
-	fade_tween.tween_property(die_visual, "modulate:a", 0.0, 0.15)
-	await fade_tween.finished
+	# Now place the die in the action field slot (this creates the permanent visual)
+	if die:
+		_place_die_in_field_slot(field, die, slot_index)
+	elif die_visual and die_visual.has_method("get_die"):
+		_place_die_in_field_slot(field, die_visual.get_die(), slot_index)
+
+func _create_temp_die_visual(die: DieResource, source_visual: Control) -> Control:
+	"""Create a temporary visual for animation"""
+	var container = PanelContainer.new()
+	container.custom_minimum_size = Vector2(50, 60)
 	
-	# Hide instead of free
-	die_visual.hide()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
+	style.set_corner_radius_all(4)
+	container.add_theme_stylebox_override("panel", style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	container.add_child(vbox)
+	
+	if die:
+		# Show icon if available
+		if die.icon:
+			var icon = TextureRect.new()
+			icon.texture = die.icon
+			icon.custom_minimum_size = Vector2(28, 28)
+			icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			if die.color != Color.WHITE:
+				icon.modulate = die.color
+			vbox.add_child(icon)
+		
+		var value_label = Label.new()
+		value_label.text = str(die.get_total_value())
+		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value_label.add_theme_font_size_override("font_size", 18)
+		vbox.add_child(value_label)
+		
+		if die.color != Color.WHITE:
+			container.modulate = die.color
+	else:
+		# Fallback: try to copy from source visual
+		var value_label = Label.new()
+		value_label.text = "?"
+		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value_label.add_theme_font_size_override("font_size", 18)
+		vbox.add_child(value_label)
+	
+	return container
+
+func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: int):
+	"""Place a die directly into an action field slot"""
+	if slot_index >= field.die_slot_panels.size():
+		return
+	
+	var slot_panel = field.die_slot_panels[slot_index]
+	
+	# Clear the slot
+	for child in slot_panel.get_children():
+		child.queue_free()
+	
+	# Add die to placed_dice array
+	field.placed_dice.append(die)
+	
+	# Create visual in slot
+	var die_visual = field._create_placed_die_visual(die)
+	slot_panel.add_child(die_visual)
+	field.dice_visuals.append(die_visual)
+	
+	# Flash effect on slot
+	var original_style = slot_panel.get_theme_stylebox("panel")
+	if original_style is StyleBoxFlat:
+		var flash_style = original_style.duplicate() as StyleBoxFlat
+		flash_style.border_color = Color(1.0, 0.9, 0.5)
+		flash_style.set_border_width_all(2)
+		slot_panel.add_theme_stylebox_override("panel", flash_style)
+		
+		# Revert after delay
+		var tween = create_tween()
+		tween.tween_interval(0.2)
+		tween.tween_callback(func():
+			var revert_style = StyleBoxFlat.new()
+			revert_style.bg_color = Color(0.2, 0.2, 0.25)
+			revert_style.border_color = Color(0.4, 0.5, 0.4)
+			revert_style.set_border_width_all(1)
+			revert_style.set_corner_radius_all(4)
+			slot_panel.add_theme_stylebox_override("panel", revert_style)
+		)
+	
+	field.update_icon_state()
 
 func animate_enemy_action_confirm(action_name: String) -> void:
 	"""Animate the enemy confirming their action"""

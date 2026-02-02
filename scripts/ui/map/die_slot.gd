@@ -288,7 +288,11 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 		"die": die,
 		"from_index": slot_index,
 		"source_grid": get_parent(),
+		"visual": self,
+		"source_position": global_position,
+		"slot_index": slot_index
 	}
+
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 	# Only accept drops if this slot allows it (reorder mode)

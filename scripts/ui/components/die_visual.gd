@@ -158,9 +158,11 @@ func _get_drag_data(_at_position: Vector2):
 	return {
 		"die": die_data,
 		"visual": self,
-		"source": "dice_pool"
+		"source": "dice_pool",
+		"source_position": global_position,
+		"slot_index": get_index()  # Index in parent container
 	}
-
+	
 func _create_drag_preview() -> Control:
 	"""Create drag preview that matches the die visual"""
 	var preview = PanelContainer.new()
