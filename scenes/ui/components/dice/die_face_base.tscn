@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d3857al3f5842"]
 
 [node name="DiceFace" type="Control"]
-custom_minimum_size = Vector2(258, 258)
+custom_minimum_size = Vector2(124, 124)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="TextureRect" type="TextureRect" parent="."]
-custom_minimum_size = Vector2(258, 258)
+custom_minimum_size = Vector2(124, 124)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

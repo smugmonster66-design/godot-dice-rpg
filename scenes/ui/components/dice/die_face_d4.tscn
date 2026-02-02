@@ -1,19 +1,20 @@
-[gd_scene load_steps=3 format=3 uid="uid://c6ndbkwtjd5rp"]
+[gd_scene load_steps=3 format=3 uid="uid://bb36arbf4v52j"]
 
-[ext_resource type="PackedScene" uid="uid://d3857al3f5842" path="res://scenes/ui/components/dice/die_face_base.tscn" id="1_vsku4"]
-[ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="2_00oem"]
+[ext_resource type="PackedScene" uid="uid://d3857al3f5842" path="res://scenes/ui/components/dice/die_face_base.tscn" id="1_r0c6s"]
+[ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="2_qlm7d"]
 
-[node name="DiceFace" instance=ExtResource("1_vsku4")]
+[node name="DiceFace" instance=ExtResource("1_r0c6s")]
 
 [node name="TextureRect" parent="." index="0"]
-texture = ExtResource("2_00oem")
+offset_right = -822.0
+offset_bottom = -1662.0
+texture = ExtResource("2_qlm7d")
 
 [node name="ValueLabel" parent="." index="1"]
-offset_left = 234.0
-offset_top = 690.0
-offset_right = 519.0
-offset_bottom = 1372.0
+offset_left = -51.0
+offset_top = -197.0
+offset_right = 234.0
+offset_bottom = 485.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_constants/outline_size = 128
-theme_override_font_sizes/font_size = 500
+theme_override_font_sizes/font_size = 44
 text = "X"
