@@ -215,21 +215,27 @@ func _get_drag_data(_at_position: Vector2):
 	}
 
 func _create_drag_preview() -> Control:
-	"""Create a preview for dragging"""
-	var preview = Control.new()
-	
-	# Try to load die face scene
+	"""Create a preview for dragging - centered under cursor"""
 	var scene = _get_die_face_scene(die_data.die_type) if die_data else null
 	
 	if scene:
 		var face = scene.instantiate()
+		var face_size = face.custom_minimum_size  # Should be (124, 124)
+		
+		# Create preview with explicit size
+		var preview = Control.new()
+		preview.size = face_size
+		preview.custom_minimum_size = face_size
+		
+		# Add face and force it to match preview size
 		preview.add_child(face)
+		face.size = face_size
 		
-		# Match size to die face
-		preview.custom_minimum_size = face.custom_minimum_size
-		
-		# Position at origin (anchors will handle the rest)
-		face.position = Vector2.ZERO
+		# Now offset the entire preview so cursor is at center
+		# We do this by using a wrapper
+		var wrapper = Control.new()
+		wrapper.add_child(preview)
+		preview.position = -face_size / 2
 		
 		# Update value
 		var label = face.find_child("ValueLabel", true, false) as Label
@@ -240,21 +246,30 @@ func _create_drag_preview() -> Control:
 		var tex = face.find_child("TextureRect", true, false) as TextureRect
 		if tex and die_data.color != Color.WHITE:
 			tex.modulate = die_data.color
+		
+		wrapper.modulate = Color(1.0, 1.0, 1.0, 0.8)
+		return wrapper
 	else:
-		# Fallback preview
-		preview.custom_minimum_size = Vector2(64, 64)
+		# Fallback
+		var fallback_size = Vector2(64, 64)
+		var wrapper = Control.new()
 		
 		var label = Label.new()
 		label.text = str(die_data.get_total_value()) if die_data else "?"
+		label.custom_minimum_size = fallback_size
+		label.size = fallback_size
+		label.position = -fallback_size / 2
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.set_anchors_preset(Control.PRESET_FULL_RECT)
 		label.add_theme_font_size_override("font_size", 24)
-		preview.add_child(label)
-	
-	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
-	
-	return preview
+		wrapper.add_child(label)
+		
+		wrapper.modulate = Color(1.0, 1.0, 1.0, 0.8)
+		return wrapper
+
+
+
+
 
 # ============================================================================
 # VISUAL EFFECTS
