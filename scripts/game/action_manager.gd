@@ -14,7 +14,9 @@ func initialize(p_player: Player):
 	player = p_player
 	
 	if player:
-		player.equipment_changed.connect(_on_equipment_changed)
+		# Check before connecting to avoid duplicate connections
+		if not player.equipment_changed.is_connected(_on_equipment_changed):
+			player.equipment_changed.connect(_on_equipment_changed)
 	
 	rebuild_actions()
 

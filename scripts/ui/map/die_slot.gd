@@ -154,32 +154,37 @@ func update_display():
 		_show_empty()
 
 func _show_die():
-	"""Show die information"""
-	print("🎲 DieSlot._show_die() for slot %d" % slot_index)
-	print("  die = %s" % (die.display_name if die else "null"))
-	print("  die.current_value = %d" % die.current_value if die else -1)
-	print("  die.modified_value = %d" % die.modified_value if die else -1)
-	print("  die.get_total_value() = %d" % die.get_total_value() if die else -1)
-	print("  value_label found = %s" % (value_label != null))
-	
+	"""Show die data in the slot"""
 	if die_display:
 		die_display.show()
 	if empty_display:
 		empty_display.hide()
 	
-	# Type label
-	if type_label:
+	# Find or create icon rect
+	var icon_rect = get_node_or_null("Content/DieDisplay/IconRect") as TextureRect
+	
+	# Icon - show if die has one
+	if icon_rect:
+		if die.icon:
+			icon_rect.texture = die.icon
+			icon_rect.show()
+			if type_label:
+				type_label.hide()
+		else:
+			icon_rect.hide()
+			if type_label:
+				type_label.show()
+	elif type_label:
+		# No icon rect, always show type
+		type_label.show()
+	
+	# Type label (fallback when no icon)
+	if type_label and type_label.visible:
 		type_label.text = die.get_type_string()
-		print("  Set type_label to: %s" % type_label.text)
-	else:
-		print("  ⚠️ type_label is null!")
 	
 	# Value label
 	if value_label:
 		value_label.text = str(die.get_total_value())
-		print("  Set value_label to: %s" % value_label.text)
-	else:
-		print("  ⚠️ value_label is null!")
 	
 	# Modifier label
 	if modifier_label:

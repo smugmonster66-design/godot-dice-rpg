@@ -42,6 +42,10 @@ var selected_action_field: ActionField = null
 var selected_target_index: int = 0
 var target_selection_active: bool = false
 
+# Enemy turn state
+var is_enemy_turn: bool = false
+var enemy_action_fields: Array[ActionField] = []
+
 # ============================================================================
 # SIGNALS
 # ============================================================================
@@ -149,7 +153,6 @@ func _configure_scroll_container():
 	var v_scrollbar = action_fields_scroll.get_v_scroll_bar()
 	if v_scrollbar:
 		v_scrollbar.modulate.a = 0
-
 
 func _connect_all_signals():
 	"""Connect signals from discovered nodes"""
@@ -328,6 +331,8 @@ func on_turn_start():
 	"""Called at start of player turn"""
 	print("🎮 CombatUI: Player turn started")
 	
+	is_enemy_turn = false
+	
 	# Refresh the hand display
 	refresh_dice_pool()
 	
@@ -357,12 +362,17 @@ func on_turn_start():
 	# Clear selection
 	selected_action_field = null
 	
+	# Refresh player actions
+	refresh_action_fields()
+	
 	# Select first living enemy as default
 	if enemy_panel:
 		enemy_panel.select_first_living_enemy()
 
 func set_player_turn(is_player: bool):
 	"""Update UI for whose turn it is"""
+	is_enemy_turn = not is_player
+	
 	if is_player:
 		if end_turn_button:
 			end_turn_button.disabled = false
@@ -384,18 +394,22 @@ func refresh_dice_pool():
 		dice_pool_display.refresh()
 
 # ============================================================================
-# ACTION FIELD MANAGEMENT
+# ACTION FIELD MANAGEMENT - PLAYER
 # ============================================================================
 
 func _on_actions_changed():
 	"""Called when ActionManager rebuilds actions"""
-	refresh_action_fields()
+	if not is_enemy_turn:
+		refresh_action_fields()
 
 func refresh_action_fields():
-	"""Rebuild action fields grid from available actions"""
+	"""Rebuild action fields grid from player's available actions"""
 	if not action_manager or not action_fields_grid:
 		print("⚠️ Cannot refresh action fields - missing manager or grid")
 		return
+	
+	if is_enemy_turn:
+		return  # Don't overwrite enemy actions
 	
 	# Clear existing fields
 	for child in action_fields_grid.get_children():
@@ -405,7 +419,7 @@ func refresh_action_fields():
 	# Get all actions (unified list, no categories)
 	var all_actions = action_manager.get_actions()
 	
-	print("🎮 Creating %d action fields" % all_actions.size())
+	print("🎮 Creating %d player action fields" % all_actions.size())
 	
 	# Wait a frame for children to be freed
 	await get_tree().process_frame
@@ -447,6 +461,9 @@ func _create_action_field(action_data: Dictionary) -> ActionField:
 
 func _on_action_field_selected(field: ActionField):
 	"""Action field was clicked or had die dropped"""
+	if is_enemy_turn:
+		return  # Ignore during enemy turn
+	
 	print("🎯 Action field selected: %s" % field.action_name)
 	
 	selected_action_field = field
@@ -474,6 +491,129 @@ func _on_dice_returned(die: DieResource):
 	"""Die was returned from action field"""
 	print("🎲 Die returned: %s" % die.display_name)
 	# Dice pool will refresh automatically via signals
+
+# ============================================================================
+# ENEMY TURN DISPLAY - Action Fields
+# ============================================================================
+
+func show_enemy_actions(enemy_combatant: Combatant):
+	"""Display enemy's available actions in the ActionFieldsGrid"""
+	is_enemy_turn = true
+	
+	if not action_fields_grid:
+		return
+	
+	# Clear existing fields
+	for child in action_fields_grid.get_children():
+		child.queue_free()
+	action_fields.clear()
+	enemy_action_fields.clear()
+	
+	# Wait for children to be freed
+	await get_tree().process_frame
+	
+	# Get enemy's actions
+	var actions = enemy_combatant.actions
+	
+	print("🎮 Showing %d enemy actions" % actions.size())
+	
+	# Create action field for each enemy action
+	for action_data in actions:
+		var field = _create_enemy_action_field(action_data)
+		if field:
+			action_fields_grid.add_child(field)
+			action_fields.append(field)
+			enemy_action_fields.append(field)
+	
+	# Show empty message if no actions
+	if actions.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No actions"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		action_fields_grid.add_child(empty_label)
+
+func _create_enemy_action_field(action_data: Dictionary) -> ActionField:
+	"""Create an action field for enemy display (non-interactive)"""
+	if not action_field_scene:
+		push_error("ActionField scene not loaded!")
+		return null
+	
+	var field = action_field_scene.instantiate() as ActionField
+	if not field:
+		push_error("Failed to instantiate ActionField!")
+		return null
+	
+	# Configure from data
+	field.configure_from_dict(action_data)
+	
+	# Disable player interaction
+	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	return field
+
+func find_action_field_by_name(action_name: String) -> ActionField:
+	"""Find an action field by its action name"""
+	for field in action_fields:
+		if field.action_name == action_name:
+			return field
+	return null
+
+func highlight_enemy_action(action_name: String):
+	"""Highlight the action field the enemy is using"""
+	var field = find_action_field_by_name(action_name)
+	if field:
+		# Visual highlight
+		var tween = create_tween()
+		tween.tween_property(field, "modulate", Color(1.3, 1.2, 0.8), 0.2)
+
+func animate_die_to_action_field(die_visual: Control, action_name: String) -> void:
+	"""Animate a die moving from hand to action field"""
+	var field = find_action_field_by_name(action_name)
+	if not field or not is_instance_valid(die_visual):
+		await get_tree().create_timer(0.3).timeout
+		return
+	
+	# Get target position (center of action field)
+	var target_pos = field.global_position + field.size / 2 - die_visual.size / 2
+	
+	# Flash the die
+	var flash_tween = create_tween()
+	flash_tween.tween_property(die_visual, "modulate", Color(1.5, 1.5, 0.5), 0.1)
+	flash_tween.tween_property(die_visual, "modulate", Color.WHITE, 0.1)
+	await flash_tween.finished
+	
+	# Move die to action field
+	var move_tween = create_tween()
+	move_tween.set_parallel(true)
+	move_tween.tween_property(die_visual, "global_position", target_pos, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	move_tween.tween_property(die_visual, "scale", Vector2(0.7, 0.7), 0.35)
+	await move_tween.finished
+	
+	# Fade out but DON'T free - panel will clean up later
+	var fade_tween = create_tween()
+	fade_tween.tween_property(die_visual, "modulate:a", 0.0, 0.15)
+	await fade_tween.finished
+	
+	# Hide instead of free
+	die_visual.hide()
+
+func animate_enemy_action_confirm(action_name: String) -> void:
+	"""Animate the enemy confirming their action"""
+	var field = find_action_field_by_name(action_name)
+	if not field:
+		return
+	
+	# Flash confirm effect
+	var tween = create_tween()
+	tween.tween_property(field, "modulate", Color(1.5, 1.0, 0.5), 0.15)
+	tween.tween_property(field, "modulate", Color.WHITE, 0.15)
+	await tween.finished
+
+func clear_enemy_turn_display():
+	"""Clear enemy turn display and restore player actions"""
+	is_enemy_turn = false
+	enemy_action_fields.clear()
 
 # ============================================================================
 # ACTION BUTTONS
@@ -553,48 +693,56 @@ func _on_end_turn_pressed():
 	turn_ended.emit()
 
 # ============================================================================
-# ENEMY TURN DISPLAY
+# ENEMY TURN DISPLAY - Hand
 # ============================================================================
 
 func show_enemy_hand(enemy_combatant: Combatant):
-	"""Show enemy's dice hand during their turn"""
+	"""Show enemy's dice hand and actions during their turn"""
 	current_enemy_display = enemy_combatant
 	
-	if not enemy_hand_container:
-		return
+	# Show enemy actions in the action fields grid
+	await show_enemy_actions(enemy_combatant)
 	
-	enemy_hand_container.show()
+	# Show dice hand in enemy panel
+	if enemy_panel and enemy_panel.has_method("show_dice_hand"):
+		enemy_panel.show_dice_hand(enemy_combatant)
 	
-	# Clear previous dice
-	for visual in enemy_dice_visuals:
-		if is_instance_valid(visual):
-			visual.queue_free()
-	enemy_dice_visuals.clear()
-	
-	# Get dice grid
-	var dice_grid = enemy_hand_container.find_child("DiceGrid", true, false) as GridContainer
-	if not dice_grid:
-		return
-	
-	# Clear grid
-	for child in dice_grid.get_children():
-		child.queue_free()
-	
-	# Add dice visuals
-	var hand_dice = enemy_combatant.get_available_dice()
-	for die in hand_dice:
-		var die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
-		if die_visual_scene:
-			var visual = die_visual_scene.instantiate()
-			if visual.has_method("set_die"):
-				visual.set_die(die)
-			dice_grid.add_child(visual)
-			enemy_dice_visuals.append(visual)
+	# Legacy: enemy hand container (if still used)
+	if enemy_hand_container:
+		enemy_hand_container.show()
+		
+		# Clear previous dice visuals
+		for visual in enemy_dice_visuals:
+			if is_instance_valid(visual):
+				visual.queue_free()
+		enemy_dice_visuals.clear()
+		
+		# Get dice grid in hand container
+		var dice_grid = enemy_hand_container.find_child("DiceGrid", true, false)
+		if dice_grid:
+			for child in dice_grid.get_children():
+				child.queue_free()
+			
+			# Add dice visuals
+			var hand_dice = enemy_combatant.get_available_dice()
+			for die in hand_dice:
+				var die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
+				if die_visual_scene:
+					var visual = die_visual_scene.instantiate()
+					if visual.has_method("set_die"):
+						visual.set_die(die)
+					dice_grid.add_child(visual)
+					enemy_dice_visuals.append(visual)
 
 func hide_enemy_hand():
-	"""Hide enemy hand display"""
+	"""Hide enemy hand display and restore player UI"""
 	current_enemy_display = null
 	
+	# Hide enemy panel dice hand
+	if enemy_panel and enemy_panel.has_method("hide_dice_hand"):
+		enemy_panel.hide_dice_hand()
+	
+	# Legacy hand container
 	if enemy_hand_container:
 		enemy_hand_container.hide()
 	
@@ -602,19 +750,30 @@ func hide_enemy_hand():
 		if is_instance_valid(visual):
 			visual.queue_free()
 	enemy_dice_visuals.clear()
+	
+	# Clear enemy turn display
+	clear_enemy_turn_display()
 
 func refresh_enemy_hand(enemy_combatant: Combatant):
 	"""Refresh enemy hand after dice used"""
 	if current_enemy_display == enemy_combatant:
-		show_enemy_hand(enemy_combatant)
+		# Refresh dice hand in enemy panel
+		if enemy_panel and enemy_panel.has_method("refresh_dice_hand"):
+			enemy_panel.refresh_dice_hand()
 
 func show_enemy_action(enemy_combatant: Combatant, action: Dictionary):
 	"""Show what action enemy is using"""
+	var action_name = action.get("name", "Attack")
+	
 	if enemy_action_label:
 		enemy_action_label.text = "%s uses %s!" % [
 			enemy_combatant.combatant_name,
-			action.get("name", "Attack")
+			action_name
 		]
+	
+	# Also show in enemy panel
+	if enemy_panel and enemy_panel.has_method("show_current_action"):
+		enemy_panel.show_current_action(action_name)
 
 func animate_enemy_die_placement(_enemy_combatant: Combatant, _die: DieResource, die_index: int):
 	"""Animate a die being consumed"""

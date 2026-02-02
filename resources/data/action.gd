@@ -4,6 +4,15 @@ extends Resource
 class_name Action
 
 # ============================================================================
+# ENUMS
+# ============================================================================
+enum ChargeType {
+	UNLIMITED,          # Can use as many times as you have dice
+	LIMITED_PER_TURN,   # Resets at start of each turn
+	LIMITED_PER_COMBAT  # Only resets at start of combat
+}
+
+# ============================================================================
 # BASIC INFO
 # ============================================================================
 @export var action_id: String = ""
@@ -17,6 +26,16 @@ class_name Action
 @export_group("Dice Requirements")
 @export var die_slots: int = 1
 @export var min_dice_required: int = 0
+
+# ============================================================================
+# CHARGES
+# ============================================================================
+@export_group("Charges")
+@export var charge_type: ChargeType = ChargeType.UNLIMITED
+@export var max_charges: int = 1  # Only used when charge_type != UNLIMITED
+
+# Runtime charge tracking (not saved)
+var current_charges: int = 0
 
 # ============================================================================
 # COSTS
@@ -40,6 +59,62 @@ class_name Action
 @export var damage_multiplier: float = 1.0
 
 # ============================================================================
+# CHARGE MANAGEMENT
+# ============================================================================
+
+func reset_charges_for_combat():
+	"""Reset charges at combat start"""
+	if charge_type == ChargeType.UNLIMITED:
+		current_charges = -1  # -1 means unlimited
+	else:
+		current_charges = max_charges
+
+func reset_charges_for_turn():
+	"""Reset per-turn charges at turn start"""
+	if charge_type == ChargeType.LIMITED_PER_TURN:
+		current_charges = max_charges
+
+func has_charges() -> bool:
+	"""Check if action can be used"""
+	if charge_type == ChargeType.UNLIMITED:
+		return true
+	return current_charges > 0
+
+func consume_charge() -> bool:
+	"""Use one charge, returns true if successful"""
+	if charge_type == ChargeType.UNLIMITED:
+		return true
+	
+	if current_charges > 0:
+		current_charges -= 1
+		return true
+	return false
+
+func get_charges_display() -> String:
+	"""Get charge display string for UI"""
+	match charge_type:
+		ChargeType.UNLIMITED:
+			return ""  # No display needed
+		ChargeType.LIMITED_PER_TURN:
+			return "%d/%d" % [current_charges, max_charges]
+		ChargeType.LIMITED_PER_COMBAT:
+			return "%d/%d" % [current_charges, max_charges]
+		_:
+			return ""
+
+func get_charge_type_label() -> String:
+	"""Get label describing charge type"""
+	match charge_type:
+		ChargeType.UNLIMITED:
+			return ""
+		ChargeType.LIMITED_PER_TURN:
+			return "Per Turn"
+		ChargeType.LIMITED_PER_COMBAT:
+			return "Per Combat"
+		_:
+			return ""
+
+# ============================================================================
 # CONVERSION
 # ============================================================================
 
@@ -55,6 +130,11 @@ func to_dict() -> Dictionary:
 		"mana_cost": mana_cost,
 		"cooldown": cooldown_turns,
 		"effects": effects,
+		# Charge info
+		"charge_type": charge_type,
+		"max_charges": max_charges,
+		"current_charges": current_charges,
+		"action_resource": self,  # Include reference to self
 		# Legacy fields for backward compatibility
 		"action_type": action_type,
 		"base_damage": base_damage,
@@ -148,6 +228,9 @@ func validate() -> Array[String]:
 	
 	if effects.is_empty():
 		warnings.append("Action has no effects")
+	
+	if charge_type != ChargeType.UNLIMITED and max_charges <= 0:
+		warnings.append("Limited action has no charges")
 	
 	return warnings
 

@@ -181,7 +181,7 @@ func _update_dice_pool_display():
 	dice_pool_bar.show()
 	
 	# Get all dice in pool
-	var pool_dice = enemy.dice_collection.get_pool_dice()
+	var pool_dice = enemy.dice_collection.get_all_dice()
 	
 	for die in pool_dice:
 		var icon = _create_die_icon(die)
