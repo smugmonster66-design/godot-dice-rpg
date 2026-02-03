@@ -61,6 +61,10 @@ func _validate_encounter():
 
 func _on_pressed():
 	"""Handle button press - start the encounter"""
+	print("🔴 CombatButton._on_pressed() called")
+	print("   encounter: %s" % encounter)
+	print("   GameManager: %s" % GameManager)
+	
 	if not encounter:
 		push_error("CombatButton: No encounter assigned!")
 		return
@@ -75,6 +79,7 @@ func _on_pressed():
 		disabled = true
 	
 	GameManager.start_combat_encounter(encounter)
+
 
 # ============================================================================
 # PUBLIC API
