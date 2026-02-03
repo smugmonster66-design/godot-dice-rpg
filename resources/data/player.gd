@@ -93,6 +93,8 @@ signal hp_changed(current: int, maximum: int)
 signal mana_changed(current: int, maximum: int)
 signal class_changed(new_class: PlayerClass)
 signal player_died()
+signal inventory_changed()
+
 
 # ============================================================================
 # INITIALIZATION
@@ -491,6 +493,8 @@ func get_available_combat_actions() -> Array:
 
 func add_to_inventory(item: Dictionary):
 	inventory.append(item)
+	inventory_changed.emit()
+	print("🎒 Added to inventory: %s" % item.get("name", "Unknown"))
 
 func remove_from_inventory(item: Dictionary):
 	inventory.erase(item)
@@ -502,10 +506,12 @@ func remove_from_inventory(item: Dictionary):
 func _add_item_affixes(item: Dictionary):
 	var item_name = item.get("name", "Unknown Item")
 	
-	if item.has("item_affixes") and item.item_affixes is Array:
-		for affix in item.item_affixes:
+	var item_affixes = item.get("item_affixes", [])
+	if item_affixes is Array:
+		for affix in item_affixes:
 			if affix is Affix:
 				affix_manager.add_affix(affix)
+				print("  ✅ Added affix to manager: %s" % affix.affix_name)
 
 func _remove_item_affixes(item: Dictionary):
 	var item_name = item.get("name", "Unknown Item")

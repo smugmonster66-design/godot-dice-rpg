@@ -52,6 +52,14 @@ func _on_pressed():
 		
 		# Convert to dictionary
 		var item_dict = item_copy.to_dict()
+		
+		# DEBUG: Print what to_dict returns
+		print("  📋 to_dict() returned:")
+		print("    name: %s" % item_dict.get("name", "MISSING"))
+		print("    slot: %s" % item_dict.get("slot", "MISSING"))
+		print("    icon: %s" % item_dict.get("icon", "MISSING"))
+		print("    keys: " + str(item_dict.keys()))
+		
 		item_dict["item_affixes"] = item_copy.get_all_affixes()
 		
 		# Add to player inventory
@@ -62,6 +70,10 @@ func _on_pressed():
 	
 	print("🎒 Finished adding %d items" % items_added)
 	
-	# Optional: Disable button after use (prevent duplicate items)
+	# Disable button after use
 	disabled = true
 	text = "Gear Added!"
+	
+	# Notify any open menus to refresh
+	if GameManager.player.has_signal("inventory_changed"):
+		GameManager.player.inventory_changed.emit()

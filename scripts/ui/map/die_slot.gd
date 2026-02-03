@@ -48,6 +48,9 @@ var value_label: Label = null        # Shows the rolled value
 var modifier_label: Label = null     # Shows "+2" or "-1"
 var affix_indicator: Label = null    # Shows "◆" for affixes
 var lock_icon: Control = null        # Shows lock when die is locked
+var die_visual_scene: PackedScene = preload("res://scenes/ui/components/die_visual.tscn")
+var current_die_visual: Control = null
+
 
 # ============================================================================
 # STATE
@@ -153,62 +156,43 @@ func update_display():
 	else:
 		_show_empty()
 
+
 func _show_die():
-	"""Show die data in the slot"""
-	if die_display:
-		die_display.show()
+	"""Show die data in the slot using DieVisual"""
 	if empty_display:
 		empty_display.hide()
 	
-	# Find or create icon rect
-	var icon_rect = get_node_or_null("Content/DieDisplay/IconRect") as TextureRect
+	# Remove old visual if exists
+	if current_die_visual and is_instance_valid(current_die_visual):
+		current_die_visual.queue_free()
+		current_die_visual = null
 	
-	# Icon - show if die has one
-	if icon_rect:
-		if die.icon:
-			icon_rect.texture = die.icon
-			icon_rect.show()
-			if type_label:
-				type_label.hide()
+	# Create DieVisual instance
+	if die_visual_scene and die:
+		current_die_visual = die_visual_scene.instantiate()
+		if current_die_visual.has_method("set_die"):
+			current_die_visual.set_die(die)
+		
+		# Configure for slot display
+		current_die_visual.can_drag = false
+		current_die_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
+		# Scale to fit slot (DieVisual is 124x124, slots are ~80x80)
+		current_die_visual.scale = Vector2(0.6, 0.6)
+		
+		# Add to die_display container or directly to slot
+		if die_display:
+			# Clear existing children
+			for child in die_display.get_children():
+				child.queue_free()
+			die_display.add_child(current_die_visual)
+			die_display.show()
 		else:
-			icon_rect.hide()
-			if type_label:
-				type_label.show()
-	elif type_label:
-		# No icon rect, always show type
-		type_label.show()
+			add_child(current_die_visual)
 	
-	# Type label (fallback when no icon)
-	if type_label and type_label.visible:
-		type_label.text = die.get_type_string()
-	
-	# Value label
-	if value_label:
-		value_label.text = str(die.get_total_value())
-	
-	# Modifier label
-	if modifier_label:
-		if die.modifier != 0:
-			modifier_label.text = "%+d" % die.modifier
-			modifier_label.show()
-		else:
-			modifier_label.hide()
-	
-	# Affix indicator
-	if affix_indicator:
-		var affix_count = die.get_all_affixes().size()
-		if affix_count > 0:
-			affix_indicator.text = "◆" if affix_count == 1 else "◆%d" % affix_count
-			affix_indicator.show()
-		else:
-			affix_indicator.hide()
-	
-	# Lock icon
-	if lock_icon:
-		lock_icon.visible = die.is_locked
-	
-	# Apply die color tint
-	modulate = die.color
+
+
+
 
 func _show_empty():
 	"""Show empty slot state"""
@@ -216,10 +200,13 @@ func _show_empty():
 		die_display.hide()
 	if empty_display:
 		empty_display.show()
-	if lock_icon:
-		lock_icon.hide()
 	
-	modulate = Color.WHITE
+	# Remove die visual
+	if current_die_visual and is_instance_valid(current_die_visual):
+		current_die_visual.queue_free()
+		current_die_visual = null
+
+
 
 func _update_background():
 	"""Update background color based on state"""
