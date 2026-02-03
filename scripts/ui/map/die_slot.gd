@@ -34,8 +34,8 @@ enum DragType {
 
 @export_group("Colors")
 @export var empty_color: Color = Color(0.15, 0.15, 0.18, 0.9)
-@export var hover_color: Color = Color(0.25, 0.25, 0.35, 0.95)
-@export var selected_color: Color = Color(0.3, 0.3, 0.5, 1.0)
+@export var hover_color: Color = Color(0.25, 0.25, 0.35, 0)
+@export var selected_color: Color = Color(0.3, 0.3, 0.5, 0)
 @export var drag_target_color: Color = Color(0.2, 0.4, 0.3, 0.95)
 
 # ============================================================================
@@ -217,7 +217,6 @@ func _show_empty():
 
 
 func _update_background():
-	"""Update background color based on state"""
 	var style = _base_style.duplicate() if _base_style else StyleBoxFlat.new()
 	
 	if style is StyleBoxFlat:
@@ -227,15 +226,14 @@ func _update_background():
 			style.set_border_width_all(2)
 		elif is_selected:
 			style.bg_color = selected_color
+		elif die:
+			style.bg_color = Color.TRANSPARENT  # Always transparent when die present
 		elif is_hovered:
 			style.bg_color = hover_color
-		elif die:
-			style.bg_color = Color.TRANSPARENT  # Transparent when die is present
 		else:
 			style.bg_color = empty_color
 	
 	add_theme_stylebox_override("panel", style)
-
 
 
 # ============================================================================

@@ -255,29 +255,41 @@ func unequip_item(slot: String) -> bool:
 	recalculate_stats()
 	return true
 
+
+
 func apply_item_dice(item: Dictionary):
 	if not dice_pool:
 		return
 	
 	var item_name = item.get("name", "Unknown Item")
 	var tags = item.get("dice_tags", [])
+	var item_affixes = item.get("item_affixes", [])
 	
-	# Check for actual DieResource array (new system)
 	var item_dice = item.get("dice_resources", [])
 	if item_dice.size() > 0:
 		for die_template in item_dice:
 			if die_template is DieResource:
 				var die_copy = die_template.duplicate_die()
 				die_copy.source = item_name
+				
 				for tag in tags:
 					die_copy.add_tag(tag)
+				
+				# Apply visual effects from item affixes
+				for affix in item_affixes:
+					if affix is Affix and affix.dice_visual_affix:
+						die_copy.add_affix(affix.dice_visual_affix)
+				
 				dice_pool.add_die(die_copy)
 		return
 	
-	# Legacy fallback: die types as enums
+	# Legacy fallback
 	var die_types = item.get("dice", [])
 	if die_types.size() > 0:
 		dice_pool.add_dice_from_source(die_types, item_name, tags)
+
+
+
 
 
 

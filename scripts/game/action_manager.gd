@@ -21,17 +21,17 @@ func initialize(p_player: Player):
 	rebuild_actions()
 
 func rebuild_actions():
-	"""Rebuild action list from player state"""
+	print("📋 rebuild_actions() called")
 	actions.clear()
 	
-	# Add actions from equipped items
 	_add_item_actions()
-	
-	# Add actions granted by affixes (NEW_ACTION category)
 	_add_affix_granted_actions()
 	
-	actions_changed.emit()
 	print("📋 Actions rebuilt: %d total" % actions.size())
+	for i in range(actions.size()):
+		print("  [%d] %s from %s" % [i, actions[i].get("name", "?"), actions[i].get("source", "?")])
+	
+	actions_changed.emit()
 
 func _add_item_actions():
 	"""Add actions from equipped items"""
@@ -45,17 +45,23 @@ func _add_item_actions():
 	for slot in player.equipment:
 		var item = player.equipment[slot]
 		
+		print("  Slot: %s, item: %s" % [slot, item.get("name", "null") if item else "empty"])
+		
 		if not item or item in processed_items:
 			continue
 		
 		processed_items.append(item)
 		
 		if item.has("actions"):
-			for action_data in item.actions:
+			print("    Item has %d actions" % item.actions.size())
+			for i in range(item.actions.size()):
+				var action_data = item.actions[i]
+				print("      Action %d: %s" % [i, action_data.get("name", "?")])
 				var action = action_data.duplicate()
 				action["source"] = item.get("name", "Unknown Item")
 				actions.append(action)
 				print("  ✅ Added action: %s from %s" % [action.get("name", "?"), action.get("source")])
+
 
 func _add_affix_granted_actions():
 	"""Add actions granted by NEW_ACTION affixes"""

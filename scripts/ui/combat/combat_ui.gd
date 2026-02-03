@@ -435,14 +435,21 @@ func _on_actions_changed():
 	if not is_enemy_turn:
 		refresh_action_fields()
 
+var _refreshing_action_fields: bool = false
+
 func refresh_action_fields():
 	"""Rebuild action fields grid from player's available actions"""
+	if _refreshing_action_fields:
+		return  # Already refreshing, skip
+	
 	if not action_manager or not action_fields_grid:
 		print("⚠️ Cannot refresh action fields - missing manager or grid")
 		return
 	
 	if is_enemy_turn:
 		return  # Don't overwrite enemy actions
+	
+	_refreshing_action_fields = true
 	
 	# Clear existing fields
 	for child in action_fields_grid.get_children():
@@ -464,13 +471,9 @@ func refresh_action_fields():
 			action_fields_grid.add_child(field)
 			action_fields.append(field)
 	
-	# Show message if no actions
-	if all_actions.is_empty():
-		var empty_label = Label.new()
-		empty_label.text = "No actions available\nEquip items to gain actions"
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		action_fields_grid.add_child(empty_label)
+	_refreshing_action_fields = false
+
+
 
 func _create_action_field(action_data: Dictionary) -> ActionField:
 	"""Create a single action field from data"""

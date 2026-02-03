@@ -62,6 +62,13 @@ enum Category {
 @export var icon: Texture2D = null
 
 # ============================================================================
+# DISPLAY OPTIONS (NEW)
+# ============================================================================
+@export_group("Display")
+## Whether this affix appears in item summary tooltips
+@export var show_in_summary: bool = true
+
+# ============================================================================
 # CATEGORIZATION
 # ============================================================================
 @export var category: Category = Category.NONE
@@ -89,6 +96,14 @@ var source_type: String = ""
 @export var granted_action: Action = null
 
 # ============================================================================
+# DICE VISUAL EFFECTS (NEW)
+# ============================================================================
+@export_group("Dice Visual Effects")
+## Optional DiceAffix to apply visual effects to dice granted by this item
+## This allows an item affix to both grant an action AND make dice look special
+@export var dice_visual_affix: DiceAffix = null
+
+# ============================================================================
 # EFFECT APPLICATION
 # ============================================================================
 
@@ -111,6 +126,18 @@ func can_stack_with(other_affix: Affix) -> bool:
 	if affix_name != other_affix.affix_name:
 		return true
 	return source != other_affix.source
+
+# ============================================================================
+# DICE VISUAL HELPERS (NEW)
+# ============================================================================
+
+func has_visual_effects() -> bool:
+	"""Check if this affix includes visual effects for dice"""
+	return dice_visual_affix != null and dice_visual_affix.has_any_visual_effect()
+
+func get_dice_visual_affix() -> DiceAffix:
+	"""Get the DiceAffix for visual effects (may be null)"""
+	return dice_visual_affix
 
 # ============================================================================
 # CATEGORY HELPERS

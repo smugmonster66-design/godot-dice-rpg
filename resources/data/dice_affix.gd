@@ -1,4 +1,5 @@
-# dice_affix.gd - Affix system specifically for dice
+# res://resources/data/dice_affix.gd
+# Affix system specifically for dice
 # Separate from item affixes, these affect dice behavior based on position and neighbors
 extends Resource
 class_name DiceAffix
@@ -72,16 +73,23 @@ enum EffectType {
 	CONDITIONAL,             # Effect only if condition met
 }
 
-
 enum VisualEffectType {
 	NONE,              # No visual effect
-	COLOR_TINT,        # Tint the die a color
+	COLOR_TINT,        # Tint the component a color
 	OVERLAY_TEXTURE,   # Overlay a texture on top
 	PARTICLE,          # Add particle effect
 	SHADER,            # Apply a shader
 	BORDER_GLOW,       # Glowing border effect
 }
 
+## Value label specific effects (NEW)
+enum ValueEffectType {
+	NONE,              # No effect on value label
+	COLOR,             # Change text color
+	OUTLINE_COLOR,     # Change outline color
+	SHADER,            # Apply shader to label
+	COLOR_AND_OUTLINE, # Change both colors
+}
 
 # ============================================================================
 # BASIC DATA
@@ -89,6 +97,13 @@ enum VisualEffectType {
 @export var affix_name: String = "New Dice Affix"
 @export_multiline var description: String = "A dice affix effect"
 @export var icon: Texture2D = null
+
+# ============================================================================
+# DISPLAY OPTIONS (NEW)
+# ============================================================================
+@export_group("Display")
+## Whether this affix appears in die summary tooltips
+@export var show_in_summary: bool = true
 
 # ============================================================================
 # TRIGGER CONFIGURATION
@@ -125,9 +140,8 @@ enum VisualEffectType {
 ## - ADD_DAMAGE_TYPE: {"type": "fire", "percent": 0.5}
 @export var effect_data: Dictionary = {}
 
-
 # ============================================================================
-# VISUAL EFFECTS
+# VISUAL EFFECTS (ORIGINAL - unified, for backwards compatibility)
 # ============================================================================
 @export_group("Visual Effect")
 @export var visual_effect_type: VisualEffectType = VisualEffectType.NONE
@@ -156,82 +170,50 @@ enum VisualEffectType {
 ## Effect priority (higher = applied later/on top)
 @export var visual_priority: int = 0
 
+# ============================================================================
+# FILL TEXTURE VISUAL EFFECTS (NEW - per-component)
+# ============================================================================
+@export_group("Fill Texture Effects")
+@export var fill_effect_type: VisualEffectType = VisualEffectType.NONE
+@export var fill_effect_color: Color = Color.WHITE
+@export var fill_shader_material: ShaderMaterial = null
+@export var fill_overlay_texture: Texture2D = null
+@export_range(0, 2) var fill_overlay_blend_mode: int = 0
+@export_range(0.0, 1.0) var fill_overlay_opacity: float = 0.5
+
+# ============================================================================
+# STROKE TEXTURE VISUAL EFFECTS (NEW - per-component)
+# ============================================================================
+@export_group("Stroke Texture Effects")
+@export var stroke_effect_type: VisualEffectType = VisualEffectType.NONE
+@export var stroke_effect_color: Color = Color.WHITE
+@export var stroke_shader_material: ShaderMaterial = null
+@export var stroke_overlay_texture: Texture2D = null
+@export_range(0, 2) var stroke_overlay_blend_mode: int = 0
+@export_range(0.0, 1.0) var stroke_overlay_opacity: float = 0.5
+
+# ============================================================================
+# VALUE LABEL VISUAL EFFECTS (NEW - per-component)
+# ============================================================================
+@export_group("Value Label Effects")
+@export var value_effect_type: ValueEffectType = ValueEffectType.NONE
+@export var value_text_color: Color = Color.WHITE
+@export var value_outline_color: Color = Color.BLACK
+@export var value_shader_material: ShaderMaterial = null
+
+# ============================================================================
+# PREVIEW-ONLY VISUAL EFFECTS
+# ============================================================================
+@export_group("Preview Effects (Drag Only)")
+## Effects that only appear on the drag preview, not the normal die display
+## Add PreviewEffect resources here - each one can have fill/stroke/label effects
+@export var preview_effects: Array[PreviewEffect] = []
 
 # ============================================================================
 # SOURCE TRACKING
 # ============================================================================
-var source: String = ""       # e.g., "Flame Die", "Fire Blessing"
-var source_type: String = ""  # e.g., "die", "blessing", "curse", "equipment"
-
-# ============================================================================
-# POSITION CHECKING
-# ============================================================================
-
-func check_position(slot_index: int, total_dice: int) -> bool:
-	"""Check if this affix should activate at the given position"""
-	match position_requirement:
-		PositionRequirement.ANY:
-			return true
-		PositionRequirement.FIRST:
-			return slot_index == 0
-		PositionRequirement.LAST:
-			return slot_index == total_dice - 1
-		PositionRequirement.NOT_FIRST:
-			return slot_index != 0
-		PositionRequirement.NOT_LAST:
-			return slot_index != total_dice - 1
-		PositionRequirement.SPECIFIC_SLOT:
-			return slot_index == required_slot
-		PositionRequirement.EVEN_SLOTS:
-			return slot_index % 2 == 0
-		PositionRequirement.ODD_SLOTS:
-			return slot_index % 2 == 1
-	return false
-
-# ============================================================================
-# TARGET RESOLUTION
-# ============================================================================
-
-func get_target_indices(slot_index: int, total_dice: int) -> Array[int]:
-	"""Get indices of dice that this affix affects"""
-	var targets: Array[int] = []
-	
-	match neighbor_target:
-		NeighborTarget.SELF:
-			targets.append(slot_index)
-		
-		NeighborTarget.LEFT:
-			if slot_index > 0:
-				targets.append(slot_index - 1)
-		
-		NeighborTarget.RIGHT:
-			if slot_index < total_dice - 1:
-				targets.append(slot_index + 1)
-		
-		NeighborTarget.BOTH_NEIGHBORS:
-			if slot_index > 0:
-				targets.append(slot_index - 1)
-			if slot_index < total_dice - 1:
-				targets.append(slot_index + 1)
-		
-		NeighborTarget.ALL_LEFT:
-			for i in range(slot_index):
-				targets.append(i)
-		
-		NeighborTarget.ALL_RIGHT:
-			for i in range(slot_index + 1, total_dice):
-				targets.append(i)
-		
-		NeighborTarget.ALL_OTHERS:
-			for i in range(total_dice):
-				if i != slot_index:
-					targets.append(i)
-		
-		NeighborTarget.ALL_DICE:
-			for i in range(total_dice):
-				targets.append(i)
-	
-	return targets
+var source: String = ""
+var source_type: String = ""  # "item", "skill", "enemy", etc.
 
 # ============================================================================
 # EFFECT APPLICATION
@@ -264,6 +246,32 @@ func get_damage_type() -> String:
 func get_status_effect() -> Dictionary:
 	"""Get status effect data for GRANT_STATUS_EFFECT"""
 	return effect_data.get("status", {})
+
+# ============================================================================
+# VISUAL EFFECT HELPERS (NEW)
+# ============================================================================
+
+func has_any_visual_effect() -> bool:
+	"""Check if this affix has any visual effects configured"""
+	return (visual_effect_type != VisualEffectType.NONE or
+			fill_effect_type != VisualEffectType.NONE or 
+			stroke_effect_type != VisualEffectType.NONE or 
+			value_effect_type != ValueEffectType.NONE or
+			particle_scene != null)
+
+func has_per_component_effects() -> bool:
+	"""Check if using new per-component effects"""
+	return (fill_effect_type != VisualEffectType.NONE or
+			stroke_effect_type != VisualEffectType.NONE or
+			value_effect_type != ValueEffectType.NONE)
+
+func has_preview_effects() -> bool:
+	"""Check if this affix has preview-only effects"""
+	return preview_effects.size() > 0
+
+func get_preview_effects() -> Array[PreviewEffect]:
+	"""Get all preview effects"""
+	return preview_effects
 
 # ============================================================================
 # DESCRIPTION GENERATION
@@ -329,6 +337,7 @@ func to_dict() -> Dictionary:
 	return {
 		"affix_name": affix_name,
 		"description": description,
+		"show_in_summary": show_in_summary,
 		"trigger": trigger,
 		"position_requirement": position_requirement,
 		"required_slot": required_slot,
@@ -338,6 +347,13 @@ func to_dict() -> Dictionary:
 		"effect_data": effect_data,
 		"source": source,
 		"source_type": source_type,
+		# Legacy visual
+		"visual_effect_type": visual_effect_type,
+		"visual_priority": visual_priority,
+		# Per-component visual
+		"fill_effect_type": fill_effect_type,
+		"stroke_effect_type": stroke_effect_type,
+		"value_effect_type": value_effect_type,
 	}
 
 static func from_dict(data: Dictionary) -> DiceAffix:
@@ -345,6 +361,7 @@ static func from_dict(data: Dictionary) -> DiceAffix:
 	var affix = DiceAffix.new()
 	affix.affix_name = data.get("affix_name", "Unknown")
 	affix.description = data.get("description", "")
+	affix.show_in_summary = data.get("show_in_summary", true)
 	affix.trigger = data.get("trigger", Trigger.ON_ROLL)
 	affix.position_requirement = data.get("position_requirement", PositionRequirement.ANY)
 	affix.required_slot = data.get("required_slot", 0)
@@ -354,4 +371,11 @@ static func from_dict(data: Dictionary) -> DiceAffix:
 	affix.effect_data = data.get("effect_data", {})
 	affix.source = data.get("source", "")
 	affix.source_type = data.get("source_type", "")
+	# Legacy visual
+	affix.visual_effect_type = data.get("visual_effect_type", VisualEffectType.NONE)
+	affix.visual_priority = data.get("visual_priority", 0)
+	# Per-component visual
+	affix.fill_effect_type = data.get("fill_effect_type", VisualEffectType.NONE)
+	affix.stroke_effect_type = data.get("stroke_effect_type", VisualEffectType.NONE)
+	affix.value_effect_type = data.get("value_effect_type", ValueEffectType.NONE)
 	return affix

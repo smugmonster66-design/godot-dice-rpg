@@ -69,10 +69,26 @@ signal dice_return_complete()
 
 func _ready():
 	_discover_nodes()
+	_set_children_mouse_pass()
 	setup_drop_target()
 	create_die_slots()
 	refresh_ui()
 	print("✅ ActionField UI created: %s" % action_name)
+
+func _set_children_mouse_pass():
+	"""Set all child controls to pass mouse events to allow drop on ActionField"""
+	for child in get_all_children(self):
+		if child is Control and child != self:
+			child.mouse_filter = Control.MOUSE_FILTER_PASS
+
+func get_all_children(node: Node) -> Array:
+	"""Recursively get all children"""
+	var children = []
+	for child in node.get_children():
+		children.append(child)
+		children.append_array(get_all_children(child))
+	return children
+
 
 func _discover_nodes():
 	"""Find UI nodes by name, searching recursively"""
@@ -97,11 +113,12 @@ func create_die_slots():
 	die_slot_panels.clear()
 	dice_visuals.clear()
 	
-	# Create new slot panels - use Panel (not PanelContainer) so it won't auto-expand
+	# Create new slot panels
 	for i in range(die_slots):
 		var slot_panel = Panel.new()
 		slot_panel.custom_minimum_size = Vector2(62, 62)
 		slot_panel.size = Vector2(62, 62)
+		slot_panel.mouse_filter = Control.MOUSE_FILTER_PASS  # <-- ADD THIS LINE
 		
 		# Style the slot
 		var slot_style = StyleBoxFlat.new()
@@ -118,11 +135,11 @@ func create_die_slots():
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
+		empty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE  # <-- ADD THIS LINE TOO
 		slot_panel.add_child(empty_label)
 		
 		die_slots_grid.add_child(slot_panel)
 		die_slot_panels.append(slot_panel)
-
 
 
 
@@ -233,8 +250,15 @@ func configure_from_dict(action_data: Dictionary):
 	source = action_data.get("source", "")
 	action_resource = action_data.get("action_resource", null)
 	
+	# Reset charges for combat when configured
+	if action_resource:
+		action_resource.reset_charges_for_combat()
+	
 	if is_node_ready():
 		refresh_ui()
+
+
+
 
 func refresh_ui():
 	"""Refresh visual elements to match current properties"""
@@ -263,29 +287,48 @@ func refresh_ui():
 
 func _can_drop_data(_at_position: Vector2, data) -> bool:
 	"""Check if we can accept this drop"""
+	print("🎯 _can_drop_data called on %s" % action_name)
+	print("  is_disabled: %s" % is_disabled)
+	print("  data is Dictionary: %s" % (data is Dictionary))
+	
 	if is_disabled:
+		print("  ❌ Rejected: disabled")
 		return false
 	if not data is Dictionary:
+		print("  ❌ Rejected: not dictionary")
 		return false
 	if not data.has("die"):
+		print("  ❌ Rejected: no die in data")
 		return false
+	
+	print("  die_slots: %d, placed_dice.size(): %d" % [die_slots, placed_dice.size()])
 	if placed_dice.size() >= die_slots:
+		print("  ❌ Rejected: slots full (%d >= %d)" % [placed_dice.size(), die_slots])
 		return false
 	
 	var die = data.die as DieResource
 	if not die:
+		print("  ❌ Rejected: die is null")
 		return false
+	
+	print("  required_tags: %s" % required_tags)
+	print("  restricted_tags: %s" % restricted_tags)
+	print("  die tags: %s" % die.get_tags())
 	
 	# Check tag restrictions
 	for tag in required_tags:
 		if not die.has_tag(tag):
+			print("  ❌ Rejected: missing required tag '%s'" % tag)
 			return false
 	
 	for tag in restricted_tags:
 		if die.has_tag(tag):
+			print("  ❌ Rejected: has restricted tag '%s'" % tag)
 			return false
 	
+	print("  ✅ Accepted!")
 	return true
+
 
 func _drop_data(_at_position: Vector2, data: Variant):
 	if data is Dictionary and data.has("die"):
