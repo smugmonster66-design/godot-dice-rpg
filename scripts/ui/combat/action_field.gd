@@ -403,6 +403,12 @@ func _clear_placed_dice():
 	update_icon_state()
 
 func consume_dice():
+	"""Consume placed dice after action execution"""
+	_clear_placed_dice()
+	update_icon_state()
+
+func clear_dice():
+	"""Alias for consume_dice - clears placed dice from slots"""
 	_clear_placed_dice()
 	update_icon_state()
 

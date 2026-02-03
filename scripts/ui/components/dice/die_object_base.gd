@@ -409,9 +409,42 @@ func create_drag_preview() -> Control:
 func _gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if draggable:
-				drag_requested.emit(self)
 			clicked.emit(self)
+
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	"""Godot's native drag initiation - returns drag data to start dragging"""
+	print("🎲 DieObjectBase._get_drag_data() - draggable=%s, die=%s" % [draggable, die_resource != null])
+	
+	if not draggable or not die_resource:
+		print("  ❌ Cannot drag: draggable=%s, has_resource=%s" % [draggable, die_resource != null])
+		return null
+	
+	if die_resource.is_locked:
+		print("  ❌ Die is locked")
+		show_reject_feedback()
+		return null
+	
+	print("  ✅ Starting drag for %s" % die_resource.display_name)
+	
+	# Start visual feedback
+	start_drag_visual()
+	
+	# Emit signal for parent to know
+	drag_requested.emit(self)
+	
+	# Create and set preview
+	var preview = create_drag_preview()
+	set_drag_preview(preview)
+	
+	# Return drag data
+	return {
+		"type": "combat_die",
+		"die": die_resource,
+		"die_object": self,
+		"visual": self,
+		"source_position": global_position,
+		"slot_index": get_index()
+	}
 
 func _notification(what: int):
 	match what:
@@ -421,6 +454,10 @@ func _notification(what: int):
 		NOTIFICATION_MOUSE_EXIT:
 			if not _is_being_dragged:
 				hide_hover()
+		NOTIFICATION_DRAG_END:
+			if _is_being_dragged:
+				end_drag_visual(_was_placed)
+				_is_being_dragged = false
 
 # ============================================================================
 # UTILITY

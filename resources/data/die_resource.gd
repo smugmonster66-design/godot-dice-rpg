@@ -107,39 +107,50 @@ func _init(type: DieType = DieType.D6, p_source: String = ""):
 # DIE OBJECT INSTANTIATION (NEW)
 # ============================================================================
 
-func instantiate_combat_visual() -> CombatDieObject:
+func instantiate_combat_visual():
 	"""Create a CombatDieObject for use in combat hand/action fields"""
+	print("🎲 DieResource.instantiate_combat_visual() for %s (type=%d)" % [display_name, die_type])
 	var scene = _get_combat_scene()
 	if not scene:
 		push_warning("DieResource: No combat scene for %s" % display_name)
 		return null
 	
-	var obj = scene.instantiate() as CombatDieObject
-	if obj:
+	print("  ✅ Scene loaded, instantiating...")
+	var obj = scene.instantiate()
+	if obj and obj.has_method("setup"):
+		print("  ✅ Instantiated, calling setup...")
 		obj.setup(self)
+	else:
+		print("  ❌ Failed to instantiate or no setup method")
 	return obj
 
-func instantiate_pool_visual() -> PoolDieObject:
+func instantiate_pool_visual():
 	"""Create a PoolDieObject for use in map pool/inventory"""
 	var scene = _get_pool_scene()
 	if not scene:
 		push_warning("DieResource: No pool scene for %s" % display_name)
 		return null
 	
-	var obj = scene.instantiate() as PoolDieObject
-	if obj:
+	var obj = scene.instantiate()
+	if obj and obj.has_method("setup"):
 		obj.setup(self)
 	return obj
 
 func _get_combat_scene() -> PackedScene:
 	"""Get the combat scene, using explicit or auto-selected"""
 	if combat_die_scene:
+		print("  Using explicit combat_die_scene")
 		return combat_die_scene
 	
 	# Auto-select based on die type
 	var path = COMBAT_SCENE_PATHS.get(die_type, "")
+	print("  Looking for scene at: %s" % path)
+	
 	if path and ResourceLoader.exists(path):
+		print("  ✅ Scene exists, loading...")
 		return load(path)
+	else:
+		print("  ❌ Scene does NOT exist at path: %s" % path)
 	
 	return null
 
