@@ -229,13 +229,21 @@ func reset_all_skills():
 # ============================================================================
 
 func get_starting_dice_copies() -> Array[DieResource]:
-	"""Create copies of starting dice (don't modify originals!)"""
 	var copies: Array[DieResource] = []
 	
 	for die in starting_dice:
 		if die:
+			print("🎲 PlayerClass - Original die: %s" % die.display_name)
+			print("   Original resource_path: %s" % die.resource_path)
+			print("   Original fill_texture: %s" % die.fill_texture)
+			print("   Original stroke_texture: %s" % die.stroke_texture)
+			
 			var copy = die.duplicate_die()
 			copy.source = player_class_name
+			
+			print("   Copy fill_texture: %s" % copy.fill_texture)
+			print("   Copy stroke_texture: %s" % copy.stroke_texture)
+			
 			copies.append(copy)
 	
 	return copies

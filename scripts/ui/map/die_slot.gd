@@ -162,6 +162,10 @@ func _show_die():
 	if empty_display:
 		empty_display.hide()
 	
+	# Hide lock icon unless die is actually locked
+	if lock_icon:
+		lock_icon.visible = die.is_locked if die else false
+	
 	# Remove old visual if exists
 	if current_die_visual and is_instance_valid(current_die_visual):
 		current_die_visual.queue_free()
@@ -170,6 +174,10 @@ func _show_die():
 	# Create DieVisual instance
 	if die_visual_scene and die:
 		current_die_visual = die_visual_scene.instantiate()
+		
+		# Show max value in map pool
+		current_die_visual.show_max_value = true
+		
 		if current_die_visual.has_method("set_die"):
 			current_die_visual.set_die(die)
 		
@@ -177,18 +185,19 @@ func _show_die():
 		current_die_visual.can_drag = false
 		current_die_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
-		# Scale to fit slot (DieVisual is 124x124, slots are ~80x80)
+		# Scale to fit slot
 		current_die_visual.scale = Vector2(0.6, 0.6)
 		
 		# Add to die_display container or directly to slot
 		if die_display:
-			# Hide existing children (TypeLabel, ValueLabel, etc.)
 			for child in die_display.get_children():
 				child.hide()
 			die_display.add_child(current_die_visual)
 			die_display.show()
 		else:
-			add_child(current_die_visual)	
+			add_child(current_die_visual)
+
+
 
 
 

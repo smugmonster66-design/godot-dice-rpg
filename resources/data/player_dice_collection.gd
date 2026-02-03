@@ -73,6 +73,10 @@ func add_die(die: DieResource, at_index: int = -1):
 	
 	_update_slot_indices()
 	print("🎲 Pool: Added %s at position %d (total: %d)" % [die.display_name, die.slot_index, dice.size()])
+	print("🎲 Pool: Adding die: %s" % die.display_name)
+	print("   fill_texture: %s" % die.fill_texture)
+	print("   stroke_texture: %s" % die.stroke_texture)
+	print("   resource_path: %s" % die.resource_path)
 	dice_changed.emit()
 
 func remove_die(die: DieResource):

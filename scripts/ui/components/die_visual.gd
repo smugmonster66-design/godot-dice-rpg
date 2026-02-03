@@ -40,6 +40,7 @@ var active_overlays: Array[TextureRect] = []
 var die_data: DieResource = null
 var can_drag: bool = true
 var current_die_type: int = -1
+var show_max_value: bool = false
 
 # Drag state
 var _drag_hide_tween: Tween = null
@@ -125,12 +126,21 @@ func set_die(die: DieResource):
 	die_data = die
 	
 	if not is_node_ready():
+		print("🎲 set_die: not ready yet, will load later")
 		return
+	
+	print("🎲 set_die called for: %s (type: D%d)" % [die.display_name, die.die_type])
+	print("  fill_texture: %s" % die.fill_texture)
+	print("  stroke_texture: %s" % die.stroke_texture)
 	
 	# Always reload if die type matches but texture_rect might be stale
 	if die.die_type != current_die_type or not current_die_face or not texture_rect:
+		print("  Loading die face...")
 		_load_die_face(die.die_type)
 		current_die_type = die.die_type
+	
+	print("  After load - texture_rect: %s" % texture_rect)
+	print("  After load - stroke_texture_rect: %s" % stroke_texture_rect)
 	
 	update_display()
 	_apply_affix_visual_effects()
@@ -143,9 +153,13 @@ func _load_die_face(die_type: DieResource.DieType):
 		current_die_face = null
 		value_label = null
 		texture_rect = null
-		stroke_texture_rect = null  # Clear stroke ref too
+		stroke_texture_rect = null
 	
+	var path = "res://scenes/ui/components/dice/die_face_d%d.tscn" % die_type
 	var scene = _get_die_face_scene(die_type)
+	
+	print("  Scene path: %s" % path)
+	print("  Scene exists: %s" % (scene != null))
 	
 	if scene:
 		current_die_face = scene.instantiate()
@@ -157,6 +171,9 @@ func _load_die_face(die_type: DieResource.DieType):
 		value_label = current_die_face.find_child("ValueLabel", true, false) as Label
 		texture_rect = current_die_face.find_child("TextureRect", true, false) as TextureRect
 		
+		print("  From scene - value_label: %s" % value_label)
+		print("  From scene - texture_rect: %s" % texture_rect)
+		
 		# Create stroke texture rect on top of fill
 		if texture_rect:
 			stroke_texture_rect = TextureRect.new()
@@ -166,66 +183,102 @@ func _load_die_face(die_type: DieResource.DieType):
 			stroke_texture_rect.expand_mode = texture_rect.expand_mode
 			stroke_texture_rect.stretch_mode = texture_rect.stretch_mode
 			stroke_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			# Add after fill texture
 			var parent = texture_rect.get_parent()
 			parent.add_child(stroke_texture_rect)
 			parent.move_child(stroke_texture_rect, texture_rect.get_index() + 1)
 	else:
+		print("  Using fallback display")
 		_create_fallback_display(die_type)
 
 
 
+
+
 func _create_fallback_display(die_type: DieResource.DieType):
-	current_die_face = VBoxContainer.new()
-	current_die_face.alignment = BoxContainer.ALIGNMENT_CENTER
+	current_die_face = Control.new()
+	current_die_face.custom_minimum_size = Vector2(124, 124)
 	current_die_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	die_face_container.add_child(current_die_face)
 	
-	var type_label = Label.new()
-	type_label.text = "D%d" % die_type
-	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	type_label.add_theme_font_size_override("font_size", 12)
-	type_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	current_die_face.add_child(type_label)
+	# Create fill texture rect
+	texture_rect = TextureRect.new()
+	texture_rect.name = "TextureRect"
+	texture_rect.custom_minimum_size = Vector2(124, 124)
+	texture_rect.size = Vector2(124, 124)
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	current_die_face.add_child(texture_rect)
 	
+	# Create stroke texture rect (on top of fill)
+	stroke_texture_rect = TextureRect.new()
+	stroke_texture_rect.name = "StrokeTextureRect"
+	stroke_texture_rect.custom_minimum_size = Vector2(124, 124)
+	stroke_texture_rect.size = Vector2(124, 124)
+	stroke_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	stroke_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	stroke_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	current_die_face.add_child(stroke_texture_rect)
+	
+	# Create value label (on top of everything)
 	value_label = Label.new()
 	value_label.name = "ValueLabel"
+	value_label.custom_minimum_size = Vector2(124, 124)
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value_label.add_theme_font_size_override("font_size", 24)
+	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	value_label.add_theme_font_size_override("font_size", 32)
 	value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	current_die_face.add_child(value_label)
 
+
+
 func update_display():
 	if not die_data:
+		print("  update_display: no die_data!")
 		return
 	
 	if value_label:
-		value_label.text = str(die_data.get_total_value())
+		if show_max_value:
+			value_label.text = str(die_data.get_max_value())
+		else:
+			value_label.text = str(die_data.get_total_value())
 	
 	# Set fill texture
 	if texture_rect:
 		if die_data.fill_texture:
 			texture_rect.texture = die_data.fill_texture
 			texture_rect.visible = true
-		elif die_data.icon:  # Legacy fallback
+			print("    Set fill_texture: %s" % die_data.fill_texture.resource_path)
+		elif die_data.icon:
 			texture_rect.texture = die_data.icon
 			texture_rect.visible = true
+			print("    Set icon (legacy): %s" % die_data.icon.resource_path)
 		else:
 			texture_rect.visible = false
+			print("    No fill texture available!")
 		
-		# Apply color tint
 		if die_data.color != Color.WHITE:
 			texture_rect.modulate = die_data.color
 		else:
 			texture_rect.modulate = Color.WHITE
+	else:
+		print("    WARNING: no texture_rect!")
 	
-	# Set stroke texture (on top)
+	# Set stroke texture
 	if stroke_texture_rect:
 		if die_data.stroke_texture:
 			stroke_texture_rect.texture = die_data.stroke_texture
 			stroke_texture_rect.visible = true
+			print("    Set stroke_texture: %s" % die_data.stroke_texture.resource_path)
 		else:
 			stroke_texture_rect.visible = false
+			print("    No stroke texture")
+	else:
+		print("    WARNING: no stroke_texture_rect!")
+
+
+
+
 
 func get_die() -> DieResource:
 	return die_data

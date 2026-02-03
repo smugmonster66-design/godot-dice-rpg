@@ -336,6 +336,9 @@ func items_match(item1: Dictionary, item2: Dictionary) -> bool:
 # ============================================================================
 
 func add_class(p_class_name: String, player_class: PlayerClass):
+	print("🎲 add_class called: %s" % p_class_name)
+	print("   player_class.starting_dice.size(): %d" % player_class.starting_dice.size())
+	
 	available_classes[p_class_name] = player_class
 	print("Class '%s' added" % p_class_name)
 
@@ -355,10 +358,11 @@ func switch_class(p_class_name: String) -> bool:
 	# Switch to new class
 	active_class = available_classes[p_class_name]
 	
-	# Add new class's dice
+	# Add new class's dice (use copies to preserve textures and affixes)
 	if dice_pool and active_class:
-		var class_dice = active_class.get_all_class_dice()
-		dice_pool.add_dice_from_source(class_dice, active_class.player_class_name, ["class"])
+		var class_dice = active_class.get_starting_dice_copies()  # Changed from get_all_class_dice()
+		for die in class_dice:
+			dice_pool.add_die(die)
 	
 	# Reapply skill affixes for new class
 	if active_class:
