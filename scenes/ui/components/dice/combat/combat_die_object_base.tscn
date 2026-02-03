@@ -5,6 +5,7 @@
 
 [node name="CombatDieObject" instance=ExtResource("1_base")]
 script = ExtResource("2_script")
+base_size = null
 
 [node name="ValueLabel" parent="." index="2"]
 offset_left = -20.0
