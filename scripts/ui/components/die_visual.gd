@@ -429,29 +429,67 @@ func _create_drag_preview() -> Control:
 	return wrapper
 
 
+
 func _apply_preview_affix_effects(wrapper: Control, face: Control, tex: TextureRect):
 	if not die_data:
-		print("  Preview effects: no die_data")
 		return
 	
 	var face_size = Vector2(124, 124)
-	var all_affixes = die_data.get_all_affixes()
-	print("  Preview effects: %d affixes" % all_affixes.size())
 	
-	for affix in all_affixes:
-		print("    Affix: %s, visual_type: %d" % [affix.affix_name, affix.visual_effect_type])
+	for affix in die_data.get_all_affixes():
 		match affix.visual_effect_type:
 			DiceAffix.VisualEffectType.COLOR_TINT:
 				if tex:
 					tex.modulate = tex.modulate * affix.effect_color
 			
 			DiceAffix.VisualEffectType.SHADER:
-				print("      Applying shader - tex: %s, shader: %s" % [tex, affix.shader_material])
 				if tex and affix.shader_material:
-					tex.material = affix.shader_material.duplicate()
-					print("      Shader applied!")
+					tex.material = affix.shader_material.duplicate(true)
 			
-			# ... rest of cases
+			DiceAffix.VisualEffectType.OVERLAY_TEXTURE:
+				if affix.overlay_texture:
+					var overlay = TextureRect.new()
+					overlay.texture = affix.overlay_texture
+					overlay.custom_minimum_size = face_size
+					overlay.size = face_size
+					overlay.position = face.position
+					overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+					overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+					overlay.modulate.a = affix.overlay_opacity
+					
+					match affix.overlay_blend_mode:
+						1:
+							var mat = CanvasItemMaterial.new()
+							mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+							overlay.material = mat
+						2:
+							var mat = CanvasItemMaterial.new()
+							mat.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+							overlay.material = mat
+					
+					wrapper.add_child(overlay)
+			
+			DiceAffix.VisualEffectType.BORDER_GLOW:
+				var glow = Panel.new()
+				glow.custom_minimum_size = face_size
+				glow.size = face_size
+				glow.position = face.position
+				
+				var glow_style = StyleBoxFlat.new()
+				glow_style.bg_color = Color.TRANSPARENT
+				glow_style.border_color = affix.effect_color
+				glow_style.set_border_width_all(3)
+				glow_style.set_corner_radius_all(8)
+				glow_style.shadow_color = affix.effect_color
+				glow_style.shadow_size = 6
+				glow.add_theme_stylebox_override("panel", glow_style)
+				
+				wrapper.add_child(glow)
+				wrapper.move_child(glow, 0)
+			
+			DiceAffix.VisualEffectType.PARTICLE:
+				pass
+
 
 
 # ============================================================================

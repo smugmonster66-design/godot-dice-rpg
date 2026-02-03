@@ -49,7 +49,7 @@ var description_label: RichTextLabel = null
 # ============================================================================
 var placed_dice: Array[DieResource] = []
 var dice_visuals: Array[Control] = []
-var die_slot_panels: Array[PanelContainer] = []
+var die_slot_panels: Array[Panel] = []
 var is_disabled: bool = false
 
 # Track source info for each placed die (for return animation)
@@ -83,6 +83,8 @@ func _discover_nodes():
 	die_slots_grid = find_child("DieSlotsGrid", true, false) as GridContainer
 	description_label = find_child("DescriptionLabel", true, false) as RichTextLabel
 
+
+
 func create_die_slots():
 	"""Create empty die slot panels"""
 	if not die_slots_grid:
@@ -93,11 +95,13 @@ func create_die_slots():
 	for child in die_slots_grid.get_children():
 		child.queue_free()
 	die_slot_panels.clear()
+	dice_visuals.clear()
 	
-	# Create new slot panels
+	# Create new slot panels - use Panel (not PanelContainer) so it won't auto-expand
 	for i in range(die_slots):
-		var slot_panel = PanelContainer.new()
-		slot_panel.custom_minimum_size = Vector2(62, 62)  # 62x62 slots
+		var slot_panel = Panel.new()
+		slot_panel.custom_minimum_size = Vector2(62, 62)
+		slot_panel.size = Vector2(62, 62)
 		
 		# Style the slot
 		var slot_style = StyleBoxFlat.new()
@@ -110,6 +114,7 @@ func create_die_slots():
 		# Add empty indicator
 		var empty_label = Label.new()
 		empty_label.text = "+"
+		empty_label.set_anchors_preset(Control.PRESET_CENTER)
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
@@ -117,6 +122,9 @@ func create_die_slots():
 		
 		die_slots_grid.add_child(slot_panel)
 		die_slot_panels.append(slot_panel)
+
+
+
 
 
 func setup_drop_target():
@@ -330,7 +338,7 @@ func place_die_animated(die: DieResource, from_position: Vector2, source_visual:
 	update_icon_state()
 
 
-func _animate_snap_to_slot(die_visual: Control, slot_panel: PanelContainer, from_position: Vector2):
+func _animate_snap_to_slot(die_visual: Control, slot_panel: Panel, from_position: Vector2):
 	"""Animate die snapping to its slot"""
 	# We need to animate in global space, so temporarily reparent
 	var target_pos = slot_panel.global_position + slot_panel.size / 2
@@ -365,6 +373,8 @@ func place_die(die: DieResource):
 	"""Place a die without animation (for programmatic placement)"""
 	place_die_animated(die, global_position, null, -1)
 
+
+
 func _create_placed_die_visual(die: DieResource) -> Control:
 	"""Create a visual for a placed die using DieVisual scene"""
 	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
@@ -375,12 +385,40 @@ func _create_placed_die_visual(die: DieResource) -> Control:
 	
 	visual.can_drag = false
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.custom_minimum_size = Vector2(62, 62)
-	visual.scale = Vector2(0.5, 0.5)
-	visual.pivot_offset = Vector2(62, 62)
 	visual.set_die(die)
 	
+	# Scale to fit 62x62 slot (124 * 0.5 = 62)
+	visual.scale = Vector2(0.5, 0.5)
+	visual.position = Vector2.ZERO
+	
 	return visual
+
+
+
+func _force_minimum_size_recursive(node: Control, target_size: Vector2):
+	"""Force minimum size on node and all Control children"""
+	node.custom_minimum_size = target_size
+	
+	for child in node.get_children():
+		if child is Control:
+			_force_minimum_size_recursive(child, target_size)
+
+
+
+
+
+
+
+
+
+
+func _override_minimum_sizes(node: Control, target_size: Vector2):
+	"""Recursively override custom_minimum_size on all Control children"""
+	node.custom_minimum_size = target_size
+	
+	for child in node.get_children():
+		if child is Control:
+			_override_minimum_sizes(child, target_size)
 
 # ============================================================================
 # ACTION STATE
