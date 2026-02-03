@@ -143,7 +143,7 @@ func _load_die_face(die_type: DieResource.DieType):
 		current_die_face = null
 		value_label = null
 		texture_rect = null
-		stroke_texture_rect = null
+		stroke_texture_rect = null  # Clear stroke ref too
 	
 	var scene = _get_die_face_scene(die_type)
 	
@@ -166,15 +166,12 @@ func _load_die_face(die_type: DieResource.DieType):
 			stroke_texture_rect.expand_mode = texture_rect.expand_mode
 			stroke_texture_rect.stretch_mode = texture_rect.stretch_mode
 			stroke_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			
-			# Add as sibling, after the fill texture
-			texture_rect.get_parent().add_child(stroke_texture_rect)
-			# Move stroke after fill but before value label
-			var fill_index = texture_rect.get_index()
-			texture_rect.get_parent().move_child(stroke_texture_rect, fill_index + 1)
+			# Add after fill texture
+			var parent = texture_rect.get_parent()
+			parent.add_child(stroke_texture_rect)
+			parent.move_child(stroke_texture_rect, texture_rect.get_index() + 1)
 	else:
 		_create_fallback_display(die_type)
-
 
 
 
@@ -205,27 +202,30 @@ func update_display():
 	if value_label:
 		value_label.text = str(die_data.get_total_value())
 	
-	# Fill texture
+	# Set fill texture
 	if texture_rect:
 		if die_data.fill_texture:
 			texture_rect.texture = die_data.fill_texture
 			texture_rect.visible = true
+		elif die_data.icon:  # Legacy fallback
+			texture_rect.texture = die_data.icon
+			texture_rect.visible = true
 		else:
 			texture_rect.visible = false
 		
+		# Apply color tint
 		if die_data.color != Color.WHITE:
 			texture_rect.modulate = die_data.color
 		else:
 			texture_rect.modulate = Color.WHITE
 	
-	# Stroke texture (always on top, no color tint by default)
+	# Set stroke texture (on top)
 	if stroke_texture_rect:
 		if die_data.stroke_texture:
 			stroke_texture_rect.texture = die_data.stroke_texture
 			stroke_texture_rect.visible = true
 		else:
 			stroke_texture_rect.visible = false
-
 
 func get_die() -> DieResource:
 	return die_data
