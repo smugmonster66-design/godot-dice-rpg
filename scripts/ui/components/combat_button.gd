@@ -30,6 +30,8 @@ class_name CombatButton
 # ============================================================================
 
 func _ready():
+	print("🔴 CombatButton._ready() - path: %s" % get_path())
+	print("   encounter: %s" % encounter)
 	# Connect button press
 	if not pressed.is_connected(_on_pressed):
 		pressed.connect(_on_pressed)

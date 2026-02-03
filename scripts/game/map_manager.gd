@@ -69,6 +69,14 @@ func find_ui_nodes():
 	else:
 		print("  ❌ TopBar not found")
 	
+	
+		if combat_button:
+			print("  ✅ CombatButton found")
+			print("     script: %s" % combat_button.get_script())
+			print("     path: %s" % combat_button.get_path())
+		else:
+			print("  ❌ CombatButton NOT found")
+	
 	# Find PlayerMenu
 	player_menu = ui_layer.find_child("PlayerMenu", true, false)
 	if player_menu:
