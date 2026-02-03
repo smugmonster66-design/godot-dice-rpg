@@ -316,7 +316,7 @@ func place_die_animated(die: DieResource, from_position: Vector2, source_visual:
 		child.queue_free()
 	
 	# Create die visual - START HIDDEN
-	var die_visual = _create_placed_die_visual(die, true)
+	var die_visual = _create_placed_die_visual(die)
 	slot_panel.add_child(die_visual)
 	dice_visuals.append(die_visual)
 	
@@ -365,27 +365,20 @@ func place_die(die: DieResource):
 	"""Place a die without animation (for programmatic placement)"""
 	place_die_animated(die, global_position, null, -1)
 
-func _create_placed_die_visual(die: DieResource, start_hidden: bool = false) -> Control:
+func _create_placed_die_visual(die: DieResource) -> Control:
 	"""Create a visual for a placed die using DieVisual scene"""
 	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
-	var visual = die_visual_scene.instantiate()
+	var visual = die_visual_scene.instantiate() as DieVisual
 	
-	# Start hidden if requested (before adding to tree)
-	if start_hidden:
-		visual.modulate.a = 0
+	if not visual:
+		return null
 	
-	# Set die data
-	if visual.has_method("set_die"):
-		visual.set_die(die)
-	
-	# Disable dragging
-	if visual.has_method("set"):
-		visual.set("can_drag", false)
-	
-	# Configure size AFTER set_die so the visual is ready
+	visual.can_drag = false
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.custom_minimum_size = Vector2(62, 62)
 	visual.scale = Vector2(0.5, 0.5)
 	visual.pivot_offset = Vector2(62, 62)
+	visual.set_die(die)
 	
 	return visual
 

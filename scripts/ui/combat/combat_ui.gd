@@ -773,7 +773,6 @@ func _add_fallback_die_visual(container: PanelContainer, die: DieResource):
 	vbox.add_child(value_label)
 
 
-
 func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: int):
 	"""Place a die directly into an action field slot"""
 	if slot_index >= field.die_slot_panels.size():
@@ -788,30 +787,19 @@ func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: 
 	# Add die to placed_dice array
 	field.placed_dice.append(die)
 	
-	# Create visual - start hidden
-	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
-	var die_visual = die_visual_scene.instantiate()
-	die_visual.modulate.a = 0
+	# Create visual in slot
+	var die_visual = field._create_placed_die_visual(die)
 	
-	# Add to tree FIRST
+	# Prevent expansion
+	die_visual.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	die_visual.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	
 	slot_panel.add_child(die_visual)
-	field.dice_visuals.append(die_visual)
 	
-	# THEN set die and configure size
-	if die_visual.has_method("set_die"):
-		die_visual.set_die(die)
-	if die_visual.has_method("set"):
-		die_visual.set("can_drag", false)
-	
-	# Apply sizing after in tree
-	die_visual.custom_minimum_size = Vector2(62, 62)
+	# Force size AFTER adding to tree
 	die_visual.size = Vector2(62, 62)
-	die_visual.scale = Vector2(0.5, 0.5)
-	die_visual.pivot_offset = Vector2(62, 62)
 	
-	# Fade in
-	var tween = create_tween()
-	tween.tween_property(die_visual, "modulate:a", 1.0, 0.1)
+	field.dice_visuals.append(die_visual)
 	
 	# Flash effect on slot
 	var original_style = slot_panel.get_theme_stylebox("panel")
@@ -821,9 +809,9 @@ func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: 
 		flash_style.set_border_width_all(2)
 		slot_panel.add_theme_stylebox_override("panel", flash_style)
 		
-		var revert_tween = create_tween()
-		revert_tween.tween_interval(0.2)
-		revert_tween.tween_callback(func():
+		var tween = create_tween()
+		tween.tween_interval(0.2)
+		tween.tween_callback(func():
 			if is_instance_valid(slot_panel):
 				var revert_style = StyleBoxFlat.new()
 				revert_style.bg_color = Color(0.2, 0.2, 0.25)
@@ -834,6 +822,9 @@ func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: 
 		)
 	
 	field.update_icon_state()
+
+
+
 
 func animate_enemy_action_confirm(action_name: String) -> void:
 	"""Animate the enemy confirming their action and clear dice"""
