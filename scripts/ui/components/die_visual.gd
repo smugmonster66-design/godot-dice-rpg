@@ -480,14 +480,10 @@ func _get_drag_data(_at_position: Vector2):
 	set_drag_preview(preview)
 	
 	_is_being_dragged = true
-	modulate = Color(1.0, 1.0, 1.0, 0.5)
+	_was_placed = false
 	
-	if _drag_hide_tween and _drag_hide_tween.is_running():
-		_drag_hide_tween.kill()
-	
-	_drag_hide_tween = create_tween()
-	_drag_hide_tween.tween_interval(0.8)
-	_drag_hide_tween.tween_callback(_on_drag_hide_complete)
+	# Hide immediately
+	visible = false
 	
 	return {
 		"die": die_data,
@@ -497,21 +493,19 @@ func _get_drag_data(_at_position: Vector2):
 		"slot_index": get_index()
 	}
 
-func _on_drag_hide_complete():
-	if _is_being_dragged:
-		visible = false
 
 func _notification(what: int):
 	if what == NOTIFICATION_DRAG_END:
 		_is_being_dragged = false
 		
-		if _drag_hide_tween and _drag_hide_tween.is_running():
-			_drag_hide_tween.kill()
-		_drag_hide_tween = null
-		
+		# Restore visibility if NOT placed in an action field
 		if not _was_placed:
 			visible = true
 			modulate = Color.WHITE
+
+
+
+
 
 func _create_drag_preview() -> Control:
 	var face_size = Vector2(124, 124)

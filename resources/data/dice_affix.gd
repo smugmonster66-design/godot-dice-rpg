@@ -329,6 +329,72 @@ func get_display_text() -> String:
 	return text
 
 # ============================================================================
+# POSITION CHECKING
+# ============================================================================
+
+func check_position(slot_index: int, total_slots: int) -> bool:
+	"""Check if position requirement is met"""
+	match position_requirement:
+		PositionRequirement.ANY:
+			return true
+		PositionRequirement.FIRST:
+			return slot_index == 0
+		PositionRequirement.LAST:
+			return slot_index == total_slots - 1
+		PositionRequirement.NOT_FIRST:
+			return slot_index > 0
+		PositionRequirement.NOT_LAST:
+			return slot_index < total_slots - 1
+		PositionRequirement.SPECIFIC_SLOT:
+			return slot_index == required_slot
+		PositionRequirement.EVEN_SLOTS:
+			return slot_index % 2 == 0
+		PositionRequirement.ODD_SLOTS:
+			return slot_index % 2 == 1
+	return true
+
+func get_target_indices(source_index: int, total_dice: int) -> Array[int]:
+	"""Get indices of dice this affix targets based on neighbor_target"""
+	var targets: Array[int] = []
+	
+	match neighbor_target:
+		NeighborTarget.SELF:
+			targets.append(source_index)
+		
+		NeighborTarget.LEFT:
+			if source_index > 0:
+				targets.append(source_index - 1)
+		
+		NeighborTarget.RIGHT:
+			if source_index < total_dice - 1:
+				targets.append(source_index + 1)
+		
+		NeighborTarget.BOTH_NEIGHBORS:
+			if source_index > 0:
+				targets.append(source_index - 1)
+			if source_index < total_dice - 1:
+				targets.append(source_index + 1)
+		
+		NeighborTarget.ALL_LEFT:
+			for i in range(source_index):
+				targets.append(i)
+		
+		NeighborTarget.ALL_RIGHT:
+			for i in range(source_index + 1, total_dice):
+				targets.append(i)
+		
+		NeighborTarget.ALL_OTHERS:
+			for i in range(total_dice):
+				if i != source_index:
+					targets.append(i)
+		
+		NeighborTarget.ALL_DICE:
+			for i in range(total_dice):
+				targets.append(i)
+	
+	return targets
+
+# ============================================================================
 # SERIALIZATION
 # ============================================================================
 

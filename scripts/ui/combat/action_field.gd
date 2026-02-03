@@ -379,6 +379,10 @@ func place_die_animated(die: DieResource, from_position: Vector2, source_visual:
 	_animate_snap_to_slot(die_visual, slot_panel, from_position)
 	
 	update_icon_state()
+	
+	# Auto-select this action field if ready to confirm
+	if is_ready_to_confirm():
+		action_selected.emit(self)
 
 
 func _animate_snap_to_slot(die_visual: Control, slot_panel: Panel, from_position: Vector2):
@@ -534,42 +538,24 @@ func cancel_action():
 
 func _animate_return_to_hand(visual: Control, target_pos: Vector2, source_visual: Control, on_complete: Callable):
 	"""Animate a die visual returning to the hand"""
-	# Get slot panel this visual is in
-	var slot_panel = visual.get_parent()
+	# Hide the placed visual immediately
+	if visual and is_instance_valid(visual):
+		visual.modulate.a = 0
 	
-	# Get current global position
-	var start_pos = slot_panel.global_position if slot_panel else visual.global_position
-	
-	# Create a temporary visual for animation in a higher layer
-	var temp_visual = visual.duplicate()
-	var canvas_layer = get_tree().root
-	canvas_layer.add_child(temp_visual)
-	temp_visual.global_position = start_pos
-	temp_visual.z_index = 100
-	
-	# Hide original
-	visual.modulate.a = 0
-	
-	# Animate to target
-	var tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(temp_visual, "global_position", target_pos, return_duration).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_QUAD)
-	tween.tween_property(temp_visual, "scale", Vector2(0.8, 0.8), return_duration * 0.5)
-	tween.chain().tween_property(temp_visual, "scale", Vector2.ONE, return_duration * 0.5)
-	tween.tween_property(temp_visual, "modulate", Color(0.8, 1.0, 0.8), return_duration * 0.5)
-	tween.chain().tween_property(temp_visual, "modulate:a", 0.0, return_duration * 0.3)
-	
-	tween.chain().tween_callback(func():
-		temp_visual.queue_free()
-		# Restore source visual
-		if source_visual and is_instance_valid(source_visual):
-			source_visual.modulate.a = 1.0
-			# Flash to show it's back
-			var flash_tween = create_tween()
-			flash_tween.tween_property(source_visual, "modulate", Color(1.3, 1.3, 1.0), 0.1)
-			flash_tween.tween_property(source_visual, "modulate", Color.WHITE, 0.1)
+	# Restore and animate the source visual
+	if source_visual and is_instance_valid(source_visual):
+		source_visual.visible = true
+		source_visual.modulate = Color(0.5, 1.0, 0.5, 1.0)
+		source_visual.scale = Vector2(0.8, 0.8)
+		
+		var tween = create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(source_visual, "modulate", Color(1.3, 1.3, 1.0, 1.0), return_duration)
+		tween.tween_property(source_visual, "scale", Vector2.ONE, return_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.chain().tween_property(source_visual, "modulate", Color.WHITE, 0.1)
+		tween.chain().tween_callback(on_complete)
+	else:
 		on_complete.call()
-	)
 
 func _finish_cancel():
 	"""Finish cancellation after all dice returned"""

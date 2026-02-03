@@ -965,7 +965,6 @@ func _animate_die_consumed(visual: Control):
 	if not is_instance_valid(visual):
 		return
 	
-	
 	# Capture current scale and animate from there
 	var start_scale = visual.scale
 	
@@ -974,7 +973,10 @@ func _animate_die_consumed(visual: Control):
 	tween.tween_property(visual, "modulate", Color(1.5, 1.2, 0.5, 1.0), 0.1)
 	tween.chain().tween_property(visual, "modulate:a", 0.0, 0.15)
 	tween.tween_property(visual, "scale", start_scale * 0.3, 0.25).set_ease(Tween.EASE_IN)
-
+	tween.chain().tween_callback(func():
+		if is_instance_valid(visual):
+			visual.queue_free()
+	)
 
 
 func _on_cancel_pressed():
