@@ -1,20 +1,19 @@
-[gd_resource type="Resource" script_class="EnemyData" load_steps=8 format=3 uid="uid://ckwt0g0tr5gij"]
+[gd_resource type="Resource" script_class="EnemyData" load_steps=7 format=3 uid="uid://ckwt0g0tr5gij"]
 
 [ext_resource type="Script" uid="uid://b1kctq61bwysh" path="res://resources/data/action.gd" id="1_bxi3o"]
 [ext_resource type="Resource" uid="uid://c8dyd1d4rmg7g" path="res://resources/actions/enemy/goblins/goblin_stab.tres" id="2_3kmag"]
 [ext_resource type="Script" uid="uid://dgbvtipfph6x3" path="res://resources/data/enemy_data.gd" id="2_eoums"]
 [ext_resource type="Script" uid="uid://d3l85pyscg85h" path="res://resources/data/die_resource.gd" id="3_3kmag"]
-[ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="3_8263n"]
+[ext_resource type="Texture2D" uid="uid://dr42i14gm0fjv" path="res://assets/dice/d6-basic-fill.png" id="3_qxlb2"]
 [ext_resource type="Resource" uid="uid://byir7m1xtkf74" path="res://resources/dice/d6_basic.tres" id="5_qxlb2"]
-[ext_resource type="Resource" uid="uid://rtmmv2m3yyt1" path="res://resources/dice/enemy/d6_goblin_water_enchant.tres" id="6_qxlb2"]
 
 [resource]
 script = ExtResource("2_eoums")
 enemy_name = "Goblin"
 description = "He's stab-happy to see you."
-portrait = ExtResource("3_8263n")
+portrait = ExtResource("3_qxlb2")
 max_health = 25
-starting_dice = Array[ExtResource("3_3kmag")]([ExtResource("5_qxlb2"), ExtResource("6_qxlb2")])
+starting_dice = Array[ExtResource("3_3kmag")]([ExtResource("5_qxlb2")])
 combat_actions = Array[ExtResource("1_bxi3o")]([ExtResource("2_3kmag")])
 ai_strategy = 0
 experience_reward = 15

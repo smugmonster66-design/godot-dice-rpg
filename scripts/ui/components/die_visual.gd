@@ -517,19 +517,53 @@ func _create_drag_preview() -> Control:
 		face.position = -face_size / 2
 		face.size = face_size
 		
+		# Update value label
 		var label = face.find_child("ValueLabel", true, false) as Label
 		if label:
 			label.text = str(die_data.get_total_value())
 		
+		# Find and set fill texture
 		var tex = face.find_child("TextureRect", true, false) as TextureRect
-		print("Drag preview - tex found: ", tex)
+		if tex:
+			# Assign fill texture from die data
+			if die_data.fill_texture:
+				tex.texture = die_data.fill_texture
+			
+			# Apply color tint
+			if die_data.color != Color.WHITE:
+				tex.modulate = die_data.color
+			
+			# Create stroke texture on top
+			if die_data.stroke_texture:
+				var stroke_tex = TextureRect.new()
+				stroke_tex.name = "StrokeTextureRect"
+				stroke_tex.texture = die_data.stroke_texture
+				stroke_tex.custom_minimum_size = tex.custom_minimum_size
+				stroke_tex.size = tex.size
+				stroke_tex.position = tex.position
+				stroke_tex.expand_mode = tex.expand_mode
+				stroke_tex.stretch_mode = tex.stretch_mode
+				stroke_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				
+				# Copy anchors and layout
+				stroke_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+				stroke_tex.anchor_left = tex.anchor_left
+				stroke_tex.anchor_top = tex.anchor_top
+				stroke_tex.anchor_right = tex.anchor_right
+				stroke_tex.anchor_bottom = tex.anchor_bottom
+				stroke_tex.offset_left = tex.offset_left
+				stroke_tex.offset_top = tex.offset_top
+				stroke_tex.offset_right = tex.offset_right
+				stroke_tex.offset_bottom = tex.offset_bottom
+				
+				# Add as sibling after fill texture
+				var parent = tex.get_parent()
+				parent.add_child(stroke_tex)
+				parent.move_child(stroke_tex, tex.get_index() + 1)
 		
-		if tex and die_data.color != Color.WHITE:
-			tex.modulate = die_data.color
-		
-		print("Drag preview - calling _apply_preview_affix_effects")
 		_apply_preview_affix_effects(wrapper, face, tex)
 	else:
+		# Fallback - create simple label
 		var label = Label.new()
 		label.text = str(die_data.get_total_value()) if die_data else "?"
 		label.custom_minimum_size = face_size
@@ -541,7 +575,6 @@ func _create_drag_preview() -> Control:
 	
 	wrapper.modulate = Color(1.0, 1.0, 1.0, 0.8)
 	return wrapper
-
 
 
 func _apply_preview_affix_effects(wrapper: Control, face: Control, tex: TextureRect):

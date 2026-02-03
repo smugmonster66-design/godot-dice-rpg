@@ -53,6 +53,8 @@ func _ready():
 	if current.name == "MapScene":
 		print("🎮 Current scene: MapScene")
 		map_scene_instance = current
+		# After getting map_scene_instance
+		print("🎮 MapScene instance scene_file_path: %s" % map_scene_instance.scene_file_path)
 		
 		# Initialize player
 		initialize_player()

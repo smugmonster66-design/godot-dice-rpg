@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://bmitbn1xm1k41" path="res://scripts/ui/components/combat_button.gd" id="2_t547c"]
 [ext_resource type="Script" uid="uid://cmngrutsjny1t" path="res://scripts/ui/combat/post_combat_summary.gd" id="3_2b48g"]
 [ext_resource type="Script" uid="uid://gax4pbuq25uv" path="res://resources/data/equippable_item.gd" id="3_3c4m5"]
-[ext_resource type="Resource" uid="uid://bd34csdn887p6" path="res://resources/encounters/goblins_basic.tres" id="3_o83tl"]
+[ext_resource type="Resource" uid="uid://couqhbcv0nj5p" path="res://resources/encounters/goblin_solo.tres" id="5_t547c"]
 [ext_resource type="PackedScene" uid="uid://cqp8tlucqj7xe" path="res://scenes/ui/map/map_dice_panel.tscn" id="8_bg5j8"]
 [ext_resource type="Resource" uid="uid://dynp53wsejoff" path="res://resources/items/main hand/frost_hammer.tres" id="10_5osyn"]
 
@@ -135,7 +135,7 @@ text = "Menu"
 layout_mode = 2
 text = "Begin Combat"
 script = ExtResource("2_t547c")
-encounter = ExtResource("3_o83tl")
+encounter = ExtResource("5_t547c")
 
 [node name="AddStartingGearButton" type="Button" parent="UILayer/VBoxContainer/TopBar"]
 layout_mode = 2

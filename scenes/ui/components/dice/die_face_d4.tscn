@@ -1,12 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://bb36arbf4v52j"]
+[gd_scene load_steps=2 format=3 uid="uid://bb36arbf4v52j"]
 
 [ext_resource type="PackedScene" uid="uid://d3857al3f5842" path="res://scenes/ui/components/dice/die_face_base.tscn" id="1_r0c6s"]
-[ext_resource type="Texture2D" uid="uid://bpyoyfpeoa6hb" path="res://assets/dice/D6s/d6-basic.png" id="2_qlm7d"]
 
 [node name="DiceFace" instance=ExtResource("1_r0c6s")]
-
-[node name="TextureRect" parent="." index="0"]
-texture = ExtResource("2_qlm7d")
 
 [node name="ValueLabel" parent="." index="1"]
 offset_left = 23.0

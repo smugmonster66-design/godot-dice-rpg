@@ -29,9 +29,30 @@ class_name CombatButton
 # INITIALIZATION
 # ============================================================================
 
+
+
 func _ready():
-	print("🔴 CombatButton._ready() - path: %s" % get_path())
-	print("   encounter: %s" % encounter)
+	print("🔴 CombatButton._ready()")
+	
+	# Test loading the scripts
+	var encounter_script = load("res://resources/data/combat_encounter.gd")
+	print("   combat_encounter.gd: %s" % encounter_script)
+	
+	var enemy_script = load("res://resources/data/enemy_data.gd")
+	print("   enemy_data.gd: %s" % enemy_script)
+	
+	# Test loading the enemy resource
+	var goblin = load("res://resources/enemies/goblin.tres")
+	print("   goblin.tres: %s" % goblin)
+	
+	# Test loading the encounter
+	var encounter_res = load("res://resources/encounters/goblins_basic.tres")
+	print("   goblins_basic.tres: %s" % encounter_res)
+	
+	if encounter_res and not encounter:
+		encounter = encounter_res
+		print("   FORCE ASSIGNED!")
+	
 	# Connect button press
 	if not pressed.is_connected(_on_pressed):
 		pressed.connect(_on_pressed)
@@ -43,6 +64,8 @@ func _ready():
 	# Validate encounter
 	if validate_on_ready:
 		_validate_encounter()
+
+
 
 func _validate_encounter():
 	"""Validate the encounter configuration"""
