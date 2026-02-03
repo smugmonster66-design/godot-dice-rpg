@@ -1,7 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://c0mbat_d1e_base"]
+[gd_scene load_steps=3 format=3 uid="uid://bmga53i2fyko4"]
 
-[ext_resource type="PackedScene" uid="uid://c0d1e0b1ect_base" path="res://scenes/ui/components/dice/die_object_base.tscn" id="1_base"]
-[ext_resource type="Script" path="res://scripts/ui/components/dice/combat_die_object.gd" id="2_script"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/dice/die_object_base.tscn" id="1_base"]
+[ext_resource type="Script" uid="uid://b4dujull0hycx" path="res://scripts/ui/components/dice/combat_die_object.gd" id="2_script"]
 
 [node name="CombatDieObject" instance=ExtResource("1_base")]
 script = ExtResource("2_script")

@@ -393,14 +393,22 @@ func animate_to_position(target_pos: Vector2, duration: float = 0.2) -> Tween:
 # ============================================================================
 
 func create_drag_preview() -> Control:
-	"""Create a visual copy for Godot's drag preview system"""
+	# Use custom preview scene if specified on the die
+	if die_resource and die_resource.drag_preview_scene:
+		var preview = die_resource.drag_preview_scene.instantiate()
+		if preview.has_method("setup"):
+			preview.setup(die_resource)
+		preview.position = -base_size / 2
+		return preview
+	
+	# Fallback: duplicate self
 	var preview = duplicate() as DieObjectBase
 	preview.draggable = false
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
-	# Center on cursor
 	preview.position = -base_size / 2
 	return preview
+
 
 # ============================================================================
 # INPUT HANDLING

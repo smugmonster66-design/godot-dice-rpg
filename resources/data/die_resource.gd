@@ -46,6 +46,8 @@ var icon: Texture2D:
 ## If null, will auto-select based on die_type
 @export var pool_die_scene: PackedScene = null
 
+@export var drag_preview_scene: PackedScene = null
+
 # ============================================================================
 # DICE AFFIXES
 # ============================================================================
