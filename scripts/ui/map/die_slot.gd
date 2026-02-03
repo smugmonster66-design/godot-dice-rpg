@@ -182,14 +182,13 @@ func _show_die():
 		
 		# Add to die_display container or directly to slot
 		if die_display:
-			# Clear existing children
+			# Hide existing children (TypeLabel, ValueLabel, etc.)
 			for child in die_display.get_children():
-				child.queue_free()
+				child.hide()
 			die_display.add_child(current_die_visual)
 			die_display.show()
 		else:
-			add_child(current_die_visual)
-	
+			add_child(current_die_visual)	
 
 
 
@@ -221,10 +220,14 @@ func _update_background():
 			style.bg_color = selected_color
 		elif is_hovered:
 			style.bg_color = hover_color
+		elif die:
+			style.bg_color = Color.TRANSPARENT  # Transparent when die is present
 		else:
 			style.bg_color = empty_color
 	
 	add_theme_stylebox_override("panel", style)
+
+
 
 # ============================================================================
 # INPUT HANDLING

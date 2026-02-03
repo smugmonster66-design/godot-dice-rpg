@@ -65,6 +65,7 @@ text = "+"
 horizontal_alignment = 1
 
 [node name="LockIcon" type="Label" parent="." groups=["lock_icon"]]
+visible = false
 layout_mode = 2
 text = "🔒"
 horizontal_alignment = 1

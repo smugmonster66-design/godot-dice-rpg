@@ -25,6 +25,7 @@ var die_face_container: Control = null
 var current_die_face: Control = null
 var value_label: Label = null
 var texture_rect: TextureRect = null
+var stroke_texture_rect: TextureRect = null
 
 # Visual effect nodes
 var overlay_container: Control = null
@@ -142,6 +143,7 @@ func _load_die_face(die_type: DieResource.DieType):
 		current_die_face = null
 		value_label = null
 		texture_rect = null
+		stroke_texture_rect = null
 	
 	var scene = _get_die_face_scene(die_type)
 	
@@ -154,8 +156,27 @@ func _load_die_face(die_type: DieResource.DieType):
 		
 		value_label = current_die_face.find_child("ValueLabel", true, false) as Label
 		texture_rect = current_die_face.find_child("TextureRect", true, false) as TextureRect
+		
+		# Create stroke texture rect on top of fill
+		if texture_rect:
+			stroke_texture_rect = TextureRect.new()
+			stroke_texture_rect.name = "StrokeTextureRect"
+			stroke_texture_rect.custom_minimum_size = texture_rect.custom_minimum_size
+			stroke_texture_rect.size = texture_rect.size
+			stroke_texture_rect.expand_mode = texture_rect.expand_mode
+			stroke_texture_rect.stretch_mode = texture_rect.stretch_mode
+			stroke_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			
+			# Add as sibling, after the fill texture
+			texture_rect.get_parent().add_child(stroke_texture_rect)
+			# Move stroke after fill but before value label
+			var fill_index = texture_rect.get_index()
+			texture_rect.get_parent().move_child(stroke_texture_rect, fill_index + 1)
 	else:
 		_create_fallback_display(die_type)
+
+
+
 
 func _create_fallback_display(die_type: DieResource.DieType):
 	current_die_face = VBoxContainer.new()
@@ -184,11 +205,27 @@ func update_display():
 	if value_label:
 		value_label.text = str(die_data.get_total_value())
 	
+	# Fill texture
 	if texture_rect:
+		if die_data.fill_texture:
+			texture_rect.texture = die_data.fill_texture
+			texture_rect.visible = true
+		else:
+			texture_rect.visible = false
+		
 		if die_data.color != Color.WHITE:
 			texture_rect.modulate = die_data.color
 		else:
 			texture_rect.modulate = Color.WHITE
+	
+	# Stroke texture (always on top, no color tint by default)
+	if stroke_texture_rect:
+		if die_data.stroke_texture:
+			stroke_texture_rect.texture = die_data.stroke_texture
+			stroke_texture_rect.visible = true
+		else:
+			stroke_texture_rect.visible = false
+
 
 func get_die() -> DieResource:
 	return die_data
@@ -235,16 +272,21 @@ func _clear_visual_effects():
 	if border_glow:
 		border_glow.visible = false
 	
-	# IMPORTANT: Always clear shader material
+	# Clear shader material from fill texture
 	if texture_rect and is_instance_valid(texture_rect):
 		texture_rect.material = null
-		# Reset tint to die's base color
 		if die_data and die_data.color != Color.WHITE:
 			texture_rect.modulate = die_data.color
 		else:
 			texture_rect.modulate = Color.WHITE
-	else:
-		print("  WARNING: texture_rect is null or invalid in _clear_visual_effects")
+	
+	# Clear shader material from stroke texture
+	if stroke_texture_rect and is_instance_valid(stroke_texture_rect):
+		stroke_texture_rect.material = null
+		stroke_texture_rect.modulate = Color.WHITE
+
+
+
 
 func _apply_single_affix_effect(affix: DiceAffix):
 	match affix.visual_effect_type:
@@ -262,8 +304,13 @@ func _apply_single_affix_effect(affix: DiceAffix):
 			_apply_border_glow(affix)
 
 func _apply_color_tint(affix: DiceAffix):
-	if texture_rect and affix.effect_color != Color.WHITE:
+	if affix.effect_color == Color.WHITE:
+		return
+	
+	# Apply tint to fill
+	if texture_rect:
 		texture_rect.modulate = texture_rect.modulate * affix.effect_color
+
 
 func _apply_overlay_texture(affix: DiceAffix):
 	if not affix.overlay_texture or not overlay_container:
@@ -307,14 +354,21 @@ func _apply_shader_effect(affix: DiceAffix):
 	print("_apply_shader_effect called")
 	print("  affix.shader_material: ", affix.shader_material)
 	print("  texture_rect: ", texture_rect)
+	print("  stroke_texture_rect: ", stroke_texture_rect)
 	
-	if not affix.shader_material or not texture_rect:
-		print("  SKIPPED - missing shader or texture_rect")
+	if not affix.shader_material:
+		print("  SKIPPED - missing shader material")
 		return
 	
-	texture_rect.material = affix.shader_material.duplicate()
-	print("  Applied shader to texture_rect")
-
+	# Apply to fill texture
+	if texture_rect:
+		texture_rect.material = affix.shader_material.duplicate()
+		print("  Applied shader to fill texture_rect")
+	
+	# Apply to stroke texture
+	if stroke_texture_rect:
+		stroke_texture_rect.material = affix.shader_material.duplicate()
+		print("  Applied shader to stroke_texture_rect")
 
 
 func _apply_border_glow(affix: DiceAffix):

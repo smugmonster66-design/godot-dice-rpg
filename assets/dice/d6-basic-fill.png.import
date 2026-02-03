@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bpyoyfpeoa6hb"
-path="res://.godot/imported/d6-basic.png-3523a049b2da39fce60f6f441522f939.ctex"
+uid="uid://dr42i14gm0fjv"
+path="res://.godot/imported/d6-basic-fill.png-e124458ae9b51aae402442ce175935c2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/dice/D6s/d6-basic.png"
-dest_files=["res://.godot/imported/d6-basic.png-3523a049b2da39fce60f6f441522f939.ctex"]
+source_file="res://assets/dice/d6-basic-fill.png"
+dest_files=["res://.godot/imported/d6-basic-fill.png-e124458ae9b51aae402442ce175935c2.ctex"]
 
 [params]
 

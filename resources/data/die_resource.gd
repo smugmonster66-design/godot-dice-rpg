@@ -20,8 +20,19 @@ enum DieType {
 # ============================================================================
 @export var display_name: String = "Die"
 @export var die_type: DieType = DieType.D6
-@export var icon: Texture2D = null
 @export var color: Color = Color.WHITE
+
+@export_group("Textures")
+## Fill texture (drawn first, behind stroke)
+@export var fill_texture: Texture2D = null
+## Stroke/outline texture (drawn on top of fill)
+@export var stroke_texture: Texture2D = null
+
+var icon: Texture2D:
+	get:
+		return fill_texture
+	set(value):
+		fill_texture = value
 
 # ============================================================================
 # DICE AFFIXES
@@ -245,7 +256,8 @@ func duplicate_die() -> DieResource:
 	"""Create a deep copy of this die"""
 	var copy = DieResource.new(die_type, source)
 	copy.display_name = display_name
-	copy.icon = icon
+	copy.fill_texture = fill_texture
+	copy.stroke_texture = stroke_texture
 	copy.color = color
 	copy.current_value = current_value
 	copy.modified_value = modified_value
@@ -263,6 +275,9 @@ func duplicate_die() -> DieResource:
 		copy.applied_affixes.append(affix.duplicate(true))
 	
 	return copy
+
+
+
 
 # ============================================================================
 # SERIALIZATION
