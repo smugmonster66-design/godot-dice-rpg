@@ -126,12 +126,15 @@ func set_die(die: DieResource):
 	if not is_node_ready():
 		return
 	
-	if die.die_type != current_die_type or not current_die_face:
+	# Always reload if die type matches but texture_rect might be stale
+	if die.die_type != current_die_type or not current_die_face or not texture_rect:
 		_load_die_face(die.die_type)
 		current_die_type = die.die_type
 	
 	update_display()
 	_apply_affix_visual_effects()
+
+
 
 func _load_die_face(die_type: DieResource.DieType):
 	if current_die_face and is_instance_valid(current_die_face):
@@ -204,40 +207,44 @@ func _apply_affix_visual_effects():
 	_clear_visual_effects()
 	
 	if not die_data:
-		print("_apply_affix_visual_effects: no die_data")
 		return
 	
 	var all_affixes = die_data.get_all_affixes()
-	print("_apply_affix_visual_effects: found %d affixes" % all_affixes.size())
+	print("_apply_affix_visual_effects: ", die_data.display_name, " found ", all_affixes.size(), " affixes")
+	
+	all_affixes.sort_custom(func(a, b): return a.visual_priority < b.visual_priority)
 	
 	for affix in all_affixes:
-		print("  Processing affix: %s, visual_type: %d" % [affix.affix_name, affix.visual_effect_type])
+		print("  Processing affix: ", affix.affix_name, ", visual_type: ", affix.visual_effect_type)
 		_apply_single_affix_effect(affix)
 
-
-
-
 func _clear_visual_effects():
+	# Clear overlays
 	for overlay in active_overlays:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 	active_overlays.clear()
 	
+	# Clear particles
 	for particles in active_particles:
 		if is_instance_valid(particles):
 			particles.queue_free()
 	active_particles.clear()
 	
+	# Hide border glow
 	if border_glow:
 		border_glow.visible = false
 	
-	if texture_rect:
+	# IMPORTANT: Always clear shader material
+	if texture_rect and is_instance_valid(texture_rect):
 		texture_rect.material = null
 		# Reset tint to die's base color
 		if die_data and die_data.color != Color.WHITE:
 			texture_rect.modulate = die_data.color
 		else:
 			texture_rect.modulate = Color.WHITE
+	else:
+		print("  WARNING: texture_rect is null or invalid in _clear_visual_effects")
 
 func _apply_single_affix_effect(affix: DiceAffix):
 	match affix.visual_effect_type:

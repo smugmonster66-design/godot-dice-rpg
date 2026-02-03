@@ -30,15 +30,25 @@ func initialize(pool):
 		print("  ⚠️ WARNING: dice_pool is null!")
 		return
 	
-	print("  ✅ Player dice pool has %d dice" % dice_pool.available_dice.size())
+	print("  ✅ Player dice pool has %d dice in pool, %d in hand" % [dice_pool.dice.size(), dice_pool.hand.size()])
 	
-	# Connect to dice rolled signal
-	if dice_pool.has_signal("dice_rolled"):
-		if not dice_pool.dice_rolled.is_connected(refresh):
-			dice_pool.dice_rolled.connect(refresh)
-			print("  ✅ Connected to dice_rolled signal")
+	# Connect to hand signals (for combat)
+	if dice_pool.has_signal("hand_rolled"):
+		if not dice_pool.hand_rolled.is_connected(_on_hand_rolled):
+			dice_pool.hand_rolled.connect(_on_hand_rolled)
+			print("  ✅ Connected to hand_rolled signal")
+	
+	if dice_pool.has_signal("hand_changed"):
+		if not dice_pool.hand_changed.is_connected(refresh):
+			dice_pool.hand_changed.connect(refresh)
+			print("  ✅ Connected to hand_changed signal")
 	
 	# Initial display
+	refresh()
+
+func _on_hand_rolled(_hand: Array):
+	"""Hand was rolled - refresh display"""
+	print("🎲 DicePoolDisplay: hand_rolled signal received")
 	refresh()
 
 # ============================================================================

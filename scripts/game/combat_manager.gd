@@ -434,15 +434,24 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 	for i in range(decision.dice.size()):
 		var die = decision.dice[i]
 		
-		# Find the FIRST VISIBLE die visual (not by index)
+		# Find the visual that matches THIS die
 		var die_visual: Control = null
 		if combat_ui and combat_ui.enemy_panel:
+			for vis in combat_ui.enemy_panel.hand_dice_visuals:
+				if is_instance_valid(vis) and vis.visible and vis.has_method("get_die"):
+					var vis_die = vis.get_die()
+					if vis_die == die:
+						die_visual = vis
+						break
+		
+		# Fallback: if no exact match, find first visible
+		if not die_visual and combat_ui and combat_ui.enemy_panel:
 			for vis in combat_ui.enemy_panel.hand_dice_visuals:
 				if is_instance_valid(vis) and vis.visible:
 					die_visual = vis
 					break
 		
-		# Animate die to action field - pass the actual die resource
+		# Animate die to action field
 		if combat_ui.has_method("animate_die_to_action_field"):
 			await combat_ui.animate_die_to_action_field(die_visual, action_name, die)
 		else:
