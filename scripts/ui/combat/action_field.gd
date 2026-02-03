@@ -387,11 +387,20 @@ func _create_placed_die_visual(die: DieResource) -> Control:
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.set_die(die)
 	
-	# Scale to fit 62x62 slot (124 * 0.5 = 62)
+	# Create a container to hold and scale the visual
+	var container = Control.new()
+	container.custom_minimum_size = Vector2(62, 62)
+	container.size = Vector2(62, 62)
+	container.pivot_offset = Vector2(31, 31)  # Set pivot at creation for centered animations
+	container.clip_contents = true
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Add visual and scale it
+	container.add_child(visual)
 	visual.scale = Vector2(0.5, 0.5)
 	visual.position = Vector2.ZERO
 	
-	return visual
+	return container
 
 
 
