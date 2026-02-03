@@ -1,5 +1,6 @@
 # res://scripts/ui/combat/action_field.gd
 # Action field with icon, die slots, and charge display
+# Updated to use CombatDieObject for placed dice
 extends PanelContainer
 class_name ActionField
 
@@ -35,7 +36,19 @@ var source: String = ""
 var action_resource: Action = null
 
 # ============================================================================
-# NODE REFERENCES - Discovered by name in _ready()
+# SIGNALS
+# ============================================================================
+signal action_selected(field: ActionField)
+signal action_confirmed(action_data: Dictionary)
+signal action_ready(action_field: ActionField)
+signal action_cancelled(action_field: ActionField)
+signal die_placed(action_field: ActionField, die: DieResource)
+signal die_removed(action_field: ActionField, die: DieResource)
+signal dice_returned(die: DieResource, target_position: Vector2)
+signal dice_return_complete()
+
+# ============================================================================
+# NODE REFERENCES
 # ============================================================================
 var name_label: Label = null
 var charge_label: Label = null
@@ -51,17 +64,10 @@ var placed_dice: Array[DieResource] = []
 var dice_visuals: Array[Control] = []
 var die_slot_panels: Array[Panel] = []
 var is_disabled: bool = false
+var dice_source_info: Array[Dictionary] = []
 
-# Track source info for each placed die (for return animation)
-var dice_source_info: Array[Dictionary] = []  # [{visual, position, slot_index}, ...]
-
-# ============================================================================
-# SIGNALS
-# ============================================================================
-signal action_selected(field: ActionField)
-signal action_confirmed(action_data: Dictionary)
-signal dice_returned(die: DieResource, target_position: Vector2)
-signal dice_return_complete()
+const SLOT_SIZE = Vector2(62, 62)
+const DIE_SCALE = 0.5
 
 # ============================================================================
 # INITIALIZATION
@@ -73,25 +79,8 @@ func _ready():
 	setup_drop_target()
 	create_die_slots()
 	refresh_ui()
-	print("✅ ActionField UI created: %s" % action_name)
-
-func _set_children_mouse_pass():
-	"""Set all child controls to pass mouse events to allow drop on ActionField"""
-	for child in get_all_children(self):
-		if child is Control and child != self:
-			child.mouse_filter = Control.MOUSE_FILTER_PASS
-
-func get_all_children(node: Node) -> Array:
-	"""Recursively get all children"""
-	var children = []
-	for child in node.get_children():
-		children.append(child)
-		children.append_array(get_all_children(child))
-	return children
-
 
 func _discover_nodes():
-	"""Find UI nodes by name, searching recursively"""
 	name_label = find_child("NameLabel", true, false) as Label
 	charge_label = find_child("ChargeLabel", true, false) as Label
 	icon_container = find_child("IconContainer", true, false) as PanelContainer
@@ -99,145 +88,67 @@ func _discover_nodes():
 	die_slots_grid = find_child("DieSlotsGrid", true, false) as GridContainer
 	description_label = find_child("DescriptionLabel", true, false) as RichTextLabel
 
-
-
-func create_die_slots():
-	"""Create empty die slot panels"""
-	if not die_slots_grid:
-		push_warning("DieSlotsGrid not found in ActionField!")
-		return
-	
-	# Clear existing slots
-	for child in die_slots_grid.get_children():
-		child.queue_free()
-	die_slot_panels.clear()
-	dice_visuals.clear()
-	
-	# Create new slot panels
-	for i in range(die_slots):
-		var slot_panel = Panel.new()
-		slot_panel.custom_minimum_size = Vector2(62, 62)
-		slot_panel.size = Vector2(62, 62)
-		slot_panel.mouse_filter = Control.MOUSE_FILTER_PASS  # <-- ADD THIS LINE
-		
-		# Style the slot
-		var slot_style = StyleBoxFlat.new()
-		slot_style.bg_color = Color(0.15, 0.15, 0.2)
-		slot_style.border_color = Color(0.3, 0.3, 0.4)
-		slot_style.set_border_width_all(1)
-		slot_style.set_corner_radius_all(4)
-		slot_panel.add_theme_stylebox_override("panel", slot_style)
-		
-		# Add empty indicator
-		var empty_label = Label.new()
-		empty_label.text = "+"
-		empty_label.set_anchors_preset(Control.PRESET_CENTER)
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		empty_label.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
-		empty_label.mouse_filter = Control.MOUSE_FILTER_IGNORE  # <-- ADD THIS LINE TOO
-		slot_panel.add_child(empty_label)
-		
-		die_slots_grid.add_child(slot_panel)
-		die_slot_panels.append(slot_panel)
-
-
-
+func _set_children_mouse_pass():
+	for child in get_children():
+		if child is Control and child != self:
+			child.mouse_filter = Control.MOUSE_FILTER_PASS
+			for subchild in child.get_children():
+				if subchild is Control:
+					subchild.mouse_filter = Control.MOUSE_FILTER_PASS
 
 func setup_drop_target():
-	"""Setup as drop target for dice"""
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 # ============================================================================
-# CHARGE MANAGEMENT
+# DIE SLOT CREATION
 # ============================================================================
 
-func has_charges() -> bool:
-	"""Check if action has charges available"""
-	if not action_resource:
-		return true
-	return action_resource.has_charges()
-
-func consume_charge() -> bool:
-	"""Consume a charge when action is used"""
-	if not action_resource:
-		return true
-	var result = action_resource.consume_charge()
-	update_charge_display()
-	update_disabled_state()
-	return result
-
-func update_charge_display():
-	"""Update the charge label from action_resource"""
-	if not charge_label:
+func create_die_slots():
+	if not die_slots_grid:
 		return
 	
-	if not action_resource:
-		charge_label.text = ""
-		charge_label.hide()
-		return
+	for child in die_slots_grid.get_children():
+		child.queue_free()
+	die_slot_panels.clear()
 	
-	if action_resource.charge_type == Action.ChargeType.UNLIMITED:
-		charge_label.text = ""
-		charge_label.hide()
-		return
-	
-	charge_label.show()
-	charge_label.text = "%d/%d" % [action_resource.current_charges, action_resource.max_charges]
-	
-	# Color based on charges remaining
-	if action_resource.current_charges == 0:
-		charge_label.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
-	elif action_resource.current_charges == 1:
-		charge_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
-	else:
-		charge_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+	for i in range(die_slots):
+		var slot = _create_slot_panel()
+		die_slots_grid.add_child(slot)
+		die_slot_panels.append(slot)
+		_setup_empty_slot(slot)
 
-func update_disabled_state():
-	"""Update visual state based on whether action can be used"""
-	is_disabled = not has_charges()
+func _create_slot_panel() -> Panel:
+	var slot = Panel.new()
+	slot.name = "SlotPanel"
+	slot.custom_minimum_size = SLOT_SIZE
+	slot.mouse_filter = Control.MOUSE_FILTER_PASS
 	
-	if is_disabled:
-		modulate = Color(0.5, 0.5, 0.5, 0.7)
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-	else:
-		modulate = Color.WHITE
-		mouse_filter = Control.MOUSE_FILTER_STOP
-	
-	update_icon_state()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.2)
+	style.set_border_width_all(1)
+	style.border_color = Color(0.3, 0.3, 0.4)
+	style.set_corner_radius_all(4)
+	slot.add_theme_stylebox_override("panel", style)
+	return slot
 
-func refresh_charge_state():
-	"""Called when charges change - update display and state"""
-	update_charge_display()
-	update_disabled_state()
+func _setup_empty_slot(slot: Panel):
+	for child in slot.get_children():
+		child.queue_free()
+	var lbl = Label.new()
+	lbl.name = "EmptyLabel"
+	lbl.text = "+"
+	lbl.add_theme_font_size_override("font_size", 24)
+	lbl.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(lbl)
 
 # ============================================================================
-# UI UPDATES
+# CONFIGURATION
 # ============================================================================
-
-func update_icon_state():
-	"""Dim icon when dice are placed or disabled"""
-	if not icon_rect:
-		return
-	
-	if is_disabled:
-		icon_rect.modulate = Color(0.3, 0.3, 0.3)
-	elif placed_dice.size() > 0:
-		icon_rect.modulate = Color(0.5, 0.5, 0.5)
-	else:
-		icon_rect.modulate = Color.WHITE
-
-func _gui_input(event: InputEvent):
-	"""Handle clicking on action field"""
-	if is_disabled:
-		return
-	
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if is_ready_to_confirm():
-			action_selected.emit(self)
 
 func configure_from_dict(action_data: Dictionary):
-	"""Configure this action field from a dictionary"""
 	action_name = action_data.get("name", "Action")
 	action_description = action_data.get("description", "")
 	action_icon = action_data.get("icon", null)
@@ -250,34 +161,21 @@ func configure_from_dict(action_data: Dictionary):
 	source = action_data.get("source", "")
 	action_resource = action_data.get("action_resource", null)
 	
-	# Reset charges for combat when configured
 	if action_resource:
 		action_resource.reset_charges_for_combat()
 	
 	if is_node_ready():
 		refresh_ui()
 
-
-
-
 func refresh_ui():
-	"""Refresh visual elements to match current properties"""
 	if name_label:
 		name_label.text = action_name
-	
 	if icon_rect:
 		icon_rect.texture = action_icon
-	
 	if description_label:
 		description_label.text = action_description
 	
-	# Recreate die slots if count changed
-	if die_slots_grid and die_slot_panels.size() != die_slots:
-		placed_dice.clear()
-		dice_visuals.clear()
-		dice_source_info.clear()
-		create_die_slots()
-	
+	create_die_slots()
 	update_charge_display()
 	update_disabled_state()
 
@@ -285,292 +183,246 @@ func refresh_ui():
 # DRAG AND DROP
 # ============================================================================
 
-func _can_drop_data(_at_position: Vector2, data) -> bool:
-	"""Check if we can accept this drop"""
-	print("🎯 _can_drop_data called on %s" % action_name)
-	print("  is_disabled: %s" % is_disabled)
-	print("  data is Dictionary: %s" % (data is Dictionary))
-	
+func _can_drop_data(_pos: Vector2, data: Variant) -> bool:
 	if is_disabled:
-		print("  ❌ Rejected: disabled")
 		return false
 	if not data is Dictionary:
-		print("  ❌ Rejected: not dictionary")
 		return false
-	if not data.has("die"):
-		print("  ❌ Rejected: no die in data")
+	if data.get("type") != "combat_die" and data.get("type") != "die_slot":
 		return false
-	
-	print("  die_slots: %d, placed_dice.size(): %d" % [die_slots, placed_dice.size()])
-	if placed_dice.size() >= die_slots:
-		print("  ❌ Rejected: slots full (%d >= %d)" % [placed_dice.size(), die_slots])
+	if placed_dice.size() >= die_slot_panels.size():
 		return false
-	
-	var die = data.die as DieResource
-	if not die:
-		print("  ❌ Rejected: die is null")
+	if not has_charges():
 		return false
-	
-	print("  required_tags: %s" % required_tags)
-	print("  restricted_tags: %s" % restricted_tags)
-	print("  die tags: %s" % die.get_tags())
-	
-	# Check tag restrictions
-	for tag in required_tags:
-		if not die.has_tag(tag):
-			print("  ❌ Rejected: missing required tag '%s'" % tag)
-			return false
-	
-	for tag in restricted_tags:
-		if die.has_tag(tag):
-			print("  ❌ Rejected: has restricted tag '%s'" % tag)
-			return false
-	
-	print("  ✅ Accepted!")
 	return true
 
+func _drop_data(_pos: Vector2, data: Variant):
+	if not data is Dictionary:
+		return
+	
+	var die = data.get("die") as DieResource
+	var source_obj = data.get("die_object")
+	var source_visual = data.get("visual")
+	var source_pos = data.get("source_position", global_position) as Vector2
+	var source_idx = data.get("slot_index", -1) as int
+	
+	if source_obj and source_obj.has_method("mark_as_placed"):
+		source_obj.mark_as_placed()
+	elif source_visual and source_visual.has_method("mark_as_placed"):
+		source_visual.mark_as_placed()
+	
+	place_die_animated(die, source_pos, source_visual, source_idx)
 
-func _drop_data(_at_position: Vector2, data: Variant):
-	if data is Dictionary and data.has("die"):
-		var die = data["die"] as DieResource
-		var source_visual = data.get("visual", null)
-		var source_position = data.get("source_position", global_position)
-		var source_slot_index = data.get("slot_index", -1)
-		
-		# Mark source as placed BEFORE animation
-		if source_visual and source_visual.has_method("mark_as_placed"):
-			source_visual.mark_as_placed()
-		
-		place_die_animated(die, source_position, source_visual, source_slot_index)
+# ============================================================================
+# DIE PLACEMENT
+# ============================================================================
 
-func place_die_animated(die: DieResource, from_position: Vector2, source_visual: Control = null, source_slot_index: int = -1):
-	"""Place a die with snap animation"""
+func place_die_animated(die: DieResource, from_pos: Vector2, source_visual: Control = null, source_idx: int = -1):
 	if placed_dice.size() >= die_slot_panels.size():
 		return
 	
 	placed_dice.append(die)
 	dice_source_info.append({
 		"visual": source_visual,
-		"position": from_position,
-		"slot_index": source_slot_index
+		"position": from_pos,
+		"slot_index": source_idx
 	})
 	
-	# Get target slot
-	var slot_index = placed_dice.size() - 1
-	if slot_index >= die_slot_panels.size():
-		return
+	var slot_idx = placed_dice.size() - 1
+	var slot = die_slot_panels[slot_idx]
 	
-	var slot_panel = die_slot_panels[slot_index]
-	
-	# Clear empty indicator
-	for child in slot_panel.get_children():
+	for child in slot.get_children():
 		child.queue_free()
 	
-	# Create die visual - START HIDDEN
-	var die_visual = _create_placed_die_visual(die)
-	slot_panel.add_child(die_visual)
-	dice_visuals.append(die_visual)
-	
-	# Fade in quickly
-	var fade_tween = create_tween()
-	fade_tween.tween_property(die_visual, "modulate:a", 1.0, 0.1)
-	
-	# Animate snap to slot
-	_animate_snap_to_slot(die_visual, slot_panel, from_position)
+	var visual = _create_placed_visual(die)
+	if visual:
+		slot.add_child(visual)
+		dice_visuals.append(visual)
+		_animate_placement(visual, slot, from_pos)
 	
 	update_icon_state()
+	die_placed.emit(self, die)
 	
-	# Auto-select this action field if ready to confirm
 	if is_ready_to_confirm():
+		action_ready.emit(self)
 		action_selected.emit(self)
 
-
-func _animate_snap_to_slot(die_visual: Control, slot_panel: Panel, from_position: Vector2):
-	"""Animate die snapping to its slot"""
-	# We need to animate in global space, so temporarily reparent
-	var target_pos = slot_panel.global_position + slot_panel.size / 2
-	
-	# Set initial state (at source position)
-	die_visual.pivot_offset = die_visual.size / 2
-	die_visual.scale = Vector2(1.2, 1.2)
-	die_visual.modulate = Color(1.2, 1.2, 0.8, 0.8)
-	
-	# Animate
-	var tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(die_visual, "scale", Vector2.ONE, snap_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tween.tween_property(die_visual, "modulate", Color.WHITE, snap_duration).set_ease(Tween.EASE_OUT)
-	
-	# Flash effect on slot
-	var original_style = slot_panel.get_theme_stylebox("panel")
-	if original_style is StyleBoxFlat:
-		var flash_style = original_style.duplicate() as StyleBoxFlat
-		flash_style.border_color = Color(1.0, 0.9, 0.5)
-		flash_style.set_border_width_all(2)
-		slot_panel.add_theme_stylebox_override("panel", flash_style)
-		
-		tween.chain().tween_callback(func():
-			var revert_style = original_style.duplicate() as StyleBoxFlat
-			revert_style.bg_color = Color(0.2, 0.2, 0.25)
-			revert_style.border_color = Color(0.4, 0.5, 0.4)
-			slot_panel.add_theme_stylebox_override("panel", revert_style)
-		)
-
 func place_die(die: DieResource):
-	"""Place a die without animation (for programmatic placement)"""
 	place_die_animated(die, global_position, null, -1)
 
-
-
-func _create_placed_die_visual(die: DieResource) -> Control:
-	"""Create a visual for a placed die using DieVisual scene"""
-	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
-	var visual = die_visual_scene.instantiate() as DieVisual
+func _create_placed_visual(die: DieResource) -> Control:
+	# Try to use new DieObject system
+	if die.has_method("instantiate_combat_visual"):
+		var obj = die.instantiate_combat_visual()
+		if obj:
+			obj.draggable = false
+			obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			obj.set_display_scale(DIE_SCALE)
+			obj.position = (SLOT_SIZE - obj.base_size * DIE_SCALE) / 2
+			return obj
 	
-	if not visual:
-		return null
+	# Fallback to old DieVisual if available
+	var die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
+	if die_visual_scene:
+		var visual = die_visual_scene.instantiate()
+		if visual.has_method("set_die"):
+			visual.set_die(die)
+		visual.can_drag = false
+		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		visual.scale = Vector2(DIE_SCALE, DIE_SCALE)
+		return visual
 	
-	visual.can_drag = false
-	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.set_die(die)
-	
-	# Create a container to hold and scale the visual
-	var container = Control.new()
-	container.custom_minimum_size = Vector2(62, 62)
-	container.size = Vector2(62, 62)
-	container.pivot_offset = Vector2(31, 31)  # Set pivot at creation for centered animations
-	container.clip_contents = true
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	# Add visual and scale it
-	container.add_child(visual)
-	visual.scale = Vector2(0.5, 0.5)
-	visual.position = Vector2.ZERO
-	
-	return container
+	# Final fallback
+	var lbl = Label.new()
+	lbl.text = str(die.get_total_value())
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	return lbl
 
-
-
-func _force_minimum_size_recursive(node: Control, target_size: Vector2):
-	"""Force minimum size on node and all Control children"""
-	node.custom_minimum_size = target_size
-	
-	for child in node.get_children():
-		if child is Control:
-			_force_minimum_size_recursive(child, target_size)
-
-
-
-
-
-
-
-
-
-
-func _override_minimum_sizes(node: Control, target_size: Vector2):
-	"""Recursively override custom_minimum_size on all Control children"""
-	node.custom_minimum_size = target_size
-	
-	for child in node.get_children():
-		if child is Control:
-			_override_minimum_sizes(child, target_size)
+func _animate_placement(visual: Control, _slot: Panel, _from_pos: Vector2):
+	visual.scale = Vector2(1.3 * DIE_SCALE, 1.3 * DIE_SCALE)
+	visual.modulate = Color(1.2, 1.2, 0.9)
+	var tw = create_tween().set_parallel(true)
+	tw.tween_property(visual, "scale", Vector2(DIE_SCALE, DIE_SCALE), snap_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(visual, "modulate", Color.WHITE, snap_duration)
 
 # ============================================================================
-# ACTION STATE
+# STATE CHECKS
 # ============================================================================
 
 func is_ready_to_confirm() -> bool:
-	"""Check if action has minimum dice to confirm"""
-	if is_disabled:
-		return false
-	var min_required = max(1, die_slots) if die_slots > 0 else 1
-	return placed_dice.size() >= min_required
+	return placed_dice.size() >= die_slots and has_charges()
 
-func get_total_value() -> int:
-	"""Get total value of placed dice"""
+func has_charges() -> bool:
+	if not action_resource:
+		return true
+	return action_resource.has_charges()
+
+func get_total_dice_value() -> int:
 	var total = 0
 	for die in placed_dice:
 		total += die.get_total_value()
 	return total
 
-func clear_dice():
-	"""Clear all placed dice without animation"""
-	placed_dice.clear()
-	dice_visuals.clear()
-	dice_source_info.clear()
-	create_die_slots()
+# ============================================================================
+# CHARGE MANAGEMENT
+# ============================================================================
 
-func cancel_action():
-	"""Cancel action and animate dice returning to hand"""
-	if placed_dice.is_empty():
-		dice_return_complete.emit()
+func consume_charge() -> bool:
+	if not action_resource:
+		return true
+	var result = action_resource.consume_charge()
+	update_charge_display()
+	update_disabled_state()
+	return result
+
+func update_charge_display():
+	if not charge_label:
+		return
+	if not action_resource:
+		charge_label.text = ""
+		charge_label.hide()
+		return
+	if action_resource.charge_type == Action.ChargeType.UNLIMITED:
+		charge_label.text = ""
+		charge_label.hide()
 		return
 	
-	var return_count = placed_dice.size()
-	var returned = 0
+	charge_label.show()
+	charge_label.text = "%d/%d" % [action_resource.current_charges, action_resource.max_charges]
 	
-	# Animate each die back to source
+	if action_resource.current_charges == 0:
+		charge_label.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
+	elif action_resource.current_charges == 1:
+		charge_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
+	else:
+		charge_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+
+func update_disabled_state():
+	is_disabled = not has_charges()
+	if is_disabled:
+		modulate = Color(0.5, 0.5, 0.5, 0.7)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	else:
+		modulate = Color.WHITE
+		mouse_filter = Control.MOUSE_FILTER_STOP
+	update_icon_state()
+
+func refresh_charge_state():
+	update_charge_display()
+	update_disabled_state()
+
+# ============================================================================
+# UI UPDATES
+# ============================================================================
+
+func update_icon_state():
+	if not icon_rect:
+		return
+	if is_disabled:
+		icon_rect.modulate = Color(0.3, 0.3, 0.3)
+	elif placed_dice.size() > 0:
+		icon_rect.modulate = Color(0.5, 0.5, 0.5)
+	else:
+		icon_rect.modulate = Color.WHITE
+
+func _gui_input(event: InputEvent):
+	if is_disabled:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if is_ready_to_confirm():
+			action_selected.emit(self)
+
+# ============================================================================
+# CANCEL / CLEAR
+# ============================================================================
+
+func cancel_action():
 	for i in range(placed_dice.size()):
 		var die = placed_dice[i]
-		var visual = dice_visuals[i] if i < dice_visuals.size() else null
-		var source_info = dice_source_info[i] if i < dice_source_info.size() else {}
-		
-		var target_pos = source_info.get("position", global_position)
-		var source_visual = source_info.get("visual", null)
-		
-		# Animate return
-		if visual and is_instance_valid(visual):
-			_animate_return_to_hand(visual, target_pos, source_visual, func():
-				returned += 1
-				dice_returned.emit(die, target_pos)
-				if returned >= return_count:
-					_finish_cancel()
-			)
-		else:
-			returned += 1
-			dice_returned.emit(die, target_pos)
-			# Restore source visual
-			if source_visual and is_instance_valid(source_visual):
-				source_visual.modulate.a = 1.0
-			if returned >= return_count:
-				_finish_cancel()
-
-func _animate_return_to_hand(visual: Control, target_pos: Vector2, source_visual: Control, on_complete: Callable):
-	"""Animate a die visual returning to the hand"""
-	# Hide the placed visual immediately
-	if visual and is_instance_valid(visual):
-		visual.modulate.a = 0
+		var info = dice_source_info[i] if i < dice_source_info.size() else {}
+		var target_pos = info.get("position", Vector2.ZERO)
+		dice_returned.emit(die, target_pos)
 	
-	# Restore and animate the source visual
-	if source_visual and is_instance_valid(source_visual):
-		source_visual.visible = true
-		source_visual.modulate = Color(0.5, 1.0, 0.5, 1.0)
-		source_visual.scale = Vector2(0.8, 0.8)
-		
-		var tween = create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(source_visual, "modulate", Color(1.3, 1.3, 1.0, 1.0), return_duration)
-		tween.tween_property(source_visual, "scale", Vector2.ONE, return_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		tween.chain().tween_property(source_visual, "modulate", Color.WHITE, 0.1)
-		tween.chain().tween_callback(on_complete)
-	else:
-		on_complete.call()
-
-func _finish_cancel():
-	"""Finish cancellation after all dice returned"""
-	placed_dice.clear()
-	dice_visuals.clear()
-	dice_source_info.clear()
-	create_die_slots()
+	_clear_placed_dice()
+	action_cancelled.emit(self)
 	dice_return_complete.emit()
 
-func set_highlighted(highlighted: bool):
-	"""Set highlight state for enemy turn display"""
-	if highlighted:
-		modulate = Color(1.2, 1.1, 0.9)
-	else:
-		if is_disabled:
-			modulate = Color(0.5, 0.5, 0.5, 0.7)
-		else:
-			modulate = Color.WHITE
+func _clear_placed_dice():
+	for obj in dice_visuals:
+		if is_instance_valid(obj):
+			obj.queue_free()
+	dice_visuals.clear()
+	placed_dice.clear()
+	dice_source_info.clear()
+	
+	for slot in die_slot_panels:
+		_setup_empty_slot(slot)
+	
+	update_icon_state()
+
+func consume_dice():
+	_clear_placed_dice()
+	update_icon_state()
+
+func reset_charges():
+	if action_resource:
+		action_resource.reset_charges_for_combat()
+	refresh_charge_state()
+
+# ============================================================================
+# ACTION DATA
+# ============================================================================
+
+func get_action_data() -> Dictionary:
+	return {
+		"name": action_name,
+		"action_type": action_type,
+		"base_damage": base_damage,
+		"damage_multiplier": damage_multiplier,
+		"placed_dice": placed_dice,
+		"total_value": get_total_dice_value(),
+		"source": source,
+		"action_resource": action_resource
+	}

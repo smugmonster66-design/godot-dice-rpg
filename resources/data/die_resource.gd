@@ -1,5 +1,6 @@
-# die_resource.gd - Individual die with type, image, and dice affixes
-# This replaces/enhances DieData with proper resource-based design
+# res://resources/data/die_resource.gd
+# Individual die with type, image, and dice affixes
+# Updated to support DieObject scenes for combat and pool displays
 extends Resource
 class_name DieResource
 
@@ -35,6 +36,17 @@ var icon: Texture2D:
 		fill_texture = value
 
 # ============================================================================
+# DIE OBJECT SCENES (NEW)
+# ============================================================================
+@export_group("Die Object Scenes")
+## Scene used to display this die in combat (shows rolled value)
+## If null, will auto-select based on die_type
+@export var combat_die_scene: PackedScene = null
+## Scene used to display this die in pool/inventory (shows max value)
+## If null, will auto-select based on die_type
+@export var pool_die_scene: PackedScene = null
+
+# ============================================================================
 # DICE AFFIXES
 # ============================================================================
 @export_group("Dice Affixes")
@@ -45,6 +57,11 @@ var icon: Texture2D:
 var applied_affixes: Array[DiceAffix] = []
 
 # ============================================================================
+# SIGNALS
+# ============================================================================
+signal value_modified(old_value: int, new_value: int)
+
+# ============================================================================
 # RUNTIME STATE
 # ============================================================================
 var current_value: int = 1          # Current rolled value (before affixes)
@@ -52,133 +69,124 @@ var modified_value: int = 1         # Value after affix modifications
 var modifier: int = 0               # Flat modifier from external sources
 var source: String = ""             # Where this die came from
 var tags: Array[String] = []        # Tags on this die (fire, holy, etc.)
-var is_locked: bool = false         # Can't be consumed/moved
-var can_reroll: bool = false        # Has a reroll available
-var slot_index: int = -1            # Current position in dice collection
+var is_locked: bool = false         # Can't be used this turn
+var can_reroll: bool = false        # Can be rerolled
+var slot_index: int = 0             # Position in collection (for affixes)
 
 # ============================================================================
-# SIGNALS
+# SCENE PATH CONSTANTS
 # ============================================================================
-signal rolled(value: int)
-signal value_modified(old_value: int, new_value: int)
-signal tag_added(tag: String)
-signal tag_removed(tag: String)
-signal affix_triggered(affix: DiceAffix)
+const COMBAT_SCENE_PATHS = {
+	DieType.D4: "res://scenes/ui/components/dice/combat/combat_die_d4.tscn",
+	DieType.D6: "res://scenes/ui/components/dice/combat/combat_die_d6.tscn",
+	DieType.D8: "res://scenes/ui/components/dice/combat/combat_die_d8.tscn",
+	DieType.D10: "res://scenes/ui/components/dice/combat/combat_die_d10.tscn",
+	DieType.D12: "res://scenes/ui/components/dice/combat/combat_die_d12.tscn",
+	DieType.D20: "res://scenes/ui/components/dice/combat/combat_die_d20.tscn",
+}
+
+const POOL_SCENE_PATHS = {
+	DieType.D4: "res://scenes/ui/components/dice/pool/pool_die_d4.tscn",
+	DieType.D6: "res://scenes/ui/components/dice/pool/pool_die_d6.tscn",
+	DieType.D8: "res://scenes/ui/components/dice/pool/pool_die_d8.tscn",
+	DieType.D10: "res://scenes/ui/components/dice/pool/pool_die_d10.tscn",
+	DieType.D12: "res://scenes/ui/components/dice/pool/pool_die_d12.tscn",
+	DieType.D20: "res://scenes/ui/components/dice/pool/pool_die_d20.tscn",
+}
 
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
 
-func _init(type: DieType = DieType.D6, src: String = ""):
+func _init(type: DieType = DieType.D6, p_source: String = ""):
 	die_type = type
-	source = src
+	source = p_source
 	display_name = "D%d" % type
+
+# ============================================================================
+# DIE OBJECT INSTANTIATION (NEW)
+# ============================================================================
+
+func instantiate_combat_visual() -> CombatDieObject:
+	"""Create a CombatDieObject for use in combat hand/action fields"""
+	var scene = _get_combat_scene()
+	if not scene:
+		push_warning("DieResource: No combat scene for %s" % display_name)
+		return null
+	
+	var obj = scene.instantiate() as CombatDieObject
+	if obj:
+		obj.setup(self)
+	return obj
+
+func instantiate_pool_visual() -> PoolDieObject:
+	"""Create a PoolDieObject for use in map pool/inventory"""
+	var scene = _get_pool_scene()
+	if not scene:
+		push_warning("DieResource: No pool scene for %s" % display_name)
+		return null
+	
+	var obj = scene.instantiate() as PoolDieObject
+	if obj:
+		obj.setup(self)
+	return obj
+
+func _get_combat_scene() -> PackedScene:
+	"""Get the combat scene, using explicit or auto-selected"""
+	if combat_die_scene:
+		return combat_die_scene
+	
+	# Auto-select based on die type
+	var path = COMBAT_SCENE_PATHS.get(die_type, "")
+	if path and ResourceLoader.exists(path):
+		return load(path)
+	
+	return null
+
+func _get_pool_scene() -> PackedScene:
+	"""Get the pool scene, using explicit or auto-selected"""
+	if pool_die_scene:
+		return pool_die_scene
+	
+	# Auto-select based on die type
+	var path = POOL_SCENE_PATHS.get(die_type, "")
+	if path and ResourceLoader.exists(path):
+		return load(path)
+	
+	return null
 
 # ============================================================================
 # ROLLING
 # ============================================================================
 
 func roll() -> int:
-	"""Roll this die and return base value (before affix modifications)"""
+	"""Roll the die and return the result"""
 	current_value = randi_range(1, die_type)
 	modified_value = current_value
-	can_reroll = false  # Reset reroll on new roll
-	
-	rolled.emit(current_value)
-	return current_value
-
-func get_base_value() -> int:
-	"""Get the base rolled value (no modifiers)"""
 	return current_value
 
 func get_total_value() -> int:
-	"""Get the final value including all modifications"""
+	"""Get final value including modifiers"""
 	return modified_value + modifier
 
 func get_max_value() -> int:
-	"""Get maximum possible roll for this die type"""
+	"""Get maximum possible roll value"""
 	return die_type
 
+func get_base_value() -> int:
+	"""Get the raw rolled value before modifications"""
+	return current_value
+
+func set_modified_value(value: int):
+	"""Set the modified value (after affix processing)"""
+	modified_value = value
+
 func is_max_roll() -> bool:
-	"""Check if this die rolled its maximum value"""
+	"""Check if current roll is the maximum for this die type"""
 	return current_value == die_type
 
-func is_min_roll() -> bool:
-	"""Check if this die rolled 1"""
-	return current_value == 1
-
 # ============================================================================
-# AFFIX MANAGEMENT
-# ============================================================================
-
-func get_all_affixes() -> Array[DiceAffix]:
-	"""Get all affixes (inherent + applied)"""
-	var all_affixes: Array[DiceAffix] = []
-	all_affixes.append_array(inherent_affixes)
-	all_affixes.append_array(applied_affixes)
-	return all_affixes
-
-func add_affix(affix: DiceAffix):
-	"""Add a runtime affix to this die"""
-	var copy = affix.duplicate_with_source(affix.source, affix.source_type)
-	applied_affixes.append(copy)
-	print("  🎲 Added affix '%s' to %s" % [affix.affix_name, display_name])
-
-func remove_affix(affix: DiceAffix):
-	"""Remove a specific affix"""
-	applied_affixes.erase(affix)
-
-func remove_affixes_by_source(source_name: String):
-	"""Remove all affixes from a specific source"""
-	var to_remove: Array[DiceAffix] = []
-	for affix in applied_affixes:
-		if affix.source == source_name:
-			to_remove.append(affix)
-	for affix in to_remove:
-		applied_affixes.erase(affix)
-
-func clear_applied_affixes():
-	"""Clear all runtime affixes (keeps inherent ones)"""
-	applied_affixes.clear()
-
-func get_affixes_by_trigger(trigger: DiceAffix.Trigger) -> Array[DiceAffix]:
-	"""Get all affixes with a specific trigger type"""
-	var result: Array[DiceAffix] = []
-	for affix in get_all_affixes():
-		if affix.trigger == trigger:
-			result.append(affix)
-	return result
-
-# ============================================================================
-# TAG MANAGEMENT
-# ============================================================================
-
-func has_tag(tag: String) -> bool:
-	"""Check if die has a specific tag"""
-	return tag in tags
-
-func add_tag(tag: String):
-	"""Add a tag to this die"""
-	if not has_tag(tag):
-		tags.append(tag)
-		tag_added.emit(tag)
-
-func remove_tag(tag: String):
-	"""Remove a tag from this die"""
-	if has_tag(tag):
-		tags.erase(tag)
-		tag_removed.emit(tag)
-
-func clear_tags():
-	"""Remove all tags"""
-	tags.clear()
-
-func get_tags() -> Array[String]:
-	"""Get all tags"""
-	return tags.duplicate()
-
-# ============================================================================
-# VALUE MODIFICATION
+# VALUE MODIFICATION (for affix processor)
 # ============================================================================
 
 func apply_flat_modifier(amount: float):
@@ -216,25 +224,62 @@ func reset_modifications():
 	modified_value = current_value
 
 # ============================================================================
+# AFFIXES
+# ============================================================================
+
+func add_affix(affix: DiceAffix):
+	"""Add a runtime affix"""
+	applied_affixes.append(affix)
+
+func remove_affix(affix: DiceAffix):
+	"""Remove a runtime affix"""
+	applied_affixes.erase(affix)
+
+func clear_applied_affixes():
+	"""Remove all runtime affixes"""
+	applied_affixes.clear()
+
+func get_all_affixes() -> Array[DiceAffix]:
+	"""Get combined inherent and applied affixes"""
+	var all: Array[DiceAffix] = []
+	all.append_array(inherent_affixes)
+	all.append_array(applied_affixes)
+	return all
+
+func has_affix_with_effect(effect_type: DiceAffix.EffectType) -> bool:
+	"""Check if any affix has a specific effect type"""
+	for affix in get_all_affixes():
+		if affix.effect_type == effect_type:
+			return true
+	return false
+
+# ============================================================================
+# TAGS
+# ============================================================================
+
+func add_tag(tag: String):
+	if tag not in tags:
+		tags.append(tag)
+
+func remove_tag(tag: String):
+	tags.erase(tag)
+
+func has_tag(tag: String) -> bool:
+	return tag in tags
+
+func get_tags() -> Array[String]:
+	return tags
+
+# ============================================================================
 # DISPLAY
 # ============================================================================
 
 func get_display_name() -> String:
-	"""Get human-readable die name"""
-	var name = display_name if display_name != "Die" else "D%d" % die_type
-	
-	if modifier > 0:
-		name += "+%d" % modifier
-	elif modifier < 0:
-		name += "%d" % modifier
-	
-	if tags.size() > 0:
-		name += " [%s]" % ", ".join(tags)
-	
-	return name
+	if display_name and display_name != "Die":
+		return display_name
+	return "D%d" % die_type
 
 func get_type_string() -> String:
-	"""Get die type as string (D6, D8, etc.)"""
 	return "D%d" % die_type
 
 func get_affix_summary() -> String:
@@ -259,6 +304,8 @@ func duplicate_die() -> DieResource:
 	copy.fill_texture = fill_texture
 	copy.stroke_texture = stroke_texture
 	copy.color = color
+	copy.combat_die_scene = combat_die_scene
+	copy.pool_die_scene = pool_die_scene
 	copy.current_value = current_value
 	copy.modified_value = modified_value
 	copy.modifier = modifier
@@ -275,9 +322,6 @@ func duplicate_die() -> DieResource:
 		copy.applied_affixes.append(affix.duplicate(true))
 	
 	return copy
-
-
-
 
 # ============================================================================
 # SERIALIZATION
