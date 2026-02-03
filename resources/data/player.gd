@@ -254,14 +254,30 @@ func unequip_item(slot: String) -> bool:
 	return true
 
 func apply_item_dice(item: Dictionary):
-	if not item.has("dice") or not dice_pool:
+	if not dice_pool:
 		return
 	
-	var item_dice = item.get("dice", [])
 	var item_name = item.get("name", "Unknown Item")
 	var tags = item.get("dice_tags", [])
 	
-	dice_pool.add_dice_from_source(item_dice, item_name, tags)
+	# Check for actual DieResource array (new system)
+	var item_dice = item.get("dice_resources", [])
+	if item_dice.size() > 0:
+		for die_template in item_dice:
+			if die_template is DieResource:
+				var die_copy = die_template.duplicate_die()
+				die_copy.source = item_name
+				for tag in tags:
+					die_copy.add_tag(tag)
+				dice_pool.add_die(die_copy)
+		return
+	
+	# Legacy fallback: die types as enums
+	var die_types = item.get("dice", [])
+	if die_types.size() > 0:
+		dice_pool.add_dice_from_source(die_types, item_name, tags)
+
+
 
 func remove_item_dice(item: Dictionary):
 	if not item or not dice_pool:

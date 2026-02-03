@@ -312,14 +312,32 @@ func _start_player_turn():
 	"""Start player's turn"""
 	combat_state = CombatState.PLAYER_TURN
 	
+	print("🎲 _start_player_turn debug:")
+	print("  player: %s" % player)
+	print("  GameManager.player: %s" % GameManager.player)
+	print("  Same player? %s" % (player == GameManager.player))
+	
 	if player and player.dice_pool:
+		print("  player.dice_pool: %s" % player.dice_pool)
+		print("  GameManager.player.dice_pool: %s" % GameManager.player.dice_pool)
+		print("  Same dice_pool? %s" % (player.dice_pool == GameManager.player.dice_pool))
+		print("  POOL size: %d" % player.dice_pool.dice.size())
+		print("  GameManager POOL size: %d" % GameManager.player.dice_pool.dice.size())
+		
+		for die in player.dice_pool.dice:
+			print("    - %s from %s" % [die.display_name, die.source])
+		
 		player.dice_pool.roll_hand()
+	else:
+		print("  ⚠️ No player (%s) or dice_pool (%s)!" % [player != null, player.dice_pool if player else null])
 	
 	if combat_ui:
 		if combat_ui.has_method("on_turn_start"):
 			combat_ui.on_turn_start()
 		if combat_ui.has_method("set_player_turn"):
 			combat_ui.set_player_turn(true)
+
+
 
 func _on_player_end_turn():
 	"""Player ended their turn"""

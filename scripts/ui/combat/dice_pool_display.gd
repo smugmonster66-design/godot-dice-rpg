@@ -49,7 +49,7 @@ func initialize(pool):
 func _on_hand_rolled(_hand: Array):
 	"""Hand was rolled - refresh display"""
 	print("🎲 DicePoolDisplay: hand_rolled signal received")
-	refresh()
+	#refresh()
 
 # ============================================================================
 # DISPLAY
@@ -93,23 +93,22 @@ func clear_display():
 		child.queue_free()
 
 func create_die_visual(die: DieResource) -> Control:
-	"""Create a visual representation of a die"""
-	# Check if scene is set
 	if not die_visual_scene:
 		print("  ❌ ERROR: die_visual_scene not set in Inspector!")
 		return null
 	
 	var visual = die_visual_scene.instantiate()
 	
-	# Initialize it
-	print("    🔧 Calling initialize() on visual...")
-	if visual.has_method("initialize"):
-		visual.initialize(die)  # true = can drag
-		print("      ✅ Initialized with %s" % die.get_display_name())
+	# DieVisual uses set_die(), not initialize()
+	if visual.has_method("set_die"):
+		visual.set_die(die)
+		print("      ✅ set_die() called with %s = %d" % [die.display_name, die.get_total_value()])
 	else:
-		print("      ⚠️ WARNING: DieVisual has no initialize method")
+		print("      ⚠️ WARNING: No set_die method on visual")
 	
 	return visual
+
+
 
 
 # ============================================================================

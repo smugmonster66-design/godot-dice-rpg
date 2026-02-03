@@ -65,8 +65,10 @@ var item_affixes: Array[Affix] = []
 # ============================================================================
 # DICE
 # ============================================================================
+# In equippable_item.gd
 @export_group("Dice")
-@export var grants_dice: Array[DieResource.DieType] = []
+## Dice this item grants. Drag DieResource files here (like enemy dice).
+@export var grants_dice: Array[DieResource] = []  # Changed from Array[DieResource.DieType]
 @export var dice_tags: Array[String] = []
 
 # ============================================================================
@@ -234,35 +236,15 @@ func roll_affixes(affix_pool = null):
 # ============================================================================
 
 func to_dict() -> Dictionary:
-	"""Convert to Dictionary for UI compatibility"""
 	var dict = {
-		"name": item_name,
-		"display_name": item_name,
-		"slot": get_slot_name(),
-		"description": description,
-		"dice": grants_dice.duplicate(),
-		"dice_tags": dice_tags.duplicate(),
-		"is_heavy": is_heavy_weapon(),
-		"icon": icon,
-		"rarity": get_rarity_name()
+		# ... existing fields ...
+		"dice_resources": [],  # Actual DieResource copies
+		"dice_tags": dice_tags
 	}
 	
-	# Add affixes as dictionaries for UI display
-	var affixes_data = []
-	for affix in item_affixes:
-		affixes_data.append({
-			"name": affix.affix_name,
-			"display_name": affix.affix_name,
-			"description": affix.description,
-			"category": affix.category,
-			"category_name": affix.get_category_name()
-		})
-	
-	if affixes_data.size() > 0:
-		dict["affixes"] = affixes_data
-	
-	# Add action if granted
-	if grants_action and action:
-		dict["actions"] = [action.to_dict()]
+	# Add actual dice resources
+	for die in grants_dice:
+		if die:
+			dict["dice_resources"].append(die.duplicate_die())
 	
 	return dict
