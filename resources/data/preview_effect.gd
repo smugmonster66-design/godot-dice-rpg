@@ -44,3 +44,14 @@ enum ValueEffectType {
 @export var value_text_color: Color = Color.WHITE
 @export var value_outline_color: Color = Color.BLACK
 @export var value_shader_material: ShaderMaterial = null
+
+# ============================================================================
+# PARTICLE EFFECTS
+# ============================================================================
+@export_group("Particles")
+## Particle scene to add to the preview (e.g., mist, sparkles, frost)
+@export var particle_scene: PackedScene = null
+## Offset from die center for particle emitter
+@export var particle_offset: Vector2 = Vector2(62, 62)
+## Scale for particle emitter
+@export var particle_scale: Vector2 = Vector2.ONE

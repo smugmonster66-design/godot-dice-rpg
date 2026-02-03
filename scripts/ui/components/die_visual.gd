@@ -43,7 +43,6 @@ var current_die_type: int = -1
 var show_max_value: bool = false
 
 # Drag state
-var _drag_hide_tween: Tween = null
 var _is_being_dragged: bool = false
 var _was_placed: bool = false
 
@@ -156,11 +155,10 @@ func _load_die_face(die_type: DieResource.DieType):
 		current_die_face = scene.instantiate()
 		die_face_container.add_child(current_die_face)
 		
+		# Reset anchors and position to fill container properly
 		current_die_face.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		current_die_face.position = Vector2.ZERO
 		current_die_face.size = Vector2(124, 124)
-		
-		
 		
 		# Find key nodes
 		value_label = current_die_face.find_child("ValueLabel", true, false) as Label
@@ -493,7 +491,6 @@ func _get_drag_data(_at_position: Vector2):
 		"slot_index": get_index()
 	}
 
-
 func _notification(what: int):
 	if what == NOTIFICATION_DRAG_END:
 		_is_being_dragged = false
@@ -502,10 +499,6 @@ func _notification(what: int):
 		if not _was_placed:
 			visible = true
 			modulate = Color.WHITE
-
-
-
-
 
 func _create_drag_preview() -> Control:
 	var face_size = Vector2(124, 124)
@@ -718,3 +711,13 @@ func _apply_single_preview_effect(effect: PreviewEffect, tex: TextureRect, strok
 			PreviewEffect.ValueEffectType.SHADER:
 				if effect.value_shader_material:
 					label.material = effect.value_shader_material.duplicate(true)
+	
+	# Particle effects
+	if effect.particle_scene:
+		var particles = effect.particle_scene.instantiate()
+		if particles:
+			particles.position = effect.particle_offset
+			particles.scale = effect.particle_scale
+			if particles.has_method("set_emitting") or particles is GPUParticles2D:
+				particles.emitting = true
+			wrapper.add_child(particles)
