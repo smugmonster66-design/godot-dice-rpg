@@ -279,40 +279,25 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 	
 	return true
 
-func _drop_data(_at_position: Vector2, data):
-	"""Handle die drop"""
-	if is_disabled:
-		return
-	
-	var die = data.die as DieResource
-	if not die:
-		return
-	
-	# Get source info from drop data
-	var source_visual = data.get("visual", null) as Control
-	var source_position = data.get("source_position", Vector2.ZERO)
-	var source_slot_index = data.get("slot_index", -1)
-	
-	# If source visual provided, get its global position
-	if source_visual and is_instance_valid(source_visual):
-		source_position = source_visual.global_position
-		# Hide the source visual
-		source_visual.modulate.a = 0.3
-	
-	# Place die with animation
-	place_die_animated(die, source_position, source_visual, source_slot_index)
-	action_selected.emit(self)
+func _drop_data(_at_position: Vector2, data: Variant):
+	if data is Dictionary and data.has("die"):
+		var die = data["die"] as DieResource
+		var source_visual = data.get("visual", null)
+		var source_position = data.get("source_position", global_position)
+		var source_slot_index = data.get("slot_index", -1)
+		
+		# Mark source as placed BEFORE animation
+		if source_visual and source_visual.has_method("mark_as_placed"):
+			source_visual.mark_as_placed()
+		
+		place_die_animated(die, source_position, source_visual, source_slot_index)
 
-func place_die_animated(die: DieResource, from_position: Vector2, source_visual: Control, source_slot_index: int):
+func place_die_animated(die: DieResource, from_position: Vector2, source_visual: Control = null, source_slot_index: int = -1):
 	"""Place a die with snap animation"""
-	if placed_dice.size() >= die_slots:
-		return
-	if is_disabled:
+	if placed_dice.size() >= die_slot_panels.size():
 		return
 	
 	placed_dice.append(die)
-	
-	# Store source info for return animation
 	dice_source_info.append({
 		"visual": source_visual,
 		"position": from_position,
@@ -330,15 +315,20 @@ func place_die_animated(die: DieResource, from_position: Vector2, source_visual:
 	for child in slot_panel.get_children():
 		child.queue_free()
 	
-	# Create die visual
-	var die_visual = _create_placed_die_visual(die)
+	# Create die visual - START HIDDEN
+	var die_visual = _create_placed_die_visual(die, true)
 	slot_panel.add_child(die_visual)
 	dice_visuals.append(die_visual)
+	
+	# Fade in quickly
+	var fade_tween = create_tween()
+	fade_tween.tween_property(die_visual, "modulate:a", 1.0, 0.1)
 	
 	# Animate snap to slot
 	_animate_snap_to_slot(die_visual, slot_panel, from_position)
 	
 	update_icon_state()
+
 
 func _animate_snap_to_slot(die_visual: Control, slot_panel: PanelContainer, from_position: Vector2):
 	"""Animate die snapping to its slot"""
@@ -375,30 +365,29 @@ func place_die(die: DieResource):
 	"""Place a die without animation (for programmatic placement)"""
 	place_die_animated(die, global_position, null, -1)
 
-func _create_placed_die_visual(die: DieResource) -> Control:
+func _create_placed_die_visual(die: DieResource, start_hidden: bool = false) -> Control:
 	"""Create a visual for a placed die using DieVisual scene"""
 	var die_visual_scene = preload("res://scenes/ui/components/die_visual.tscn")
-	var visual = die_visual_scene.instantiate() as DieVisual
+	var visual = die_visual_scene.instantiate()
 	
-	if not visual:
-		return null
+	# Start hidden if requested (before adding to tree)
+	if start_hidden:
+		visual.modulate.a = 0
 	
-	visual.can_drag = false
-	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.set_die(die)
+	# Set die data
+	if visual.has_method("set_die"):
+		visual.set_die(die)
 	
-	# Create a container to hold and scale the visual
-	var container = Control.new()
-	container.custom_minimum_size = Vector2(62, 62)
-	container.clip_contents = true
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Disable dragging
+	if visual.has_method("set"):
+		visual.set("can_drag", false)
 	
-	# Add visual and scale it
-	container.add_child(visual)
+	# Configure size AFTER set_die so the visual is ready
+	visual.custom_minimum_size = Vector2(62, 62)
 	visual.scale = Vector2(0.5, 0.5)
-	visual.position = Vector2.ZERO
+	visual.pivot_offset = Vector2(62, 62)
 	
-	return container
+	return visual
 
 # ============================================================================
 # ACTION STATE

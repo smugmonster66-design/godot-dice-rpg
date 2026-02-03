@@ -81,29 +81,39 @@ func _connect_signals():
 
 # Add new function
 func _setup_turn_indicator():
-	"""Setup turn indicator shader"""
+	# Find or create the node
 	if not turn_indicator:
-		# Create it if not in scene
 		turn_indicator = ColorRect.new()
 		turn_indicator.name = "TurnIndicatorRect"
-		turn_indicator.custom_minimum_size = Vector2(110, 90)
 		turn_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		turn_indicator.visible = false
+		turn_indicator.color = Color.WHITE
 		
-		# Insert before portrait
-		var vbox = $MarginContainer/VBox
-		if vbox and portrait_rect:
-			vbox.add_child(turn_indicator)
-			vbox.move_child(turn_indicator, portrait_rect.get_index())
+		portrait_rect.add_child(turn_indicator)
+		portrait_rect.move_child(turn_indicator, 0)
+		
+		turn_indicator.set_anchors_preset(Control.PRESET_FULL_RECT)
+		turn_indicator.offset_left = -8
+		turn_indicator.offset_top = -8
+		turn_indicator.offset_right = 8
+		turn_indicator.offset_bottom = 8
 	
-	# Load and apply shader material
+	# ALWAYS apply material (even if node existed)
 	var shader_path = "res://resources/materials/turn_indicator_material.tres"
 	if ResourceLoader.exists(shader_path):
 		var base_material = load(shader_path) as ShaderMaterial
 		if base_material:
 			turn_indicator_material = base_material.duplicate()
 			turn_indicator.material = turn_indicator_material
-
+			print("✅ Turn indicator material applied")
+		else:
+			print("❌ Failed to load as ShaderMaterial")
+	else:
+		print("❌ Shader path doesn't exist: ", shader_path)
+	print("Turn indicator created: ", turn_indicator)
+	print("  Parent: ", turn_indicator.get_parent())
+	print("  Material: ", turn_indicator.material)
+	print("  Visible: ", turn_indicator.visible)
 
 # ============================================================================
 # PUBLIC METHODS
@@ -195,8 +205,11 @@ func is_alive() -> bool:
 
 # Add public methods
 func show_turn_indicator():
+	print("show_turn_indicator called")
+	print("  turn_indicator: ", turn_indicator)
 	"""Show the turn indicator for this enemy's turn"""
 	if turn_indicator:
+		print("  material: ", turn_indicator.material)
 		# Check if we have a portrait
 		var has_portrait = portrait_rect and portrait_rect.texture != null
 		if turn_indicator_material:

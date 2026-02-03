@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="DiceAffix" load_steps=3 format=3 uid="uid://bgdacj1mitxxo"]
 
 [ext_resource type="Script" uid="uid://s6ivem1wgjrx" path="res://resources/data/dice_affix.gd" id="1_yovjx"]
-[ext_resource type="Material" uid="uid://c7ivlm0ttuq4n" path="res://resources/shader_mats/water_wave_material.tres" id="2_jk1t2"]
+[ext_resource type="Material" uid="uid://c7ivlm0ttuq4n" path="res://resources/materials/water_wave_material.tres" id="2_jk1t2"]
 
 [resource]
 script = ExtResource("1_yovjx")

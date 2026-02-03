@@ -22,7 +22,7 @@ float circle_sdf(vec2 p, float radius) {
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;
 	float time = TIME * spin_speed;
-	
+
 	// Calculate distance from edge
 	float dist;
 	if (is_circle) {
@@ -30,30 +30,32 @@ void fragment() {
 	} else {
 		dist = rounded_box_sdf(uv, vec2(0.9, 0.9), corner_radius);
 	}
-	
-	// Create outline band
+
+	// Create outline band - only visible near the edge
 	float edge = 1.0 - smoothstep(0.0, glow_width * 0.01, abs(dist));
-	
+
 	// Calculate angle for spinning segments
 	float angle = atan(uv.y, uv.x);
 	float normalized_angle = (angle + PI) / TAU;
 	float spinning_angle = fract(normalized_angle + time / TAU);
-	
+
 	// Create segments
 	float segment_size = 1.0 / float(num_segments);
 	float segment_progress = mod(spinning_angle, segment_size) / segment_size;
 	float segment_mask = smoothstep(0.0, 0.1, segment_progress) * smoothstep(segment_gap, segment_gap + 0.1, 1.0 - segment_progress);
-	
+
 	// Pulse effect
 	float pulse = 1.0 - pulse_intensity + sin(TIME * pulse_speed) * pulse_intensity;
-	
-	// Combine
+
+	// Combine for main glow
 	float glow = edge * segment_mask * pulse;
-	
-	// Add soft outer glow
-	float outer_glow = (1.0 - smoothstep(0.0, glow_width * 0.025, dist)) * 0.4 * segment_mask * pulse;
-	glow += outer_glow;
-	
-	// Output - just the glow effect, fully transparent elsewhere
-	COLOR = vec4(glow_color.rgb, glow * glow_color.a);
+
+	// Add soft outer glow (only outside the shape)
+	float outer_glow = max(0.0, 1.0 - smoothstep(0.0, glow_width * 0.03, dist)) * 0.5 * segment_mask * pulse;
+
+	// Final glow amount
+	float final_glow = glow + outer_glow;
+
+	// Output - ONLY the glow, transparent everywhere else
+	COLOR = vec4(glow_color.rgb, final_glow * glow_color.a);
 }

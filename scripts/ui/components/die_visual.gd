@@ -43,6 +43,7 @@ var current_die_type: int = -1
 # Drag state
 var _drag_hide_tween: Tween = null
 var _is_being_dragged: bool = false
+var _was_placed: bool = false
 
 # ============================================================================
 # SIGNALS
@@ -108,6 +109,12 @@ func _setup_effect_containers():
 	particle_container.custom_minimum_size = effect_size
 	particle_container.size = effect_size
 	add_child(particle_container)
+
+
+# Add new function
+func mark_as_placed():
+	"""Called by action field when die is successfully placed"""
+	_was_placed = true
 
 # ============================================================================
 # DIE MANAGEMENT
@@ -363,6 +370,7 @@ func _on_drag_hide_complete():
 	if _is_being_dragged:
 		visible = false
 
+# Update _notification
 func _notification(what: int):
 	if what == NOTIFICATION_DRAG_END:
 		_is_being_dragged = false
@@ -371,8 +379,12 @@ func _notification(what: int):
 			_drag_hide_tween.kill()
 		_drag_hide_tween = null
 		
-		visible = true
-		modulate = Color.WHITE
+		# Only restore if NOT placed in an action field
+		if not _was_placed:
+			visible = true
+			modulate = Color.WHITE
+		# If placed, stay hidden - pool refresh will handle cleanup
+
 
 func _create_drag_preview() -> Control:
 	var face_size = Vector2(124, 124)
