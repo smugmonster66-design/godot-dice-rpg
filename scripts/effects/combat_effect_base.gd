@@ -1,4 +1,5 @@
 # res://scripts/effects/combat_effect_base.gd
+# Base class for all combat effect scenes
 extends Node2D
 class_name CombatEffectBase
 
@@ -16,6 +17,7 @@ func play():
 	_on_finished()
 
 func _on_finished():
+	"""Called when effect completes"""
 	effect_finished.emit()
 	if auto_free:
 		queue_free()
