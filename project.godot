@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Dice RPG Game 2026"
-run/main_scene="uid://cx781vq4omutw"
+run/main_scene="uid://b2w217jydc2gl"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 

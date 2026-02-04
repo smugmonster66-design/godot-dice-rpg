@@ -21,6 +21,7 @@ const MAP_SCENE = preload("res://scenes/game/map_scene.tscn")
 # ============================================================================
 var player: Player = null
 var current_scene: Node = null
+var game_root: Node = null 
 
 # Scene instances for hide/show pattern
 var map_scene_instance: Node2D = null
@@ -196,26 +197,26 @@ var pending_encounter: CombatEncounter = null
 ## History of completed encounters (for tracking/quests)
 var completed_encounters: Array[String] = []
 
+
+
+
 func start_combat_encounter(encounter: CombatEncounter):
-	"""Start a combat encounter - stores encounter and transitions to combat scene"""
 	if not encounter:
 		push_error("GameManager: Cannot start null encounter")
 		return
 	
 	print("🎮 GameManager: Starting encounter '%s'" % encounter.encounter_name)
-	
-	# Validate encounter
-	var warnings = encounter.validate()
-	if warnings.size() > 0:
-		print("  ⚠️ Encounter warnings:")
-		for warning in warnings:
-			print("    - %s" % warning)
-	
-	# Store encounter for combat scene to read
 	pending_encounter = encounter
 	
-	# Transition to combat scene
-	load_combat_scene()
+	# NEW: Use layer system if available
+	if game_root:
+		game_root.start_combat(encounter)
+	else:
+		# Fallback to old scene switching
+		load_combat_scene()
+
+
+
 
 func start_random_encounter(encounter_pool: Array[CombatEncounter]):
 	"""Start a random encounter from a pool"""
@@ -264,4 +265,5 @@ func on_combat_ended(player_won: bool):
 			player.add_gold(gold)
 	
 	clear_pending_encounter()
-	load_map_scene()
+	if not game_root:
+		load_map_scene()
