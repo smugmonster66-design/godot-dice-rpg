@@ -13,6 +13,9 @@ class_name CombatAnimationSet
 @export var cast_duration: float = 0.3
 ## Offset from source position
 @export var cast_offset: Vector2 = Vector2.ZERO
+@export var cast_scale: Vector2 = Vector2.ONE 
+
+
 
 # ============================================================================
 # TRAVEL ANIMATION - Projectile that moves from source to target
@@ -26,6 +29,8 @@ class_name CombatAnimationSet
 @export var travel_curve: Curve
 ## Whether projectile rotates to face movement direction
 @export var travel_rotation: bool = true
+@export var travel_scale: Vector2 = Vector2.ONE 
+@export var impact_scale: Vector2 = Vector2.ONE
 
 # ============================================================================
 # IMPACT ANIMATION - Plays at target(s) when hit

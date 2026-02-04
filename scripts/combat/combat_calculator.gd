@@ -67,27 +67,17 @@ static func calculate_attack_damage(
 # AFFIX APPLICATION
 # ============================================================================
 
-static func _apply_damage_bonuses(packet: DamagePacket, affixes: AffixPoolManager):
+static func _apply_damage_bonuses(packet: DamagePacket, affixes: AffixPoolManager, primary_damage_type: ActionEffect.DamageType = ActionEffect.DamageType.SLASHING):
 	"""Apply flat damage bonuses by type"""
-	# Global damage bonus (adds to all types proportionally)
+	# Global damage bonus applies to the action's primary damage type
 	var global_bonus = 0.0
 	for affix in affixes.get_pool(Affix.Category.DAMAGE_BONUS):
 		global_bonus += affix.apply_effect()
 	
-	# For global bonus, add equally to all active damage types
 	if global_bonus > 0:
-		var active_types = 0
-		for type in ActionEffect.DamageType.values():
-			if packet.damages[type] > 0:
-				active_types += 1
-		
-		if active_types > 0:
-			var bonus_per_type = global_bonus / active_types
-			for type in ActionEffect.DamageType.values():
-				if packet.damages[type] > 0:
-					packet.add_damage(type, bonus_per_type)
+		packet.add_damage(primary_damage_type, global_bonus)
 	
-	# Type-specific bonuses - check if categories exist before using
+	# Type-specific bonuses still apply to their specific types
 	var type_categories = {
 		ActionEffect.DamageType.SLASHING: "SLASHING_DAMAGE_BONUS",
 		ActionEffect.DamageType.BLUNT: "BLUNT_DAMAGE_BONUS",
@@ -101,11 +91,11 @@ static func _apply_damage_bonuses(packet: DamagePacket, affixes: AffixPoolManage
 	
 	for damage_type in type_categories:
 		var category_name = type_categories[damage_type]
-		# Check if this category exists in the enum
 		if category_name in Affix.Category:
 			var category = Affix.Category.get(category_name)
 			for affix in affixes.get_pool(category):
 				packet.add_damage(damage_type, affix.apply_effect())
+
 
 static func _calculate_damage_multiplier(affixes: AffixPoolManager) -> float:
 	"""Calculate total damage multiplier from affixes"""

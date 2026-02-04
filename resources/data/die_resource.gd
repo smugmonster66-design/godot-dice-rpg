@@ -1,5 +1,5 @@
 # res://resources/data/die_resource.gd
-# Individual die with type, image, and dice affixes
+# Individual die with type, image, element, and dice affixes
 # Updated to support DieObject scenes for combat and pool displays
 extends Resource
 class_name DieResource
@@ -16,12 +16,30 @@ enum DieType {
 	D20 = 20
 }
 
+enum Element {
+	NONE,
+	SLASHING,
+	BLUNT,
+	PIERCING,
+	FIRE,
+	ICE,
+	SHOCK,
+	POISON,
+	SHADOW
+}
+
 # ============================================================================
 # BASIC PROPERTIES
 # ============================================================================
 @export var display_name: String = "Die"
 @export var die_type: DieType = DieType.D6
 @export var color: Color = Color.WHITE
+
+@export_group("Element")
+## The element of this die - applies default visual effects
+@export var element: Element = Element.NONE
+## Default visual effects affix for this element (applied first, can be overwritten)
+@export var element_affix: DiceAffix = null
 
 @export_group("Textures")
 ## Fill texture (drawn first, behind stroke)
@@ -71,101 +89,101 @@ var modified_value: int = 1         # Value after affix modifications
 var modifier: int = 0               # Flat modifier from external sources
 var source: String = ""             # Where this die came from
 var tags: Array[String] = []        # Tags on this die (fire, holy, etc.)
-var is_locked: bool = false         # Can't be used this turn
-var can_reroll: bool = false        # Can be rerolled
-var slot_index: int = 0             # Position in collection (for affixes)
+var slot_index: int = -1            # Position in pool (for affix requirements)
+
+# Locking
+var is_locked: bool = false         # Can't be removed
+var can_reroll: bool = true         # Can use reroll abilities
 
 # ============================================================================
-# SCENE PATH CONSTANTS
+# ELEMENT NAMES
 # ============================================================================
-const COMBAT_SCENE_PATHS = {
-	DieType.D4: "res://scenes/ui/components/dice/combat/combat_die_d4.tscn",
-	DieType.D6: "res://scenes/ui/components/dice/combat/combat_die_d6.tscn",
-	DieType.D8: "res://scenes/ui/components/dice/combat/combat_die_d8.tscn",
-	DieType.D10: "res://scenes/ui/components/dice/combat/combat_die_d10.tscn",
-	DieType.D12: "res://scenes/ui/components/dice/combat/combat_die_d12.tscn",
-	DieType.D20: "res://scenes/ui/components/dice/combat/combat_die_d20.tscn",
-}
-
-const POOL_SCENE_PATHS = {
-	DieType.D4: "res://scenes/ui/components/dice/pool/pool_die_d4.tscn",
-	DieType.D6: "res://scenes/ui/components/dice/pool/pool_die_d6.tscn",
-	DieType.D8: "res://scenes/ui/components/dice/pool/pool_die_d8.tscn",
-	DieType.D10: "res://scenes/ui/components/dice/pool/pool_die_d10.tscn",
-	DieType.D12: "res://scenes/ui/components/dice/pool/pool_die_d12.tscn",
-	DieType.D20: "res://scenes/ui/components/dice/pool/pool_die_d20.tscn",
+const ELEMENT_NAMES = {
+	Element.NONE: "None",
+	Element.SLASHING: "Slashing",
+	Element.BLUNT: "Blunt",
+	Element.PIERCING: "Piercing",
+	Element.FIRE: "Fire",
+	Element.ICE: "Ice",
+	Element.SHOCK: "Shock",
+	Element.POISON: "Poison",
+	Element.SHADOW: "Shadow",
 }
 
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
 
-func _init(type: DieType = DieType.D6, p_source: String = ""):
-	die_type = type
+func _init(p_type: DieType = DieType.D6, p_source: String = ""):
+	die_type = p_type
 	source = p_source
-	display_name = "D%d" % type
+	current_value = 1
+	modified_value = 1
 
 # ============================================================================
-# DIE OBJECT INSTANTIATION (NEW)
+# ELEMENT
 # ============================================================================
 
-func instantiate_combat_visual():
-	"""Create a CombatDieObject for use in combat hand/action fields"""
-	print("🎲 DieResource.instantiate_combat_visual() for %s (type=%d)" % [display_name, die_type])
-	var scene = _get_combat_scene()
-	if not scene:
-		push_warning("DieResource: No combat scene for %s" % display_name)
-		return null
-	
-	print("  ✅ Scene loaded, instantiating...")
-	var obj = scene.instantiate()
-	if obj and obj.has_method("setup"):
-		print("  ✅ Instantiated, calling setup...")
-		obj.setup(self)
-	else:
-		print("  ❌ Failed to instantiate or no setup method")
-	return obj
+func get_element_name() -> String:
+	"""Get the display name of this die's element"""
+	return ELEMENT_NAMES.get(element, "None")
 
-func instantiate_pool_visual():
-	"""Create a PoolDieObject for use in map pool/inventory"""
-	var scene = _get_pool_scene()
-	if not scene:
-		push_warning("DieResource: No pool scene for %s" % display_name)
-		return null
-	
-	var obj = scene.instantiate()
-	if obj and obj.has_method("setup"):
-		obj.setup(self)
-	return obj
+func has_element() -> bool:
+	"""Check if this die has an element assigned"""
+	return element != Element.NONE
 
-func _get_combat_scene() -> PackedScene:
-	"""Get the combat scene, using explicit or auto-selected"""
-	if combat_die_scene:
-		print("  Using explicit combat_die_scene")
-		return combat_die_scene
+func set_element_with_affix(new_element: Element, affix: DiceAffix = null):
+	"""Set the element and optionally the visual affix"""
+	element = new_element
+	if affix:
+		element_affix = affix
+
+# ============================================================================
+# DIE OBJECT INSTANTIATION
+# ============================================================================
+
+func instantiate_combat_visual() -> Control:
+	"""Create a combat die visual (CombatDieObject)"""
+	var scene = combat_die_scene
+	if not scene:
+		scene = _get_default_combat_scene()
 	
-	# Auto-select based on die type
-	var path = COMBAT_SCENE_PATHS.get(die_type, "")
-	print("  Looking for scene at: %s" % path)
-	
-	if path and ResourceLoader.exists(path):
-		print("  ✅ Scene exists, loading...")
-		return load(path)
-	else:
-		print("  ❌ Scene does NOT exist at path: %s" % path)
-	
+	if scene:
+		var instance = scene.instantiate()
+		if instance.has_method("setup"):
+			instance.setup(self)
+		return instance
 	return null
 
-func _get_pool_scene() -> PackedScene:
-	"""Get the pool scene, using explicit or auto-selected"""
-	if pool_die_scene:
-		return pool_die_scene
+func instantiate_pool_visual() -> Control:
+	"""Create a pool die visual (PoolDieObject)"""
+	var scene = pool_die_scene
+	if not scene:
+		scene = _get_default_pool_scene()
 	
-	# Auto-select based on die type
-	var path = POOL_SCENE_PATHS.get(die_type, "")
-	if path and ResourceLoader.exists(path):
+	if scene:
+		var instance = scene.instantiate()
+		if instance.has_method("setup"):
+			instance.setup(self)
+		return instance
+	return null
+
+func _get_default_combat_scene() -> PackedScene:
+	var path = "res://scenes/ui/components/dice/combat_die_d%d.tscn" % die_type
+	if ResourceLoader.exists(path):
 		return load(path)
-	
+	# Fallback to generic
+	if ResourceLoader.exists("res://scenes/ui/components/dice/combat_die_object.tscn"):
+		return load("res://scenes/ui/components/dice/combat_die_object.tscn")
+	return null
+
+func _get_default_pool_scene() -> PackedScene:
+	var path = "res://scenes/ui/components/dice/pool_die_d%d.tscn" % die_type
+	if ResourceLoader.exists(path):
+		return load(path)
+	# Fallback to generic
+	if ResourceLoader.exists("res://scenes/ui/components/dice/pool_die_object.tscn"):
+		return load("res://scenes/ui/components/dice/pool_die_object.tscn")
 	return null
 
 # ============================================================================
@@ -173,29 +191,26 @@ func _get_pool_scene() -> PackedScene:
 # ============================================================================
 
 func roll() -> int:
-	"""Roll the die and return the result"""
+	"""Roll the die and return the value"""
 	current_value = randi_range(1, die_type)
-	modified_value = current_value
-	return current_value
+	modified_value = current_value + modifier
+	return modified_value
+
+func set_value(value: int):
+	"""Manually set the die value"""
+	current_value = clampi(value, 1, die_type)
+	modified_value = current_value + modifier
 
 func get_total_value() -> int:
-	"""Get final value including modifiers"""
-	return modified_value + modifier
+	"""Get the final value after all modifications"""
+	return modified_value
 
 func get_max_value() -> int:
-	"""Get maximum possible roll value"""
+	"""Get the maximum possible value for this die type"""
 	return die_type
 
-func get_base_value() -> int:
-	"""Get the raw rolled value before modifications"""
-	return current_value
-
-func set_modified_value(value: int):
-	"""Set the modified value (after affix processing)"""
-	modified_value = value
-
 func is_max_roll() -> bool:
-	"""Check if current roll is the maximum for this die type"""
+	"""Check if current roll is maximum for die type"""
 	return current_value == die_type
 
 # ============================================================================
@@ -253,11 +268,56 @@ func clear_applied_affixes():
 	applied_affixes.clear()
 
 func get_all_affixes() -> Array[DiceAffix]:
-	"""Get combined inherent and applied affixes"""
+	"""Get combined element, inherent, and applied affixes.
+	   Element affix is applied first (as base visual), then inherent, then applied.
+	   Later affixes can overwrite visual effects from earlier ones."""
 	var all: Array[DiceAffix] = []
+	
+	# Element affix first (base visual - can be overwritten)
+	if element_affix:
+		all.append(element_affix)
+	
+	# Then inherent affixes
 	all.append_array(inherent_affixes)
+	
+	# Then applied affixes (highest priority for visual overwrites)
 	all.append_array(applied_affixes)
+	
 	return all
+
+func get_visual_affixes() -> Array[DiceAffix]:
+	"""Get only affixes that have visual effects, in priority order.
+	   Last affix with a visual effect type wins for that component."""
+	var visual_affixes: Array[DiceAffix] = []
+	
+	for affix in get_all_affixes():
+		if affix and _affix_has_visual_effects(affix):
+			visual_affixes.append(affix)
+	
+	return visual_affixes
+
+func _affix_has_visual_effects(affix: DiceAffix) -> bool:
+	"""Check if an affix has any visual effect configured"""
+	if not affix:
+		return false
+	
+	# Check legacy unified effects
+	if affix.visual_effect_type != DiceAffix.VisualEffectType.NONE:
+		return true
+	
+	# Check per-component effects
+	if affix.fill_effect_type != DiceAffix.VisualEffectType.NONE:
+		return true
+	if affix.stroke_effect_type != DiceAffix.VisualEffectType.NONE:
+		return true
+	if affix.value_effect_type != DiceAffix.ValueEffectType.NONE:
+		return true
+	
+	# Check for particles
+	if affix.particle_scene:
+		return true
+	
+	return false
 
 func has_affix_with_effect(effect_type: DiceAffix.EffectType) -> bool:
 	"""Check if any affix has a specific effect type"""
@@ -303,7 +363,8 @@ func get_affix_summary() -> String:
 	
 	var lines: Array[String] = []
 	for affix in all_affixes:
-		lines.append("• " + affix.get_formatted_description())
+		if affix:
+			lines.append("• " + affix.get_formatted_description())
 	return "\n".join(lines)
 
 # ============================================================================
@@ -317,6 +378,8 @@ func duplicate_die() -> DieResource:
 	copy.fill_texture = fill_texture
 	copy.stroke_texture = stroke_texture
 	copy.color = color
+	copy.element = element
+	copy.element_affix = element_affix  # Reference, not deep copy
 	copy.combat_die_scene = combat_die_scene
 	copy.pool_die_scene = pool_die_scene
 	copy.current_value = current_value
@@ -353,6 +416,7 @@ func to_dict() -> Dictionary:
 	return {
 		"display_name": display_name,
 		"die_type": die_type,
+		"element": element,
 		"color": color.to_html(),
 		"current_value": current_value,
 		"modified_value": modified_value,
@@ -369,6 +433,7 @@ static func from_dict(data: Dictionary) -> DieResource:
 	"""Deserialize die from dictionary"""
 	var die = DieResource.new(data.get("die_type", DieType.D6), data.get("source", ""))
 	die.display_name = data.get("display_name", "Die")
+	die.element = data.get("element", Element.NONE)
 	die.color = Color.from_string(data.get("color", "#ffffff"), Color.WHITE)
 	die.current_value = data.get("current_value", 1)
 	die.modified_value = data.get("modified_value", 1)

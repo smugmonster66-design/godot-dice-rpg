@@ -1,5 +1,5 @@
 # res://scripts/ui/combat/action_field.gd
-# Action field with icon, die slots, and charge display
+# Action field with icon, die slots, element-based styling, and damage preview
 # Updated to use CombatDieObject for placed dice
 extends PanelContainer
 class_name ActionField
@@ -27,6 +27,21 @@ enum ActionType {
 @export var required_tags: Array = []
 @export var restricted_tags: Array = []
 
+@export_group("Element")
+## Primary element/damage type of this action
+@export var element: ActionEffect.DamageType = ActionEffect.DamageType.SLASHING
+
+@export_group("Element Shaders")
+## Shader materials for each element type - assign in inspector
+@export var slashing_material: ShaderMaterial
+@export var blunt_material: ShaderMaterial
+@export var piercing_material: ShaderMaterial
+@export var fire_material: ShaderMaterial
+@export var ice_material: ShaderMaterial
+@export var shock_material: ShaderMaterial
+@export var poison_material: ShaderMaterial
+@export var shadow_material: ShaderMaterial
+
 @export_group("Animation")
 @export var snap_duration: float = 0.25
 @export var return_duration: float = 0.3
@@ -38,12 +53,12 @@ var action_resource: Action = null
 # ============================================================================
 # SIGNALS
 # ============================================================================
-signal action_selected(field)
+signal action_selected(field: ActionField)
 signal action_confirmed(action_data: Dictionary)
-signal action_ready(action_field)
-signal action_cancelled(action_field)
-signal die_placed(action_field, die: DieResource)
-signal die_removed(action_field, die: DieResource)
+signal action_ready(action_field: ActionField)
+signal action_cancelled(action_field: ActionField)
+signal die_placed(action_field: ActionField, die: DieResource)
+signal die_removed(action_field: ActionField, die: DieResource)
 signal dice_returned(die: DieResource, target_position: Vector2)
 signal dice_return_complete()
 
@@ -56,6 +71,9 @@ var icon_container: PanelContainer = null
 var icon_rect: TextureRect = null
 var die_slots_grid: GridContainer = null
 var description_label: RichTextLabel = null
+var dmg_preview_label: Label = null
+var fill_texture: NinePatchRect = null
+var stroke_texture: NinePatchRect = null
 
 # ============================================================================
 # STATE
@@ -70,6 +88,31 @@ const SLOT_SIZE = Vector2(62, 62)
 const DIE_SCALE = 0.5
 
 # ============================================================================
+# ELEMENT COLORS (for fallback/labels)
+# ============================================================================
+const ELEMENT_COLORS = {
+	ActionEffect.DamageType.SLASHING: Color(0.8, 0.8, 0.8),
+	ActionEffect.DamageType.BLUNT: Color(0.6, 0.5, 0.4),
+	ActionEffect.DamageType.PIERCING: Color(0.9, 0.9, 0.7),
+	ActionEffect.DamageType.FIRE: Color(1.0, 0.4, 0.2),
+	ActionEffect.DamageType.ICE: Color(0.4, 0.8, 1.0),
+	ActionEffect.DamageType.SHOCK: Color(1.0, 1.0, 0.3),
+	ActionEffect.DamageType.POISON: Color(0.4, 0.9, 0.3),
+	ActionEffect.DamageType.SHADOW: Color(0.5, 0.3, 0.7),
+}
+
+const ELEMENT_NAMES = {
+	ActionEffect.DamageType.SLASHING: "Slashing",
+	ActionEffect.DamageType.BLUNT: "Blunt",
+	ActionEffect.DamageType.PIERCING: "Piercing",
+	ActionEffect.DamageType.FIRE: "Fire",
+	ActionEffect.DamageType.ICE: "Ice",
+	ActionEffect.DamageType.SHOCK: "Shock",
+	ActionEffect.DamageType.POISON: "Poison",
+	ActionEffect.DamageType.SHADOW: "Shadow",
+}
+
+# ============================================================================
 # INITIALIZATION
 # ============================================================================
 
@@ -79,6 +122,8 @@ func _ready():
 	setup_drop_target()
 	create_die_slots()
 	refresh_ui()
+	_apply_element_shader()
+	_update_damage_preview()
 
 func _discover_nodes():
 	name_label = find_child("NameLabel", true, false) as Label
@@ -87,62 +132,177 @@ func _discover_nodes():
 	icon_rect = find_child("IconRect", true, false) as TextureRect
 	die_slots_grid = find_child("DieSlotsGrid", true, false) as GridContainer
 	description_label = find_child("DescriptionLabel", true, false) as RichTextLabel
+	dmg_preview_label = find_child("DmgPreviewLabel", true, false) as Label
+	fill_texture = find_child("FillTexture", true, false) as NinePatchRect
+	stroke_texture = find_child("StrokeTexture", true, false) as NinePatchRect
 
 func _set_children_mouse_pass():
 	for child in get_children():
-		if child is Control and child != self:
+		if child is Control:
 			child.mouse_filter = Control.MOUSE_FILTER_PASS
-			for subchild in child.get_children():
-				if subchild is Control:
-					subchild.mouse_filter = Control.MOUSE_FILTER_PASS
 
 func setup_drop_target():
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 # ============================================================================
-# DIE SLOT CREATION
+# ELEMENT SHADER
 # ============================================================================
 
-func create_die_slots():
-	if not die_slots_grid:
+func _apply_element_shader():
+	"""Apply the appropriate shader material based on element type"""
+	var material = _get_element_material(element)
+	
+	if fill_texture and material:
+		fill_texture.material = material.duplicate()
+	
+	# Optionally tint if no shader available
+	if fill_texture and not material:
+		fill_texture.modulate = ELEMENT_COLORS.get(element, Color.WHITE)
+
+func _get_element_material(elem: ActionEffect.DamageType) -> ShaderMaterial:
+	"""Get the shader material for an element type"""
+	match elem:
+		ActionEffect.DamageType.SLASHING:
+			return slashing_material
+		ActionEffect.DamageType.BLUNT:
+			return blunt_material
+		ActionEffect.DamageType.PIERCING:
+			return piercing_material
+		ActionEffect.DamageType.FIRE:
+			return fire_material
+		ActionEffect.DamageType.ICE:
+			return ice_material
+		ActionEffect.DamageType.SHOCK:
+			return shock_material
+		ActionEffect.DamageType.POISON:
+			return poison_material
+		ActionEffect.DamageType.SHADOW:
+			return shadow_material
+		_:
+			return null
+
+func set_element(new_element: ActionEffect.DamageType):
+	"""Change the element and update visuals"""
+	element = new_element
+	_apply_element_shader()
+	_update_damage_preview()
+
+# ============================================================================
+# DAMAGE PREVIEW
+# ============================================================================
+
+func _update_damage_preview():
+	"""Update the damage preview label based on placed dice state"""
+	if not dmg_preview_label:
 		return
 	
-	for child in die_slots_grid.get_children():
-		child.queue_free()
-	die_slot_panels.clear()
+	# Non-damage actions show different text
+	if action_type == ActionType.DEFEND:
+		dmg_preview_label.text = "Defense"
+		return
+	elif action_type == ActionType.HEAL:
+		_update_heal_preview()
+		return
+	elif action_type == ActionType.SPECIAL:
+		dmg_preview_label.text = "Special"
+		return
 	
-	for i in range(die_slots):
-		var slot = _create_slot_panel()
-		die_slots_grid.add_child(slot)
-		die_slot_panels.append(slot)
-		_setup_empty_slot(slot)
-
-func _create_slot_panel() -> Panel:
-	var slot = Panel.new()
-	slot.name = "SlotPanel"
-	slot.custom_minimum_size = SLOT_SIZE
-	slot.mouse_filter = Control.MOUSE_FILTER_PASS
+	var element_name = ELEMENT_NAMES.get(element, "")
+	var element_color = ELEMENT_COLORS.get(element, Color.WHITE)
 	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.15, 0.2)
-	style.set_border_width_all(1)
-	style.border_color = Color(0.3, 0.3, 0.4)
-	style.set_corner_radius_all(4)
-	slot.add_theme_stylebox_override("panel", style)
-	return slot
+	if placed_dice.size() == 0:
+		# Show formula: "2D+10 ×1.5 Fire"
+		dmg_preview_label.text = _get_damage_formula()
+	else:
+		# Show calculated damage: "→ 28 Fire"
+		var total_damage = _calculate_preview_damage()
+		dmg_preview_label.text = "→ %d %s" % [total_damage, element_name]
+	
+	# Tint label with element color
+	dmg_preview_label.add_theme_color_override("font_color", element_color)
 
-func _setup_empty_slot(slot: Panel):
-	for child in slot.get_children():
-		child.queue_free()
-	var lbl = Label.new()
-	lbl.name = "EmptyLabel"
-	lbl.text = "+"
-	lbl.add_theme_font_size_override("font_size", 24)
-	lbl.add_theme_color_override("font_color", Color(0.4, 0.4, 0.5))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	slot.add_child(lbl)
+func _update_heal_preview():
+	"""Update preview for heal actions"""
+	if placed_dice.size() == 0:
+		dmg_preview_label.text = _get_heal_formula()
+	else:
+		var total_heal = _calculate_preview_heal()
+		dmg_preview_label.text = "→ %d HP" % total_heal
+	
+	dmg_preview_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4))
+
+func _get_damage_formula() -> String:
+	"""Get the damage formula string (e.g., '2D+10 ×1.5 Fire')"""
+	var parts: Array[String] = []
+	var element_name = ELEMENT_NAMES.get(element, "")
+	
+	# Dice component
+	if die_slots > 0:
+		parts.append("%dD" % die_slots)
+	
+	# Base damage component
+	if base_damage > 0:
+		if parts.size() > 0:
+			parts.append("+%d" % base_damage)
+		else:
+			parts.append(str(base_damage))
+	elif parts.size() == 0:
+		parts.append("0")
+	
+	var formula = "".join(parts)
+	
+	# Multiplier (only show if not 1.0)
+	if damage_multiplier != 1.0:
+		formula += " ×%.1f" % damage_multiplier
+	
+	# Element name
+	if element_name:
+		formula += " %s" % element_name
+	
+	return formula
+
+func _get_heal_formula() -> String:
+	"""Get the heal formula string"""
+	var parts: Array[String] = []
+	
+	if die_slots > 0:
+		parts.append("%dD" % die_slots)
+	
+	if base_damage > 0:  # Using base_damage for heal amount
+		if parts.size() > 0:
+			parts.append("+%d" % base_damage)
+		else:
+			parts.append(str(base_damage))
+	
+	if parts.size() == 0:
+		return "Heal"
+	
+	var formula = "".join(parts)
+	
+	if damage_multiplier != 1.0:
+		formula += " ×%.1f" % damage_multiplier
+	
+	return formula + " HP"
+
+func _calculate_preview_damage() -> int:
+	"""Calculate damage with currently placed dice"""
+	var dice_total = get_total_dice_value()
+	var raw_damage = (dice_total + base_damage) * damage_multiplier
+	return int(raw_damage)
+
+func _calculate_preview_heal() -> int:
+	"""Calculate heal with currently placed dice"""
+	var dice_total = get_total_dice_value()
+	var raw_heal = (dice_total + base_damage) * damage_multiplier
+	return int(raw_heal)
+
+func get_total_dice_value() -> int:
+	"""Get sum of all placed dice values"""
+	var total = 0
+	for die in placed_dice:
+		if die:
+			total += die.get_total_value()
+	return total
 
 # ============================================================================
 # CONFIGURATION
@@ -161,11 +321,34 @@ func configure_from_dict(action_data: Dictionary):
 	source = action_data.get("source", "")
 	action_resource = action_data.get("action_resource", null)
 	
+	# Get element from action_resource or action_data
+	if action_resource and action_resource.get("element") != null:
+		element = action_resource.element
+	elif action_data.has("element"):
+		element = action_data.get("element", ActionEffect.DamageType.SLASHING)
+	else:
+		# Try to infer from first damage effect
+		element = _infer_element_from_effects(action_data)
+	
 	if action_resource:
 		action_resource.reset_charges_for_combat()
 	
 	if is_node_ready():
 		refresh_ui()
+		_apply_element_shader()
+		_update_damage_preview()
+
+func _infer_element_from_effects(action_data: Dictionary) -> ActionEffect.DamageType:
+	"""Try to infer element from action effects"""
+	var effects = action_data.get("effects", [])
+	if action_resource and action_resource.effects.size() > 0:
+		effects = action_resource.effects
+	
+	for effect in effects:
+		if effect is ActionEffect and effect.effect_type == ActionEffect.EffectType.DAMAGE:
+			return effect.damage_type
+	
+	return ActionEffect.DamageType.SLASHING
 
 func refresh_ui():
 	if name_label:
@@ -176,6 +359,73 @@ func refresh_ui():
 		description_label.text = action_description
 	
 	create_die_slots()
+	update_charge_display()
+	update_disabled_state()
+	_update_damage_preview()
+
+# ============================================================================
+# DIE SLOTS
+# ============================================================================
+
+func create_die_slots():
+	if not die_slots_grid:
+		return
+	
+	for child in die_slots_grid.get_children():
+		child.queue_free()
+	die_slot_panels.clear()
+	
+	for i in range(die_slots):
+		var slot = Panel.new()
+		slot.custom_minimum_size = SLOT_SIZE
+		slot.mouse_filter = Control.MOUSE_FILTER_PASS
+		_setup_empty_slot(slot)
+		die_slots_grid.add_child(slot)
+		die_slot_panels.append(slot)
+
+func _setup_empty_slot(slot: Panel):
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.15, 0.8)
+	style.border_color = Color(0.4, 0.4, 0.4)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	slot.add_theme_stylebox_override("panel", style)
+
+# ============================================================================
+# CHARGE SYSTEM
+# ============================================================================
+
+func has_charges() -> bool:
+	if action_resource:
+		return action_resource.has_charges()
+	return true
+
+func consume_charge():
+	if action_resource:
+		action_resource.consume_charge()
+	update_charge_display()
+
+func update_charge_display():
+	if not charge_label:
+		return
+	
+	if action_resource and action_resource.charge_type != Action.ChargeType.UNLIMITED:
+		charge_label.text = "%d/%d" % [action_resource.current_charges, action_resource.max_charges]
+		charge_label.show()
+	else:
+		charge_label.hide()
+
+func update_disabled_state():
+	is_disabled = not has_charges()
+	if is_disabled:
+		modulate = Color(0.5, 0.5, 0.5, 0.7)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	else:
+		modulate = Color.WHITE
+		mouse_filter = Control.MOUSE_FILTER_STOP
+	update_icon_state()
+
+func refresh_charge_state():
 	update_charge_display()
 	update_disabled_state()
 
@@ -201,69 +451,17 @@ func _drop_data(_pos: Vector2, data: Variant):
 		return
 	
 	var die = data.get("die") as DieResource
-	var source_obj = data.get("die_object") as Control
+	var source_obj = data.get("die_object")
+	var source_visual = data.get("visual")
 	var source_pos = data.get("source_position", global_position) as Vector2
 	var source_idx = data.get("slot_index", -1) as int
 	
 	if source_obj and source_obj.has_method("mark_as_placed"):
 		source_obj.mark_as_placed()
+	elif source_visual and source_visual.has_method("mark_as_placed"):
+		source_visual.mark_as_placed()
 	
-	# Use the existing visual if available, otherwise create new
-	if source_obj:
-		_place_existing_die(die, source_obj, source_pos, source_idx)
-	else:
-		place_die_animated(die, source_pos, null, source_idx)
-
-func _place_existing_die(die: DieResource, die_obj: Control, from_pos: Vector2, source_idx: int):
-	"""Reparent existing die visual into slot instead of creating new one"""
-	if placed_dice.size() >= die_slot_panels.size():
-		return
-	
-	placed_dice.append(die)
-	dice_source_info.append({
-		"visual": die_obj,
-		"position": from_pos,
-		"slot_index": source_idx
-	})
-	
-	var slot_idx = placed_dice.size() - 1
-	var slot = die_slot_panels[slot_idx]
-	
-	# Clear any existing children in slot
-	for child in slot.get_children():
-		child.queue_free()
-	
-	# Reparent the existing die object
-	var old_parent = die_obj.get_parent()
-	if old_parent:
-		old_parent.remove_child(die_obj)
-	slot.add_child(die_obj)
-	
-	# Configure for slot display
-	die_obj.visible = true
-	die_obj.draggable = false
-	die_obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	die_obj.custom_minimum_size = Vector2.ZERO
-	
-	# Animate to slot size and position
-	var target_scale = DIE_SCALE
-	var target_pos = SLOT_SIZE / 2 - die_obj.pivot_offset
-	
-	die_obj.scale = Vector2(1.0, 1.0)  # Start at full size
-	die_obj.position = Vector2.ZERO
-	
-	var tw = create_tween().set_parallel(true)
-	tw.tween_property(die_obj, "scale", Vector2(target_scale, target_scale), snap_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tw.tween_property(die_obj, "position", target_pos, snap_duration).set_ease(Tween.EASE_OUT)
-	
-	dice_visuals.append(die_obj)
-	
-	update_icon_state()
-	die_placed.emit(self, die)
-	
-	if is_ready_to_confirm():
-		action_ready.emit(self)
-		action_selected.emit(self)
+	place_die_animated(die, source_pos, source_visual, source_idx)
 
 # ============================================================================
 # DIE PLACEMENT
@@ -286,20 +484,14 @@ func place_die_animated(die: DieResource, from_pos: Vector2, source_visual: Cont
 	for child in slot.get_children():
 		child.queue_free()
 	
-	# _create_placed_visual now handles add_child internally
-	var visual = _create_placed_visual(die, slot)
+	var visual = _create_placed_visual(die)
 	if visual:
+		slot.add_child(visual)
 		dice_visuals.append(visual)
 		_animate_placement(visual, slot, from_pos)
 	
 	update_icon_state()
-	die_placed.emit(self, die)
-	
-	if is_ready_to_confirm():
-		action_ready.emit(self)
-		action_selected.emit(self)
-	
-	update_icon_state()
+	_update_damage_preview()
 	die_placed.emit(self, die)
 	
 	if is_ready_to_confirm():
@@ -309,19 +501,15 @@ func place_die_animated(die: DieResource, from_pos: Vector2, source_visual: Cont
 func place_die(die: DieResource):
 	place_die_animated(die, global_position, null, -1)
 
-func _create_placed_visual(die: DieResource, slot: Panel) -> Control:
+func _create_placed_visual(die: DieResource) -> Control:
 	# Try to use new DieObject system
 	if die.has_method("instantiate_combat_visual"):
 		var obj = die.instantiate_combat_visual()
 		if obj:
 			obj.draggable = false
-			# Add to tree FIRST so _ready() runs
-			slot.add_child(obj)
-			# THEN set properties to override any _ready() settings
 			obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			obj.custom_minimum_size = Vector2.ZERO
 			obj.set_display_scale(DIE_SCALE)
-			obj.position = SLOT_SIZE / 2 - obj.pivot_offset
+			obj.position = (SLOT_SIZE - obj.base_size * DIE_SCALE) / 2
 			return obj
 	
 	# Fallback to old DieVisual if available
@@ -330,7 +518,6 @@ func _create_placed_visual(die: DieResource, slot: Panel) -> Control:
 		var visual = die_visual_scene.instantiate()
 		if visual.has_method("set_die"):
 			visual.set_die(die)
-		slot.add_child(visual)
 		visual.can_drag = false
 		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		visual.scale = Vector2(DIE_SCALE, DIE_SCALE)
@@ -342,81 +529,18 @@ func _create_placed_visual(die: DieResource, slot: Panel) -> Control:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	slot.add_child(lbl)
 	return lbl
 
 func _animate_placement(visual: Control, _slot: Panel, _from_pos: Vector2):
 	visual.scale = Vector2(1.3 * DIE_SCALE, 1.3 * DIE_SCALE)
 	visual.modulate = Color(1.2, 1.2, 0.9)
-	var tw = create_tween().set_parallel(true)
+	var tw = create_tween()
+	tw.set_parallel(true)
 	tw.tween_property(visual, "scale", Vector2(DIE_SCALE, DIE_SCALE), snap_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.tween_property(visual, "modulate", Color.WHITE, snap_duration)
 
-# ============================================================================
-# STATE CHECKS
-# ============================================================================
-
 func is_ready_to_confirm() -> bool:
-	return placed_dice.size() >= die_slots and has_charges()
-
-func has_charges() -> bool:
-	if not action_resource:
-		return true
-	return action_resource.has_charges()
-
-func get_total_dice_value() -> int:
-	var total = 0
-	for die in placed_dice:
-		total += die.get_total_value()
-	return total
-
-# ============================================================================
-# CHARGE MANAGEMENT
-# ============================================================================
-
-func consume_charge() -> bool:
-	if not action_resource:
-		return true
-	var result = action_resource.consume_charge()
-	update_charge_display()
-	update_disabled_state()
-	return result
-
-func update_charge_display():
-	if not charge_label:
-		return
-	if not action_resource:
-		charge_label.text = ""
-		charge_label.hide()
-		return
-	if action_resource.charge_type == Action.ChargeType.UNLIMITED:
-		charge_label.text = ""
-		charge_label.hide()
-		return
-	
-	charge_label.show()
-	charge_label.text = "%d/%d" % [action_resource.current_charges, action_resource.max_charges]
-	
-	if action_resource.current_charges == 0:
-		charge_label.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
-	elif action_resource.current_charges == 1:
-		charge_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
-	else:
-		charge_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
-
-func update_disabled_state():
-	is_disabled = not has_charges()
-	if is_disabled:
-		modulate = Color(0.5, 0.5, 0.5, 0.7)
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-	else:
-		modulate = Color.WHITE
-		mouse_filter = Control.MOUSE_FILTER_STOP
-	update_icon_state()
-
-func refresh_charge_state():
-	update_charge_display()
-	update_disabled_state()
+	return placed_dice.size() >= die_slots and placed_dice.size() > 0
 
 # ============================================================================
 # UI UPDATES
@@ -466,6 +590,7 @@ func _clear_placed_dice():
 		_setup_empty_slot(slot)
 	
 	update_icon_state()
+	_update_damage_preview()
 
 func consume_dice():
 	_clear_placed_dice()
@@ -489,6 +614,7 @@ func get_action_data() -> Dictionary:
 	return {
 		"name": action_name,
 		"action_type": action_type,
+		"element": element,
 		"base_damage": base_damage,
 		"damage_multiplier": damage_multiplier,
 		"placed_dice": placed_dice,

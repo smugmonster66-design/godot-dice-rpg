@@ -102,3 +102,4 @@ script = ExtResource("1_okqj3")
 sprite_frames = SubResource("SpriteFrames_26xc1")
 frame = 11
 frame_progress = 1.0
+speed_scale = 1.2

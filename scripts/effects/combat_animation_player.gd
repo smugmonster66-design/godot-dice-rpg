@@ -12,6 +12,17 @@ signal apply_effect_now()  # Connect to this for damage timing
 ## Layer to spawn effects on (should be high z_index)
 @export var effects_layer: CanvasLayer
 
+
+func _ready():
+	# Auto-find effects layer if not exported
+	if not effects_layer:
+		effects_layer = get_parent().find_child("EffectsLayer", false, false)
+		if effects_layer:
+			print("🎬 CombatAnimationPlayer: Found EffectsLayer")
+		else:
+			push_warning("CombatAnimationPlayer: EffectsLayer not found!")
+
+
 func play_action_animation(
 	animation_set: CombatAnimationSet,
 	source_position: Vector2,
@@ -59,6 +70,7 @@ func play_action_animation(
 func _play_cast(anim_set: CombatAnimationSet, position: Vector2):
 	var effect = anim_set.cast_effect.instantiate()
 	_add_effect(effect, position + anim_set.cast_offset)
+	effect.scale = anim_set.cast_scale
 	
 	if anim_set.cast_sound:
 		_play_sound(anim_set.cast_sound, position)
@@ -76,6 +88,7 @@ func _play_travel(anim_set: CombatAnimationSet, from: Vector2, targets: Array[Ve
 	for target_pos in targets:
 		var projectile = anim_set.travel_effect.instantiate()
 		_add_effect(projectile, from)
+		projectile.scale = anim_set.travel_scale
 		
 		if projectile.has_method("setup"):
 			projectile.setup(from, target_pos, anim_set.travel_duration, anim_set.travel_curve)
@@ -100,6 +113,7 @@ func _play_impact(anim_set: CombatAnimationSet, positions: Array[Vector2], nodes
 		var effect = anim_set.impact_effect.instantiate()
 		var pos = positions[i] + anim_set.impact_offset
 		_add_effect(effect, pos)
+		effect.scale = anim_set.impact_scale
 		
 		# If shader effect, setup target node
 		if effect is ShaderEffect and i < nodes.size():
