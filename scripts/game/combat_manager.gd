@@ -570,6 +570,48 @@ func _on_combatant_turn_completed(_combatant: Combatant):
 # DAMAGE CALCULATION
 # ============================================================================
 
+func _apply_action_effect(action_data: Dictionary, source: Combatant, targets: Array):
+	"""Apply the actual game effect (damage, heal, etc.) from an action"""
+	var action_type = action_data.get("action_type", 0)
+	
+	match action_type:
+		0:  # ATTACK
+			for target in targets:
+				var damage = _calculate_damage(action_data, source, target)
+				print("  💥 %s deals %d damage to %s" % [source.combatant_name, damage, target.combatant_name])
+				target.take_damage(damage)
+				
+				# Update appropriate health display
+				if target == player_combatant:
+					_update_player_health()
+					_check_player_death()
+				else:
+					var enemy_index = enemy_combatants.find(target)
+					if enemy_index >= 0:
+						_update_enemy_health(enemy_index)
+						_check_enemy_death(target)
+		
+		1:  # DEFEND
+			print("  🛡️ %s defends" % source.combatant_name)
+			# Add block/armor buff if you have that system
+		
+		2:  # HEAL
+			var heal_amount = _calculate_heal(action_data, source)
+			print("  💚 %s heals for %d" % [source.combatant_name, heal_amount])
+			source.heal(heal_amount)
+			
+			if source == player_combatant:
+				_update_player_health()
+			else:
+				var enemy_index = enemy_combatants.find(source)
+				if enemy_index >= 0:
+					_update_enemy_health(enemy_index)
+		
+		3:  # SPECIAL
+			print("  ✨ %s uses special ability" % source.combatant_name)
+			# Handle special abilities - could check action_data for specifics
+
+
 func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
 	"""Calculate damage using the new system"""
 	var placed_dice: Array = action_data.get("placed_dice", [])
