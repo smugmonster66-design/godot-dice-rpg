@@ -26,6 +26,14 @@ var fill_texture: TextureRect = null
 var stroke_texture: TextureRect = null
 var value_label: Label = null
 var animation_player: AnimationPlayer = null
+var preview_effects: Control = null
+
+# ============================================================================
+# PREVIEW MATERIALS (stored during setup, applied during drag)
+# ============================================================================
+var _preview_fill_material: Material = null
+var _preview_stroke_material: Material = null
+var _preview_value_material: Material = null
 
 # ============================================================================
 # STATE
@@ -63,6 +71,8 @@ func _discover_nodes():
 		value_label = find_child("ValueLabel", true, false) as Label
 	if not animation_player:
 		animation_player = find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if not preview_effects:
+		preview_effects = find_child("PreviewEffects", true, false) as Control
 
 # ============================================================================
 # SETUP API
@@ -84,6 +94,7 @@ func _apply_all_visuals():
 	_apply_textures()
 	_apply_base_color()
 	_apply_affixes()
+	_setup_preview_effects()
 	_update_value_display()
 
 func _apply_textures():
@@ -229,6 +240,54 @@ func _add_border_glow(color: Color):
 	
 	add_child(glow)
 	move_child(glow, 0)  # Behind everything
+
+# ============================================================================
+# PREVIEW EFFECTS SETUP
+# ============================================================================
+
+func _setup_preview_effects():
+	"""Populate PreviewEffects node from affix preview_effects arrays"""
+	if not die_resource or not preview_effects:
+		return
+	
+	# Clear any existing preview effect children
+	for child in preview_effects.get_children():
+		child.queue_free()
+	
+	# Clear stored materials
+	_preview_fill_material = null
+	_preview_stroke_material = null
+	_preview_value_material = null
+	
+	# Collect preview effects from all affixes
+	for affix in die_resource.get_all_affixes():
+		if not affix.has_method("has_preview_effects"):
+			continue
+		if not affix.has_preview_effects():
+			continue
+		
+		for effect in affix.get_preview_effects():
+			_add_preview_effect(effect)
+
+func _add_preview_effect(effect):
+	"""Add a single PreviewEffect - particles to node, materials stored for drag"""
+	# Store materials for application during drag preview
+	if effect.fill_shader_material:
+		_preview_fill_material = effect.fill_shader_material
+	if effect.stroke_shader_material:
+		_preview_stroke_material = effect.stroke_shader_material
+	if effect.value_shader_material:
+		_preview_value_material = effect.value_shader_material
+	
+	# Instantiate particle scenes into PreviewEffects container
+	if effect.particle_scene and preview_effects:
+		var particles = effect.particle_scene.instantiate()
+		particles.position = effect.particle_offset
+		particles.scale = effect.particle_scale
+		# Don't start emitting yet - will start when shown
+		if particles is GPUParticles2D or particles is CPUParticles2D:
+			particles.emitting = false
+		preview_effects.add_child(particles)
 
 # ============================================================================
 # VALUE DISPLAY - Override in subclasses
@@ -393,22 +452,47 @@ func animate_to_position(target_pos: Vector2, duration: float = 0.2) -> Tween:
 # ============================================================================
 
 func create_drag_preview() -> Control:
-	# Use custom preview scene if specified on the die
-	if die_resource and die_resource.drag_preview_scene:
-		var preview = die_resource.drag_preview_scene.instantiate()
-		if preview.has_method("setup"):
-			preview.setup(die_resource)
-		preview.position = -base_size / 2
-		return preview
-	
-	# Fallback: duplicate self
+	"""Create a visual copy for Godot's drag preview system with preview effects"""
 	var preview = duplicate() as DieObjectBase
 	preview.draggable = false
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
+	
+	# Reset anchors so position works correctly for drag preview
+	preview.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	preview.position = -base_size / 2
+	
+	# Show preview effects and apply stored materials
+	_activate_preview_effects(preview)
+	
 	return preview
 
+func _activate_preview_effects(preview: Control):
+	"""Activate preview effects on a preview copy"""
+	# Show the PreviewEffects container
+	var effects_container = preview.find_child("PreviewEffects", true, false)
+	if effects_container:
+		effects_container.show()
+		# Start any particle emitters
+		for child in effects_container.get_children():
+			if child is GPUParticles2D or child is CPUParticles2D:
+				child.emitting = true
+	
+	# Apply stored preview materials
+	if _preview_fill_material:
+		var fill = preview.find_child("FillTexture", true, false) as TextureRect
+		if fill:
+			fill.material = _preview_fill_material.duplicate(true)
+	
+	if _preview_stroke_material:
+		var stroke = preview.find_child("StrokeTexture", true, false) as TextureRect
+		if stroke:
+			stroke.material = _preview_stroke_material.duplicate(true)
+	
+	if _preview_value_material:
+		var label = preview.find_child("ValueLabel", true, false) as Label
+		if label:
+			label.material = _preview_value_material.duplicate(true)
 
 # ============================================================================
 # INPUT HANDLING
