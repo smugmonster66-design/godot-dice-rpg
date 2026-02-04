@@ -1,8 +1,14 @@
-[gd_scene load_steps=3 format=3 uid="uid://c0w3t10mfnowo"]
+[gd_scene load_steps=6 format=3 uid="uid://c0w3t10mfnowo"]
 
 [ext_resource type="PackedScene" uid="uid://ds3fslulucbxd" path="res://scenes/ui/map/dice_grid.tscn" id="1_5ue3t"]
+[ext_resource type="Texture2D" uid="uid://bk7srh475afct" path="res://assets/ui/portrait frames/placeholder/placeholder_frame_front.png" id="1_algh6"]
+[ext_resource type="Texture2D" uid="uid://78pjnt2x1fn1" path="res://assets/characters/Bones/portraits/bones_placeholder_portrait.png" id="1_px728"]
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_px728"]
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_1ip7k"]
+texture = ExtResource("1_algh6")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bpvbv"]
+texture = ExtResource("1_algh6")
 
 [node name="BottomUIPanel" type="PanelContainer"]
 custom_minimum_size = Vector2(342, 342)
@@ -10,6 +16,7 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -400.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -35,6 +42,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_1ip7k")
 
 [node name="PortraitTexture" type="TextureRect" parent="MainHBox/PortraitSection/PortraitVBox/PortraitContainer"]
 layout_mode = 1
@@ -43,6 +51,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+texture = ExtResource("1_px728")
 expand_mode = 1
 stretch_mode = 5
 
@@ -53,7 +62,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_px728")
+theme_override_styles/panel = SubResource("StyleBoxTexture_bpvbv")
+
+[node name="VSeparator" type="VSeparator" parent="MainHBox"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="LeftSection" type="VBoxContainer" parent="MainHBox"]
 layout_mode = 2
@@ -96,7 +109,11 @@ text = "0/10"
 
 [node name="DiceGrid" parent="MainHBox/LeftSection/DiceSection" instance=ExtResource("1_5ue3t")]
 layout_mode = 2
-columns = 10
+columns = 5
+
+[node name="VSeparator2" type="VSeparator" parent="MainHBox"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="RightSection" type="VBoxContainer" parent="MainHBox"]
 layout_mode = 2

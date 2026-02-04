@@ -22,4 +22,6 @@ visible = false
 [node name="PersistentUILayer" type="CanvasLayer" parent="."]
 layer = 100
 
-[node name="BottomUIPanel" parent="." instance=ExtResource("5_n6w2t")]
+[node name="BottomUIPanel" parent="PersistentUILayer" instance=ExtResource("5_n6w2t")]
+anchors_preset = -1
+offset_top = -342.0
