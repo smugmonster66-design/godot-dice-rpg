@@ -143,6 +143,7 @@ func to_dict() -> Dictionary:
 		"action_type": action_type,
 		"base_damage": base_damage,
 		"damage_multiplier": damage_multiplier,
+		"animation_set": animation_set,
 		"source": "action"
 	}
 
