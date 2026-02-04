@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://gax4pbuq25uv" path="res://resources/data/equippable_item.gd" id="3_3c4m5"]
 [ext_resource type="Resource" uid="uid://couqhbcv0nj5p" path="res://resources/encounters/goblin_solo.tres" id="5_t547c"]
 [ext_resource type="PackedScene" uid="uid://cqp8tlucqj7xe" path="res://scenes/ui/map/map_dice_panel.tscn" id="8_bg5j8"]
-[ext_resource type="Resource" uid="uid://dynp53wsejoff" path="res://resources/items/main hand/frost_hammer.tres" id="10_5osyn"]
+[ext_resource type="Resource" uid="uid://dn2hvhv24b1t6" path="res://resources/items/accessory/fire_blast_gem_accessory.tres" id="8_t547c"]
 
 [node name="MapScene" type="Node2D"]
 script = ExtResource("1_yjpty")
@@ -141,7 +141,7 @@ encounter = ExtResource("5_t547c")
 layout_mode = 2
 text = "Add Starting Gear"
 script = ExtResource("2_2b48g")
-starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("10_5osyn")])
+starting_items = Array[ExtResource("3_3c4m5")]([ExtResource("8_t547c")])
 
 [node name="MapDicePanel" parent="UILayer/VBoxContainer" instance=ExtResource("8_bg5j8")]
 layout_mode = 2

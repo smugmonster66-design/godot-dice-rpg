@@ -58,6 +58,7 @@ var current_charges: int = 0
 # ============================================================================
 @export_group("Legacy (Deprecated)")
 @export var action_type: int = 0  # 0=Attack, 1=Defend, 2=Heal, 3=Special
+@export var action_category: int = 0 
 @export var base_damage: int = 0
 @export var damage_multiplier: float = 1.0
 
