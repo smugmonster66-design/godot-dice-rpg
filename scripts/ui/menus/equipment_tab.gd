@@ -105,7 +105,37 @@ func refresh():
 	for slot_name in slot_buttons:
 		_update_equipment_slot(slot_name)
 	
+	_update_offhand_state()
+	
 	_update_item_details()
+
+
+func _update_offhand_state():
+	"""Dim off-hand slot if heavy weapon is equipped"""
+	var offhand_container = slot_buttons.get("Off Hand")
+	if not offhand_container:
+		return
+	
+	var main_hand_item = player.equipment.get("Main Hand")
+	var is_heavy = main_hand_item != null and main_hand_item.get("is_heavy", false)
+	
+	if is_heavy:
+		# Dim the entire off-hand slot to 50%
+		offhand_container.modulate = Color(1, 1, 1, 0.5)
+		
+		# Optionally disable the button
+		var button = offhand_container.get_node_or_null("SlotButton")
+		if button:
+			button.disabled = true
+			button.tooltip_text = "Blocked by two-handed weapon"
+	else:
+		# Restore normal state
+		offhand_container.modulate = Color(1, 1, 1, 1)
+		
+		var button = offhand_container.get_node_or_null("SlotButton")
+		if button:
+			button.disabled = false
+			button.tooltip_text = ""
 
 func on_external_data_change():
 	"""Called when other tabs modify player data"""
@@ -155,6 +185,7 @@ func _apply_item_visual(button: Button, item: Dictionary):
 		# Show item icon
 		button.icon = item.icon
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.expand_icon = true
 		
 		# CRITICAL: Set these properties for icon display
 		button.custom_minimum_size = Vector2(80, 80)

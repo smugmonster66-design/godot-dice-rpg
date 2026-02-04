@@ -88,25 +88,17 @@ func open_menu(p_player: Player):
 	for name in tab_content_panels:
 		tab_content_panels[name].hide()
 	
-	# Show first tab by default (find first pressed button)
-	var tab_shown = false
-	for button in tab_buttons:
-		if button.button_pressed:
-			var tab_name = button.get_meta("tab_name", "")
-			if tab_name:
-				_show_tab(tab_name)
-				tab_shown = true
-				break
+	# Always show Character tab by default
+	_show_tab("Character")
 	
-	# If no button was pressed, show first tab
-	if not tab_shown and tab_buttons.size() > 0:
-		var first_tab_name = tab_buttons[0].get_meta("tab_name", "")
-		if first_tab_name:
-			tab_buttons[0].button_pressed = true
-			_show_tab(first_tab_name)
+	# Set Character button as pressed
+	for button in tab_buttons:
+		var tab_name = button.get_meta("tab_name", "")
+		button.button_pressed = (tab_name == "Character")
 	
 	show()
 	print("📋 PlayerMenu: Opened")
+
 
 func close_menu():
 	"""Close the menu"""

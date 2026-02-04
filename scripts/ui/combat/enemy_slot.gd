@@ -250,7 +250,15 @@ func _update_dice_pool_display():
 	for die in pool_dice:
 		var icon = _create_die_icon(die)
 		dice_pool_bar.add_child(icon)
+		
+		# Force small size AFTER adding to tree (scale only affects visuals, not layout)
+		if icon.has_method("set_display_scale"):
+			var scaled_size = Vector2(31, 31)  # 124 * 0.25
+			icon.custom_minimum_size = scaled_size
+			icon.size = scaled_size
+		
 		dice_icons.append(icon)
+
 
 func _create_die_icon(die: DieResource) -> Control:
 	"""Create a small icon for a die using the proper visual system"""
@@ -260,7 +268,13 @@ func _create_die_icon(die: DieResource) -> Control:
 		if visual:
 			visual.draggable = false
 			visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			visual.set_display_scale(0.2)  # Small for icon bar
+			visual.set_display_scale(0.25)  # 1/4 size for pool icons
+			
+			# Hide the value label for pool icons
+			var label = visual.find_child("ValueLabel", true, false)
+			if label:
+				label.hide()
+			
 			visual.tooltip_text = "%s (D%d)" % [die.display_name, die.die_type]
 			return visual
 	
@@ -282,7 +296,6 @@ func _create_die_icon(die: DieResource) -> Control:
 	
 	icon.tooltip_text = "%s (D%d)" % [die.display_name, die.die_type]
 	return icon
-
 
 
 func _get_die_size_color(die_type: DieResource.DieType) -> Color:

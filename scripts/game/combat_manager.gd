@@ -6,6 +6,8 @@ extends Node2D
 # NODE REFERENCES
 # ============================================================================
 @onready var encounter_spawner: EncounterSpawner = $EncounterSpawner
+@onready var animation_player: CombatAnimationPlayer = $CombatAnimationPlayer
+
 
 var player_combatant: Combatant = null
 var enemy_combatants: Array[Combatant] = []
@@ -115,6 +117,33 @@ func check_pending_encounter():
 		
 		if GameManager.player:
 			initialize_combat(GameManager.player)
+
+
+func _execute_action(action_data: Dictionary, source: Node2D, targets: Array[Combatant]):
+	var animation_set = action_data.get("animation_set") as CombatAnimationSet
+	
+	# Get positions
+	var source_pos = source.global_position
+	var target_positions: Array[Vector2] = []
+	var target_nodes: Array[Node2D] = []
+	
+	for target in targets:
+		target_positions.append(target.global_position)
+		target_nodes.append(target)
+	
+	# Connect to apply effect at right time
+	var apply_effect_callable = func():
+		_apply_action_effect(action_data, source, targets)
+	
+	animation_player.apply_effect_now.connect(apply_effect_callable, CONNECT_ONE_SHOT)
+	
+	# Play animation sequence
+	await animation_player.play_action_animation(
+		animation_set,
+		source_pos,
+		target_positions,
+		target_nodes
+	)
 
 # ============================================================================
 # ENCOUNTER SPAWNING

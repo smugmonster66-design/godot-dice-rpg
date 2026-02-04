@@ -50,6 +50,9 @@ var current_charges: int = 0
 @export_group("Action Effects")
 @export var effects: Array[ActionEffect] = []
 
+@export_group("Animation")
+@export var animation_set: CombatAnimationSet
+
 # ============================================================================
 # LEGACY SUPPORT (for backwards compatibility)
 # ============================================================================
