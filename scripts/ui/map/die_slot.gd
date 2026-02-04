@@ -101,10 +101,11 @@ func _show_die():
 	current_die_visual = die.instantiate_pool_visual()
 	if current_die_visual:
 		current_die_visual.draggable = false  # Slot handles drag
-		current_die_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		current_die_visual.set_display_scale(0.6)
 		current_die_visual.position = Vector2(4, 4)
 		add_child(current_die_visual)
+		# Set mouse_filter AFTER add_child so _ready() doesn't override it
+		current_die_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _show_empty():
 	if current_die_visual and is_instance_valid(current_die_visual):
