@@ -452,25 +452,33 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 	for i in range(decision.dice.size()):
 		var die = decision.dice[i]
 		
+		print("  🎲 Looking for visual for: %s" % die.display_name)
+		
 		# Find the visual that matches THIS die
 		var die_visual: Control = null
 		if combat_ui and combat_ui.enemy_panel:
+			print("    hand_dice_visuals count: %d" % combat_ui.enemy_panel.hand_dice_visuals.size())
 			for vis in combat_ui.enemy_panel.hand_dice_visuals:
 				if is_instance_valid(vis) and vis.visible and vis.has_method("get_die"):
 					var vis_die = vis.get_die()
-					if vis_die == die:
+					# Match by reference OR by display_name as fallback
+					if vis_die == die or (vis_die and vis_die.display_name == die.display_name):
 						die_visual = vis
+						print("    ✅ Found matching visual")
 						break
 		
-		# Fallback: if no exact match, find first visible
+		# Fallback: if no match, find first visible die visual
 		if not die_visual and combat_ui and combat_ui.enemy_panel:
 			for vis in combat_ui.enemy_panel.hand_dice_visuals:
 				if is_instance_valid(vis) and vis.visible:
 					die_visual = vis
+					print("    ⚠️ Using fallback (first visible)")
 					break
 		
+		print("    Found visual: %s" % (die_visual != null))
+		
 		# Animate die to action field
-		if combat_ui.has_method("animate_die_to_action_field"):
+		if combat_ui and combat_ui.has_method("animate_die_to_action_field"):
 			await combat_ui.animate_die_to_action_field(die_visual, action_name, die)
 		else:
 			await get_tree().create_timer(enemy.dice_drag_duration).timeout
@@ -490,28 +498,31 @@ func _animate_enemy_action(enemy: Combatant, decision: EnemyAI.Decision):
 		0:  # ATTACK
 			var damage = _calculate_damage(action_data, enemy, player)
 			print("  💥 %s attacks player for %d!" % [enemy.combatant_name, damage])
-			player_combatant.take_damage(damage)
-			_update_player_health()
-			if _check_player_death():
-				return
+			if player_combatant:
+				player_combatant.take_damage(damage)
+				_update_player_health()
 		1:  # DEFEND
 			print("  🛡️ %s defends" % enemy.combatant_name)
+			# Apply armor/barrier buff
 		2:  # HEAL
-			var heal_amount = _calculate_heal(action_data, enemy)
+			var heal_amount = _calculate_damage(action_data, enemy, null)
 			print("  💚 %s heals for %d" % [enemy.combatant_name, heal_amount])
 			enemy.heal(heal_amount)
-			_update_enemy_health(enemy_combatants.find(enemy))
+			if combat_ui and combat_ui.enemy_panel:
+				var enemy_index = combat_ui.enemy_panel.get_enemy_index(enemy)
+				_update_enemy_health(enemy_index)
+		3:  # SPECIAL
+			print("  ✨ %s uses special ability" % enemy.combatant_name)
 	
-	# Flash the action field to show it executed
+	# Animate action confirm (clear dice from field)
 	if combat_ui and combat_ui.has_method("animate_enemy_action_confirm"):
 		await combat_ui.animate_enemy_action_confirm(action_name)
 	
-	enemy.action_executed.emit(decision.action, 0)
+	# Small delay before finishing turn
+	await get_tree().create_timer(0.2).timeout
 	
-	await get_tree().create_timer(enemy.action_delay).timeout
-	
-	combat_state = CombatState.ENEMY_TURN
-	_process_enemy_turn(enemy)
+	_finish_enemy_turn(enemy)
+
 
 func _finish_enemy_turn(enemy: Combatant):
 	"""Finish enemy's turn"""

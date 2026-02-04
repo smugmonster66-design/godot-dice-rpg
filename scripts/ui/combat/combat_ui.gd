@@ -603,101 +603,91 @@ func highlight_enemy_action(action_name: String):
 		var tween = create_tween()
 		tween.tween_property(field, "modulate", Color(1.3, 1.2, 0.8), 0.2)
 
+
 func animate_die_to_action_field(die_visual: Control, action_name: String, die: DieResource = null) -> void:
-	"""Animate a die moving from hand to action field and place it in the slot"""
+	"""Animate a die moving from hand to action field by reparenting"""
 	var field = find_action_field_by_name(action_name)
 	if not field:
+		print("  ⚠️ No action field found for: %s" % action_name)
 		await get_tree().create_timer(0.3).timeout
 		return
 	
-	# Get the target slot in the action field
 	var slot_index = field.placed_dice.size()
 	if slot_index >= field.die_slot_panels.size():
+		print("  ⚠️ No more slots available")
 		await get_tree().create_timer(0.3).timeout
 		return
 	
 	var target_slot = field.die_slot_panels[slot_index]
-	var target_pos = target_slot.global_position + target_slot.size / 2
 	
-	# If we have a valid source visual, animate it
-	if die_visual and is_instance_valid(die_visual):
-		# Get start position
-		var start_pos = die_visual.global_position
-		
-		# Create a temporary animated visual
-		var temp_visual = _create_temp_die_visual(die if die else null, die_visual)
-		get_tree().root.add_child(temp_visual)
-		temp_visual.global_position = start_pos
-		temp_visual.z_index = 100
-		
-		# Track for cleanup
-		temp_animation_visuals.append(temp_visual)
-		
-		# Hide source
-		die_visual.hide()
-		
-		# Flash the temp visual
-		var flash_tween = create_tween()
-		flash_tween.tween_property(temp_visual, "modulate", Color(1.5, 1.5, 0.5), 0.1)
-		flash_tween.tween_property(temp_visual, "modulate", Color.WHITE, 0.1)
-		await flash_tween.finished
-		
-		# Move to target slot
-		var move_tween = create_tween()
-		move_tween.set_parallel(true)
-		move_tween.tween_property(temp_visual, "global_position", target_pos - temp_visual.size / 2, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-		move_tween.tween_property(temp_visual, "scale", Vector2(0.8, 0.8), 0.2)
-		move_tween.chain().tween_property(temp_visual, "scale", Vector2(1.0, 1.0), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		await move_tween.finished
-		
-		# Remove temp visual from tracking and free it
-		if is_instance_valid(temp_visual):
-			temp_animation_visuals.erase(temp_visual)
-			temp_visual.queue_free()
+	# Debug: check what we got
+	print("  🎬 animate_die_to_action_field:")
+	print("    die_visual valid: %s" % (die_visual != null and is_instance_valid(die_visual)))
+	print("    die: %s" % (die.display_name if die else "null"))
 	
-	# Now place the die in the action field slot
-	if die:
-		_place_die_in_field_slot(field, die, slot_index)
-	elif die_visual and die_visual.has_method("get_die"):
-		_place_die_in_field_slot(field, die_visual.get_die(), slot_index)
+	if not die_visual or not is_instance_valid(die_visual):
+		print("  ⚠️ No valid die_visual to animate")
+		# Still need to place the die data even without visual
+		if die:
+			field.placed_dice.append(die)
+		await get_tree().create_timer(0.3).timeout
+		return
+	
+	# Track the die in placed_dice
+	var die_to_place = die if die else (die_visual.get_die() if die_visual.has_method("get_die") else null)
+	if die_to_place:
+		field.placed_dice.append(die_to_place)
+	
+	# Clear any existing children in slot
+	for child in target_slot.get_children():
+		child.queue_free()
+	
+	# Store start position before reparenting
+	var start_global_pos = die_visual.global_position
+	
+	# Reparent to the scene root temporarily for smooth animation
+	var old_parent = die_visual.get_parent()
+	if old_parent:
+		old_parent.remove_child(die_visual)
+	get_tree().root.add_child(die_visual)
+	
+	# Configure for animation
+	die_visual.visible = true
+	die_visual.global_position = start_global_pos
+	die_visual.z_index = 100
+	if "draggable" in die_visual:
+		die_visual.draggable = false
+	die_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Flash effect
+	var flash_tween = create_tween()
+	flash_tween.tween_property(die_visual, "modulate", Color(1.5, 1.5, 0.5), 0.1)
+	flash_tween.tween_property(die_visual, "modulate", Color.WHITE, 0.1)
+	await flash_tween.finished
+	
+	# Calculate target position (center of slot in global coords)
+	var target_global = target_slot.global_position + target_slot.size / 2
+	
+	# Animate to target
+	var move_tween = create_tween().set_parallel(true)
+	move_tween.tween_property(die_visual, "global_position", target_global - die_visual.pivot_offset * field.DIE_SCALE, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	move_tween.tween_property(die_visual, "scale", Vector2(field.DIE_SCALE, field.DIE_SCALE), 0.3).set_ease(Tween.EASE_OUT)
+	await move_tween.finished
+	
+	# Now reparent to the actual slot
+	get_tree().root.remove_child(die_visual)
+	target_slot.add_child(die_visual)
+	
+	# Set final local position
+	die_visual.z_index = 0
+	die_visual.custom_minimum_size = Vector2.ZERO
+	die_visual.position = field.SLOT_SIZE / 2 - die_visual.pivot_offset
+	
+	field.dice_visuals.append(die_visual)
+	field.update_icon_state()
 
-func _create_temp_die_visual(die: DieResource, _source_visual: Control) -> Control:
-	"""Create a temporary visual for animation using die face scene"""
-	var container = PanelContainer.new()
-	
-	# Make transparent
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color.TRANSPARENT
-	container.add_theme_stylebox_override("panel", style)
-	
-	if die:
-		# Load die face scene
-		var scene_path = "res://scenes/ui/components/dice/die_face_d%d.tscn" % die.die_type
-		var scene = load(scene_path)
-		
-		if scene:
-			var face = scene.instantiate()
-			container.add_child(face)
-			
-			# Update value
-			var label = face.find_child("ValueLabel", true, false) as Label
-			if label:
-				label.text = str(die.get_total_value())
-			
-			# Apply color
-			var tex = face.find_child("TextureRect", true, false) as TextureRect
-			if tex:
-				if die.color != Color.WHITE:
-					tex.modulate = die.color
-				
-				# Apply affix visual effects
-				_apply_temp_visual_affix_effects(container, face, tex, die)
-		else:
-			_add_fallback_die_visual(container, die)
-	else:
-		_add_fallback_die_visual(container, null)
-	
-	return container
+
+
 
 func _apply_temp_visual_affix_effects(container: Control, face: Control, tex: TextureRect, die: DieResource):
 	"""Apply affix visual effects to temp animation visual"""
@@ -775,56 +765,6 @@ func _add_fallback_die_visual(container: PanelContainer, die: DieResource):
 	value_label.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(value_label)
 
-
-func _place_die_in_field_slot(field: ActionField, die: DieResource, slot_index: int):
-	"""Place a die directly into an action field slot"""
-	if slot_index >= field.die_slot_panels.size():
-		return
-	
-	var slot_panel = field.die_slot_panels[slot_index]
-	
-	# Clear the slot
-	for child in slot_panel.get_children():
-		child.queue_free()
-	
-	# Add die to placed_dice array
-	field.placed_dice.append(die)
-	
-	# Create visual in slot
-	var die_visual = field._create_placed_die_visual(die)
-	
-	# Prevent expansion
-	die_visual.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	die_visual.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	
-	slot_panel.add_child(die_visual)
-	
-	# Force size AFTER adding to tree
-	die_visual.size = Vector2(62, 62)
-	
-	field.dice_visuals.append(die_visual)
-	
-	# Flash effect on slot
-	var original_style = slot_panel.get_theme_stylebox("panel")
-	if original_style is StyleBoxFlat:
-		var flash_style = original_style.duplicate() as StyleBoxFlat
-		flash_style.border_color = Color(1.0, 0.9, 0.5)
-		flash_style.set_border_width_all(2)
-		slot_panel.add_theme_stylebox_override("panel", flash_style)
-		
-		var tween = create_tween()
-		tween.tween_interval(0.2)
-		tween.tween_callback(func():
-			if is_instance_valid(slot_panel):
-				var revert_style = StyleBoxFlat.new()
-				revert_style.bg_color = Color(0.2, 0.2, 0.25)
-				revert_style.border_color = Color(0.4, 0.5, 0.4)
-				revert_style.set_border_width_all(1)
-				revert_style.set_corner_radius_all(4)
-				slot_panel.add_theme_stylebox_override("panel", revert_style)
-		)
-	
-	field.update_icon_state()
 
 
 
@@ -1048,11 +988,14 @@ func show_enemy_hand(enemy_combatant: Combatant):
 			# Add dice visuals
 			var hand_dice = enemy_combatant.get_available_dice()
 			for die in hand_dice:
-				var die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
-				if die_visual_scene:
-					var visual = die_visual_scene.instantiate()
-					if visual.has_method("set_die"):
-						visual.set_die(die)
+				var visual: Control = null
+				if die.has_method("instantiate_combat_visual"):
+					visual = die.instantiate_combat_visual()
+					if visual:
+						visual.draggable = false
+						visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+				if visual:
 					dice_grid.add_child(visual)
 					enemy_dice_visuals.append(visual)
 

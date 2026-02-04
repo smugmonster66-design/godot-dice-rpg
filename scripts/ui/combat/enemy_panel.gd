@@ -42,8 +42,8 @@ var is_animating: bool = false
 
 func _ready():
 	# Load die visual scene if not set
-	if not die_visual_scene:
-		die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
+	#if not die_visual_scene:
+	#	die_visual_scene = load("res://scenes/ui/components/die_visual.tscn")
 	
 	_discover_slots()
 	_connect_slot_signals()
@@ -297,18 +297,24 @@ func get_enemy_index(enemy: Combatant) -> int:
 
 
 func _create_die_visual(die: DieResource) -> Control:
-	"""Create a die visual for the hand"""
-	if not die_visual_scene:
-		return null
+	"""Create a die visual for the hand using new CombatDieObject system"""
+	# Use the new system - same as player dice
+	if die.has_method("instantiate_combat_visual"):
+		var visual = die.instantiate_combat_visual()
+		if visual:
+			visual.draggable = false  # Enemy dice aren't draggable by player
+			visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			return visual
 	
-	var visual = die_visual_scene.instantiate()
+	# Fallback to old system if needed
+	if die_visual_scene:
+		var visual = die_visual_scene.instantiate()
+		if visual.has_method("set_die"):
+			visual.set_die(die)
+		return visual
 	
-	if visual.has_method("set_die"):
-		visual.set_die(die)
-	elif visual.has_method("initialize"):
-		visual.initialize(die)
-	
-	return visual
+	return null
+
 
 func _clear_hand_dice():
 	"""Clear all dice visuals from hand"""

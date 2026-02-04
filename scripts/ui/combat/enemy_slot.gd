@@ -252,27 +252,38 @@ func _update_dice_pool_display():
 		dice_pool_bar.add_child(icon)
 		dice_icons.append(icon)
 
-func _create_die_icon(die: DieResource) -> TextureRect:
-	"""Create a small icon for a die"""
+func _create_die_icon(die: DieResource) -> Control:
+	"""Create a small icon for a die using the proper visual system"""
+	# Use the new pool visual system
+	if die.has_method("instantiate_pool_visual"):
+		var visual = die.instantiate_pool_visual()
+		if visual:
+			visual.draggable = false
+			visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			visual.set_display_scale(0.2)  # Small for icon bar
+			visual.tooltip_text = "%s (D%d)" % [die.display_name, die.die_type]
+			return visual
+	
+	# Fallback to simple TextureRect
 	var icon = TextureRect.new()
 	icon.custom_minimum_size = die_icon_size
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	
-	# Use die's icon if available
-	if die.icon:
+	if die.fill_texture:
+		icon.texture = die.fill_texture
+	elif die.icon:
 		icon.texture = die.icon
 	
-	# Use die's color, or default based on die size
 	if die.color != Color.WHITE:
 		icon.modulate = die.color
 	else:
 		icon.modulate = _get_die_size_color(die.die_type)
 	
-	# Tooltip shows die info
 	icon.tooltip_text = "%s (D%d)" % [die.display_name, die.die_type]
-	
 	return icon
+
+
 
 func _get_die_size_color(die_type: DieResource.DieType) -> Color:
 	"""Get color based on die size"""
