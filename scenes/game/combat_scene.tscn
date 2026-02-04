@@ -21,8 +21,8 @@ max_health = 25
 [node name="CombatUILayer" parent="." instance=ExtResource("3_c5idb")]
 script = ExtResource("4_v0jgu")
 
-[node name="CombatAnimationPlayer" type="AnimationPlayer" parent="."]
-script = ExtResource("7_8ldcr")
-
 [node name="EffectsLayer" type="CanvasLayer" parent="."]
 layer = 10
+
+[node name="CombatAnimationPlayer" type="AnimationPlayer" parent="."]
+script = ExtResource("7_8ldcr")

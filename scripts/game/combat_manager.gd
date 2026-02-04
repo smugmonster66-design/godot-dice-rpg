@@ -376,8 +376,10 @@ func _on_player_end_turn():
 	print("🎮 Player ended turn")
 	_end_current_turn()
 
+
+
 func _on_action_confirmed(action_data: Dictionary):
-	"""Player confirmed an action"""
+	"""Player confirmed an action - plays animation then applies effect"""
 	if combat_state != CombatState.PLAYER_TURN:
 		return
 	
@@ -393,26 +395,136 @@ func _on_action_confirmed(action_data: Dictionary):
 		target = _get_first_living_enemy()
 		target_index = enemy_combatants.find(target)
 	
-	# Calculate damage with attacker (player) and defender (target)
-	var damage = _calculate_damage(action_data, player, target)
+	# Build targets array for _apply_action_effect
+	var targets: Array = [target] if target else []
 	
-	print("⚔️ Player uses %s (type=%d, value=%d)" % [action_name, action_type, damage])
+	print("⚔️ Player uses %s (type=%d)" % [action_name, action_type])
 	
-	match action_type:
-		0:  # ATTACK
-			if target:
-				print("  → Attacking %s" % target.combatant_name)
-				target.take_damage(damage)
-				_update_enemy_health(target_index)
-				_check_enemy_death(target)
-		1:  # DEFEND
-			print("  → Defending")
-		2:  # HEAL
-			print("  → Healing for %d" % damage)
-			player_combatant.heal(damage)
-			_update_player_health()
-		3:  # SPECIAL
-			print("  → Special action")
+	# Get animation set from action_resource
+	var animation_set: CombatAnimationSet = null
+	var action_resource = action_data.get("action_resource") as Action
+	if action_resource and action_resource.get("animation_set"):
+		animation_set = action_resource.animation_set
+	
+	# Get the action field that was used (for source position)
+	var action_field: ActionField = null
+	if combat_ui:
+		action_field = combat_ui.find_action_field_by_name(action_name)
+	
+	# Check if we have animation player and animation set
+	var anim_player = _get_combat_animation_player()
+	
+	if animation_set and anim_player:
+		await _play_action_with_animation(action_data, targets, target_index, animation_set, anim_player, action_field)
+	else:
+		_apply_action_effect(action_data, player_combatant, targets)
+
+
+
+func _get_combat_animation_player():
+	"""Find the CombatAnimationPlayer node"""
+	if has_node("CombatAnimationPlayer"):
+		return get_node("CombatAnimationPlayer")
+	return find_child("CombatAnimationPlayer", true, false)
+
+
+func _play_action_with_animation(action_data: Dictionary, targets: Array, target_index: int,
+		animation_set: CombatAnimationSet, anim_player, action_field: ActionField) -> void:
+	"""Play action animation and apply effect at the right timing"""
+	
+	combat_state = CombatState.ANIMATING
+	
+	# === GET SOURCE POSITION (Action field die slot center) ===
+	var source_pos: Vector2 = Vector2.ZERO
+	if action_field and action_field.die_slot_panels.size() > 0:
+		# Get center of first die slot
+		var first_slot = action_field.die_slot_panels[0]
+		source_pos = first_slot.global_position + first_slot.size / 2
+	elif player_combatant:
+		# Fallback to player combatant position
+		source_pos = player_combatant.global_position
+	
+	# === GET TARGET POSITIONS (Enemy portrait centers in UI) ===
+	var target_positions: Array[Vector2] = []
+	var target_nodes: Array[Node2D] = []
+	
+	# Check if this is an AoE attack (targets all enemies)
+	var is_aoe = false
+	var action_resource = action_data.get("action_resource") as Action
+	if action_resource and action_resource.effects.size() > 0:
+		for effect in action_resource.effects:
+			if effect and effect.target == ActionEffect.TargetType.ALL_ENEMIES:
+				is_aoe = true
+				break
+	
+	if is_aoe:
+		# Target ALL enemy portraits
+		for i in range(enemy_combatants.size()):
+			var enemy = enemy_combatants[i]
+			if enemy and enemy.is_alive():
+				var portrait_pos = _get_enemy_portrait_position(i)
+				if portrait_pos != Vector2.ZERO:
+					target_positions.append(portrait_pos)
+					target_nodes.append(enemy)
+	else:
+		# Single target - get portrait position for selected enemy
+		var portrait_pos = _get_enemy_portrait_position(target_index)
+		if portrait_pos != Vector2.ZERO:
+			target_positions.append(portrait_pos)
+		elif targets.size() > 0 and targets[0] is Combatant:
+			# Fallback to combatant position
+			target_positions.append(targets[0].global_position)
+		
+		for t in targets:
+			if t is Node2D:
+				target_nodes.append(t)
+	
+	print("🎬 Animation: source=%s, targets=%d positions" % [source_pos, target_positions.size()])
+	
+	# Track if effect has been applied
+	var effect_applied = false
+	
+	# Create callback for applying effect at the right moment
+	var apply_effect_callback = func():
+		if not effect_applied:
+			effect_applied = true
+			_apply_action_effect(action_data, player_combatant, targets)
+	
+	# Connect to apply_effect_now signal if it exists
+	if anim_player.has_signal("apply_effect_now"):
+		if not anim_player.apply_effect_now.is_connected(apply_effect_callback):
+			anim_player.apply_effect_now.connect(apply_effect_callback, CONNECT_ONE_SHOT)
+	
+	# Play the animation sequence
+	if anim_player.has_method("play_action_animation"):
+		await anim_player.play_action_animation(animation_set, source_pos, target_positions, target_nodes)
+	else:
+		push_warning("CombatAnimationPlayer missing play_action_animation method")
+		await get_tree().create_timer(0.5).timeout
+	
+	# If effect wasn't applied by signal, apply now
+	if not effect_applied:
+		_apply_action_effect(action_data, player_combatant, targets)
+	
+	combat_state = CombatState.PLAYER_TURN
+
+func _get_enemy_portrait_position(enemy_index: int) -> Vector2:
+	"""Get the center position of an enemy's portrait in the UI"""
+	if not combat_ui or not combat_ui.enemy_panel:
+		return Vector2.ZERO
+	
+	var enemy_panel = combat_ui.enemy_panel
+	if enemy_index < 0 or enemy_index >= enemy_panel.enemy_slots.size():
+		return Vector2.ZERO
+	
+	var slot: EnemySlot = enemy_panel.enemy_slots[enemy_index]
+	if not slot or not slot.portrait_rect:
+		return Vector2.ZERO
+	
+	# Return center of portrait
+	var portrait = slot.portrait_rect
+	return portrait.global_position + portrait.size / 2
+
 
 # ============================================================================
 # ENEMY TURN
@@ -610,6 +722,7 @@ func _apply_action_effect(action_data: Dictionary, source: Combatant, targets: A
 		3:  # SPECIAL
 			print("  ✨ %s uses special ability" % source.combatant_name)
 			# Handle special abilities - could check action_data for specifics
+
 
 
 func _calculate_damage(action_data: Dictionary, attacker, defender) -> int:
