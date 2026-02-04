@@ -10,12 +10,6 @@ uniform float glint_intensity : hint_range(0.0, 1.0) = 0.7;
 void fragment() {
 	vec4 tex_color = texture(TEXTURE, UV);
 	
-	// Only process visible parts of stroke
-	if (tex_color.a < 0.01) {
-		COLOR = tex_color;
-		return;
-	}
-	
 	// Sharp edge highlight along diagonal
 	float edge_angle = (UV.x + UV.y) * 0.5;
 	float sharp_edge = pow(abs(sin(edge_angle * 3.14159 * edge_sharpness)), 8.0);

@@ -285,44 +285,10 @@ func get_all_affixes() -> Array[DiceAffix]:
 	
 	return all
 
-func get_visual_affixes() -> Array[DiceAffix]:
-	"""Get only affixes that have visual effects, in priority order.
-	   Last affix with a visual effect type wins for that component."""
-	var visual_affixes: Array[DiceAffix] = []
-	
-	for affix in get_all_affixes():
-		if affix and _affix_has_visual_effects(affix):
-			visual_affixes.append(affix)
-	
-	return visual_affixes
-
-func _affix_has_visual_effects(affix: DiceAffix) -> bool:
-	"""Check if an affix has any visual effect configured"""
-	if not affix:
-		return false
-	
-	# Check legacy unified effects
-	if affix.visual_effect_type != DiceAffix.VisualEffectType.NONE:
-		return true
-	
-	# Check per-component effects
-	if affix.fill_effect_type != DiceAffix.VisualEffectType.NONE:
-		return true
-	if affix.stroke_effect_type != DiceAffix.VisualEffectType.NONE:
-		return true
-	if affix.value_effect_type != DiceAffix.ValueEffectType.NONE:
-		return true
-	
-	# Check for particles
-	if affix.particle_scene:
-		return true
-	
-	return false
-
 func has_affix_with_effect(effect_type: DiceAffix.EffectType) -> bool:
 	"""Check if any affix has a specific effect type"""
 	for affix in get_all_affixes():
-		if affix.effect_type == effect_type:
+		if affix and affix.effect_type == effect_type:
 			return true
 	return false
 
@@ -391,11 +357,13 @@ func duplicate_die() -> DieResource:
 	
 	# Deep copy inherent affixes
 	for affix in inherent_affixes:
-		copy.inherent_affixes.append(affix.duplicate(true))
+		if affix:
+			copy.inherent_affixes.append(affix.duplicate(true))
 	
 	# Deep copy applied affixes
 	for affix in applied_affixes:
-		copy.applied_affixes.append(affix.duplicate(true))
+		if affix:
+			copy.applied_affixes.append(affix.duplicate(true))
 	
 	return copy
 
@@ -407,11 +375,13 @@ func to_dict() -> Dictionary:
 	"""Serialize die to dictionary"""
 	var inherent_data: Array[Dictionary] = []
 	for affix in inherent_affixes:
-		inherent_data.append(affix.to_dict())
+		if affix:
+			inherent_data.append(affix.to_dict())
 	
 	var applied_data: Array[Dictionary] = []
 	for affix in applied_affixes:
-		applied_data.append(affix.to_dict())
+		if affix:
+			applied_data.append(affix.to_dict())
 	
 	return {
 		"display_name": display_name,
