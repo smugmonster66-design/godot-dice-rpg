@@ -38,12 +38,12 @@ var action_resource: Action = null
 # ============================================================================
 # SIGNALS
 # ============================================================================
-signal action_selected(field: ActionField)
+signal action_selected(field)
 signal action_confirmed(action_data: Dictionary)
-signal action_ready(action_field: ActionField)
-signal action_cancelled(action_field: ActionField)
-signal die_placed(action_field: ActionField, die: DieResource)
-signal die_removed(action_field: ActionField, die: DieResource)
+signal action_ready(action_field)
+signal action_cancelled(action_field)
+signal die_placed(action_field, die: DieResource)
+signal die_removed(action_field, die: DieResource)
 signal dice_returned(die: DieResource, target_position: Vector2)
 signal dice_return_complete()
 
@@ -257,10 +257,8 @@ func _create_placed_visual(die: DieResource) -> Control:
 		if obj:
 			obj.draggable = false
 			obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			obj.set_display_scale(DIE_SCALE)
+			obj.set_display_scale(DIE_SCALE)  # Also sets _skip_minimum_size
 			# Center the die in the slot
-			# pivot_offset is at center of die (62, 62), scaling happens around pivot
-			# To center: we want the pivot point to be at center of slot
 			obj.position = SLOT_SIZE / 2 - obj.pivot_offset
 			return obj
 	
