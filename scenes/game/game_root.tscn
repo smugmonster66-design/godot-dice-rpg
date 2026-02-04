@@ -13,3 +13,10 @@ warrior = ExtResource("2_pevc5")
 
 [node name="CombatScene" parent="." instance=ExtResource("2_n6w2t")]
 visible = false
+visibility_layer = 512
+
+[node name="CombatScene2" parent="." instance=ExtResource("2_n6w2t")]
+visible = false
+visibility_layer = 512
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
