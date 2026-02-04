@@ -35,7 +35,7 @@ func _ready():
 	# Register with GameManager
 	if GameManager:
 		GameManager.game_root = self
-		# Connect to player_created signal to initialize UI when player is ready
+		# Connect to player_created signal for future player creation
 		if not GameManager.player_created.is_connected(_on_player_created):
 			GameManager.player_created.connect(_on_player_created)
 	
@@ -45,7 +45,17 @@ func _ready():
 	# Find and connect PlayerMenu from MapScene
 	_setup_player_menu()
 	
+	# TIMING FIX: Check if player already exists (GameManager autoload ran first)
+	# Use call_deferred to ensure all nodes are ready
+	call_deferred("_check_existing_player")
+	
 	print("🎮 GameRoot ready")
+
+func _check_existing_player():
+	"""Check if GameManager already created the player before we connected"""
+	if GameManager and GameManager.player:
+		print("🎮 GameRoot: Player already exists, initializing UI now")
+		_on_player_created(GameManager.player)
 
 func _setup_player_menu():
 	"""Find PlayerMenu in MapScene and connect to BottomUI"""
@@ -68,11 +78,21 @@ func _setup_player_menu():
 func _on_player_created(player: Resource):
 	"""Called when GameManager creates the player"""
 	print("🎮 GameRoot: Player created, initializing UI")
+	print("  player: %s" % player)
+	print("  player.dice_pool: %s" % player.get("dice_pool"))
+	if player.dice_pool:
+		print("  dice_pool.dice.size(): %d" % player.dice_pool.dice.size())
+	print("  bottom_ui: %s" % bottom_ui)
 	
 	# Initialize BottomUI with player
-	if bottom_ui and bottom_ui.has_method("initialize"):
-		bottom_ui.initialize(player)
-		print("  ✅ BottomUI initialized with player")
+	if bottom_ui:
+		if bottom_ui.has_method("initialize"):
+			bottom_ui.initialize(player)
+			print("  ✅ BottomUI initialized with player")
+		else:
+			print("  ❌ BottomUI has no initialize method - is script attached?")
+	else:
+		print("  ❌ bottom_ui is null!")
 
 # ============================================================================
 # LAYER MANAGEMENT

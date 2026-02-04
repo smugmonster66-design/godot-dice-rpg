@@ -119,12 +119,12 @@ func _update_stats_display():
 	
 	# Class and level label
 	if class_label:
-		var player_class_name = "Unknown"
-		var level = 1
+		var display_class_name = "Unknown"
+		var display_level = 1
 		if player.active_class:
-			player_class_name = player.active_class.player_class_name
-			level = player.active_class.level
-		class_label.text = "%s Lvl %d" % [player_class_name, level]
+			display_class_name = player.active_class.player_class_name
+			display_level = player.active_class.level
+		class_label.text = "%s Lvl %d" % [display_class_name, display_level]
 	
 	# Health bar
 	if health_bar:

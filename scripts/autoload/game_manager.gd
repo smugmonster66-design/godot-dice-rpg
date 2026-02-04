@@ -21,14 +21,22 @@ const MAP_SCENE = preload("res://scenes/game/map_scene.tscn")
 # ============================================================================
 var player: Player = null
 var current_scene: Node = null
-var game_root: Node = null 
 
-# Scene instances for hide/show pattern
+# Scene instances for hide/show pattern (legacy mode)
 var map_scene_instance: Node2D = null
 var combat_scene_instance: Node2D = null
 
+# GameRoot reference (new layer system)
+var game_root: Node = null
+
 # Combat results to pass to summary
 var last_combat_results: Dictionary = {}
+
+# ============================================================================
+# COMBAT ENCOUNTER SYSTEM
+# ============================================================================
+var pending_encounter: CombatEncounter = null
+var completed_encounters: Array[String] = []
 
 # ============================================================================
 # SIGNALS
@@ -47,7 +55,6 @@ func _ready():
 	var transparent = preload("res://assets/ui/1x1-00000000.png")
 	Input.set_custom_mouse_cursor(transparent, Input.CURSOR_FORBIDDEN)
 	
-	
 	# Wait for scene tree to be ready
 	await get_tree().process_frame
 	
@@ -55,10 +62,20 @@ func _ready():
 	var root = get_tree().root
 	var current = root.get_child(root.get_child_count() - 1)
 	
+	print("🎮 Current scene: %s" % current.name)
+	
+	# Check if running under GameRoot (new layer system)
+	if current.name == "GameRoot":
+		print("🎮 Running under GameRoot - using layer system")
+		# GameRoot will set game_root reference and handle scene management
+		# Just initialize player - GameRoot will receive player_created signal
+		initialize_player()
+		return
+	
+	# Legacy: Direct MapScene as main scene
 	if current.name == "MapScene":
-		print("🎮 Current scene: MapScene")
+		print("🎮 Legacy mode: Direct MapScene")
 		map_scene_instance = current
-		# After getting map_scene_instance
 		print("🎮 MapScene instance scene_file_path: %s" % map_scene_instance.scene_file_path)
 		
 		# Initialize player
@@ -88,7 +105,6 @@ func initialize_player():
 	print("  ✅ Dice pool added to scene tree")
 	
 	# Load warrior class resource
-	
 	player.add_class("Warrior", warrior)
 	player.switch_class("Warrior")
 	
@@ -102,6 +118,7 @@ func initialize_player():
 	else:
 		print("Player created but no active class")
 	
+	# Emit signal so other systems can initialize with player
 	player_created.emit(player)
 
 # ============================================================================
@@ -131,7 +148,7 @@ func load_map_scene():
 	scene_changed.emit(map_scene_instance)
 
 func load_combat_scene():
-	"""Load the combat scene"""
+	"""Load the combat scene (legacy mode)"""
 	print("⚔️ Loading combat scene...")
 	
 	if combat_scene_instance:
@@ -157,66 +174,33 @@ func load_combat_scene():
 	scene_changed.emit(combat_scene_instance)
 
 # ============================================================================
-# SIGNAL HANDLERS
-# ============================================================================
-
-func _on_start_combat():
-	"""Handle start combat from map"""
-	print("🎮 Starting combat...")
-	load_combat_scene()
-
-func _on_combat_ended(results: Dictionary):
-	"""Handle combat ended"""
-	print("🎮 Combat ended")
-	last_combat_results = results
-	
-	# Hide combat scene
-	if combat_scene_instance:
-		combat_scene_instance.hide()
-	
-	# Show map scene
-	if map_scene_instance:
-		map_scene_instance.show()
-		current_scene = map_scene_instance
-		
-		# Show post-combat summary if available
-		if map_scene_instance.has_method("show_post_combat_summary"):
-			map_scene_instance.show_post_combat_summary(results)
-	
-	scene_changed.emit(map_scene_instance)
-
-# Add these to your existing game_manager.gd
-
-# ============================================================================
 # COMBAT ENCOUNTER SYSTEM
 # ============================================================================
 
-## The pending encounter to load when combat scene starts
-var pending_encounter: CombatEncounter = null
-
-## History of completed encounters (for tracking/quests)
-var completed_encounters: Array[String] = []
-
-
-
-
 func start_combat_encounter(encounter: CombatEncounter):
+	"""Start a combat encounter - stores encounter and transitions to combat"""
 	if not encounter:
 		push_error("GameManager: Cannot start null encounter")
 		return
 	
 	print("🎮 GameManager: Starting encounter '%s'" % encounter.encounter_name)
+	
+	# Validate encounter
+	var warnings = encounter.validate()
+	if warnings.size() > 0:
+		print("  ⚠️ Encounter warnings:")
+		for warning in warnings:
+			print("    - %s" % warning)
+	
+	# Store encounter for combat scene to read
 	pending_encounter = encounter
 	
-	# NEW: Use layer system if available
+	# Use GameRoot layer system if available
 	if game_root:
 		game_root.start_combat(encounter)
 	else:
 		# Fallback to old scene switching
 		load_combat_scene()
-
-
-
 
 func start_random_encounter(encounter_pool: Array[CombatEncounter]):
 	"""Start a random encounter from a pool"""
@@ -265,5 +249,36 @@ func on_combat_ended(player_won: bool):
 			player.add_gold(gold)
 	
 	clear_pending_encounter()
+	
+	# Only load map scene if NOT using GameRoot (GameRoot handles layer visibility)
 	if not game_root:
 		load_map_scene()
+
+# ============================================================================
+# SIGNAL HANDLERS
+# ============================================================================
+
+func _on_start_combat():
+	"""Handle start combat from map"""
+	print("🎮 Starting combat...")
+	load_combat_scene()
+
+func _on_combat_ended(results: Dictionary):
+	"""Handle combat ended (legacy signal from combat scene)"""
+	print("🎮 Combat ended")
+	last_combat_results = results
+	
+	# Hide combat scene
+	if combat_scene_instance:
+		combat_scene_instance.hide()
+	
+	# Show map scene
+	if map_scene_instance:
+		map_scene_instance.show()
+		current_scene = map_scene_instance
+		
+		# Show post-combat summary if available
+		if map_scene_instance.has_method("show_post_combat_summary"):
+			map_scene_instance.show_post_combat_summary(results)
+	
+	scene_changed.emit(map_scene_instance)
