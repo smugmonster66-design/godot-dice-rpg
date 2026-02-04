@@ -64,13 +64,14 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxTexture_bpvbv")
 
-[node name="VSeparator" type="VSeparator" parent="MainHBox"]
-custom_minimum_size = Vector2(10, 0)
-layout_mode = 2
-
 [node name="LeftSection" type="VBoxContainer" parent="MainHBox"]
 layout_mode = 2
 alignment = 1
+
+[node name="Label" type="Label" parent="MainHBox/LeftSection"]
+layout_mode = 2
+text = "Classname Lvl X"
+horizontal_alignment = 1
 
 [node name="HealthBar" type="ProgressBar" parent="MainHBox/LeftSection"]
 custom_minimum_size = Vector2(300, 40)
@@ -82,10 +83,6 @@ layout_mode = 2
 
 [node name="ExpBar" type="ProgressBar" parent="MainHBox/LeftSection"]
 custom_minimum_size = Vector2(300, 40)
-layout_mode = 2
-
-[node name="HSeparator" type="HSeparator" parent="MainHBox/LeftSection"]
-custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 
 [node name="DiceSection" type="VBoxContainer" parent="MainHBox/LeftSection"]
@@ -110,10 +107,6 @@ text = "0/10"
 [node name="DiceGrid" parent="MainHBox/LeftSection/DiceSection" instance=ExtResource("1_5ue3t")]
 layout_mode = 2
 columns = 5
-
-[node name="VSeparator2" type="VSeparator" parent="MainHBox"]
-custom_minimum_size = Vector2(10, 0)
-layout_mode = 2
 
 [node name="RightSection" type="VBoxContainer" parent="MainHBox"]
 layout_mode = 2

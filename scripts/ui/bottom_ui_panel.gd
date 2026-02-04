@@ -1,40 +1,39 @@
 # res://scripts/ui/bottom_ui_panel.gd
 # Persistent bottom UI panel - always visible over map and combat
-# Contains portrait section with back/front panels, dice panel, menu and placeholder buttons
-extends Panel
+# Contains portrait, player stats, dice grid, and menu button
+extends PanelContainer
 class_name BottomUIPanel
 
 # ============================================================================
 # SIGNALS
 # ============================================================================
 signal menu_button_pressed
-signal placeholder_button_pressed
 
 # ============================================================================
-# CONSTANTS
+# NODE REFERENCES - Matching actual scene structure
 # ============================================================================
-const PANEL_HEIGHT: int = 342
-const PORTRAIT_SIZE: int = 400
-
-# ============================================================================
-# NODE REFERENCES - Must match scene structure
-# ============================================================================
-# Main sections
-@onready var left_section: Control = $MainHBox/LeftSection
-@onready var portrait_section: Control = $MainHBox/PortraitSection
-@onready var right_section: Control = $MainHBox/RightSection
-
-# Portrait layers (stacked in PortraitContainer)
+# Portrait section
+@onready var portrait_section: VBoxContainer = $MainHBox/PortraitSection
+@onready var portrait_container: Control = $MainHBox/PortraitSection/PortraitVBox/PortraitContainer
 @onready var portrait_back_panel: Panel = $MainHBox/PortraitSection/PortraitVBox/PortraitContainer/BackPanel
 @onready var portrait_texture: TextureRect = $MainHBox/PortraitSection/PortraitVBox/PortraitContainer/PortraitTexture
 @onready var portrait_front_panel: Panel = $MainHBox/PortraitSection/PortraitVBox/PortraitContainer/FrontPanel
 
-# Dice panel (below portrait)
-@onready var dice_panel: Control = $MainHBox/PortraitSection/PortraitVBox/MapDicePanel
+# Left section - stats and dice
+@onready var left_section: VBoxContainer = $MainHBox/LeftSection
+@onready var class_label: Label = $MainHBox/LeftSection/Label
+@onready var health_bar: ProgressBar = $MainHBox/LeftSection/HealthBar
+@onready var mana_bar: ProgressBar = $MainHBox/LeftSection/ManaBar
+@onready var exp_bar: ProgressBar = $MainHBox/LeftSection/ExpBar
 
-# Buttons
+# Dice section
+@onready var dice_section: VBoxContainer = $MainHBox/LeftSection/DiceSection
+@onready var dice_grid: Control = $MainHBox/LeftSection/DiceSection/DiceGrid
+@onready var dice_count_label: Label = $MainHBox/LeftSection/DiceSection/DiceHeader/DiceCountLabel
+
+# Right section - menu button
+@onready var right_section: VBoxContainer = $MainHBox/RightSection
 @onready var menu_button: Button = $MainHBox/RightSection/MenuButton
-@onready var placeholder_button: Button = $MainHBox/LeftSection/PlaceholderButton
 
 # ============================================================================
 # STATE
@@ -49,40 +48,18 @@ var player_menu: Control = null
 func _ready():
 	print("📱 BottomUIPanel ready")
 	
-	# Force anchors to bottom-wide (Panel respects these, PanelContainer doesn't)
-	anchor_left = 0.0
-	anchor_right = 1.0
-	anchor_top = 1.0
-	anchor_bottom = 1.0
-	offset_left = 0
-	offset_right = 0
-	offset_top = -PANEL_HEIGHT
-	offset_bottom = 0
-	
-	# Clip children that overflow
-	clip_contents = true
-	
 	# Connect button signals
 	if menu_button:
 		menu_button.pressed.connect(_on_menu_button_pressed)
 		print("  ✅ Menu button connected")
 	else:
-		print("  ❌ Menu button not found")
+		print("  ❌ Menu button not found at $MainHBox/RightSection/MenuButton")
 	
-	if placeholder_button:
-		placeholder_button.pressed.connect(_on_placeholder_button_pressed)
-		print("  ✅ Placeholder button connected")
+	# Check dice grid exists
+	if dice_grid:
+		print("  ✅ Dice grid found: %s" % dice_grid)
 	else:
-		print("  ❌ Placeholder button not found")
-	
-	# Setup placeholder portrait
-	_setup_placeholder_portrait()
-	
-	# Check dice panel exists
-	if dice_panel:
-		print("  ✅ Dice panel found: %s" % dice_panel)
-	else:
-		print("  ❌ Dice panel NOT found at path")
+		print("  ❌ Dice grid NOT found at $MainHBox/LeftSection/DiceSection/DiceGrid")
 	
 	# NOTE: Don't initialize with player here - GameRoot calls initialize() 
 	# after GameManager.player_created fires
@@ -90,74 +67,119 @@ func _ready():
 func initialize(p_player: Resource):
 	"""Initialize with player reference"""
 	player = p_player
-	print("📱 BottomUIPanel: Initialized with player")
+	print("📱 BottomUIPanel: Initializing with player")
 	print("  player: %s" % player)
-	print("  player.dice_pool: %s" % player.get("dice_pool"))
 	
-	# Initialize dice panel
-	if dice_panel:
-		print("  dice_panel: %s" % dice_panel)
-		if dice_panel.has_method("initialize"):
-			dice_panel.initialize(player)
-			print("  ✅ Dice panel initialized")
+	if not player:
+		print("  ❌ Player is null!")
+		return
+	
+	# Initialize dice grid
+	if dice_grid:
+		print("  dice_grid: %s" % dice_grid)
+		if dice_grid.has_method("initialize"):
+			var dice_collection = player.get("dice_pool")
+			if dice_collection:
+				dice_grid.initialize(dice_collection)
+				print("  ✅ Dice grid initialized with dice_pool")
+				
+				# Connect to dice_changed signal for count updates
+				if dice_collection.has_signal("dice_changed"):
+					if not dice_collection.dice_changed.is_connected(_update_dice_count):
+						dice_collection.dice_changed.connect(_update_dice_count)
+				_update_dice_count()
+			else:
+				print("  ⚠️ Player has no dice_pool")
 		else:
-			print("  ⚠️ Dice panel has no initialize method")
+			print("  ⚠️ Dice grid has no initialize method")
 	else:
-		print("  ❌ No dice_panel found at expected path")
+		print("  ❌ No dice_grid reference")
+	
+	# Update player stats display
+	_update_stats_display()
+	
+	# Connect to player signals for live updates
+	_connect_player_signals()
+	
+	print("📱 BottomUIPanel: Initialization complete")
 
 func set_player_menu(menu: Control):
 	"""Set reference to player menu for toggle"""
 	player_menu = menu
+	print("📱 BottomUIPanel: Player menu reference set")
 
 # ============================================================================
-# PORTRAIT SETUP
+# STATS DISPLAY
 # ============================================================================
 
-func _setup_placeholder_portrait():
-	"""Create a placeholder portrait texture"""
-	if not portrait_texture:
+func _update_stats_display():
+	"""Update all stat displays from player data"""
+	if not player:
 		return
 	
-	# Create placeholder image (gray with simple face indication)
-	var img = Image.create(PORTRAIT_SIZE, PORTRAIT_SIZE, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.25, 0.25, 0.3, 1.0))
+	# Class and level label
+	if class_label:
+		var player_class_name = "Unknown"
+		var level = 1
+		if player.active_class:
+			player_class_name = player.active_class.player_class_name
+			level = player.active_class.level
+		class_label.text = "%s Lvl %d" % [player_class_name, level]
 	
-	# Draw border
-	var border_color = Color(0.4, 0.4, 0.45)
-	for i in range(PORTRAIT_SIZE):
-		for b in range(4):
-			img.set_pixel(i, b, border_color)
-			img.set_pixel(i, PORTRAIT_SIZE - 1 - b, border_color)
-			img.set_pixel(b, i, border_color)
-			img.set_pixel(PORTRAIT_SIZE - 1 - b, i, border_color)
+	# Health bar
+	if health_bar:
+		health_bar.max_value = player.max_hp
+		health_bar.value = player.current_hp
 	
-	# Simple "BONES" text placeholder indicator (just a circle for now)
-	var center = PORTRAIT_SIZE / 2
-	for y in range(PORTRAIT_SIZE):
-		for x in range(PORTRAIT_SIZE):
-			var dist = sqrt(pow(x - center, 2) + pow(y - center, 2))
-			if dist > 120 and dist < 140:
-				img.set_pixel(x, y, Color(0.5, 0.5, 0.55))
+	# Mana bar
+	if mana_bar:
+		mana_bar.max_value = player.max_mana
+		mana_bar.value = player.current_mana
 	
-	var tex = ImageTexture.create_from_image(img)
-	portrait_texture.texture = tex
-	portrait_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# Experience bar
+	if exp_bar and player.active_class:
+		exp_bar.max_value = player.active_class.exp_to_next_level
+		exp_bar.value = player.active_class.current_exp
 
-func set_portrait(texture: Texture2D):
-	"""Set the actual portrait texture"""
-	if portrait_texture:
-		portrait_texture.texture = texture
+func _update_dice_count():
+	"""Update the dice count label"""
+	if not dice_count_label:
+		return
+	
+	if player and player.dice_pool:
+		var current = player.dice_pool.get_pool_count()
+		var max_dice = player.dice_pool.max_dice if player.dice_pool.get("max_dice") else 10
+		dice_count_label.text = "%d/%d" % [current, max_dice]
 
-func set_back_panel_style(style: StyleBox):
-	"""Set the back panel style (behind portrait)"""
-	if portrait_back_panel:
-		portrait_back_panel.add_theme_stylebox_override("panel", style)
+func _connect_player_signals():
+	"""Connect to player signals for live stat updates"""
+	if not player:
+		return
+	
+	if player.has_signal("hp_changed"):
+		if not player.hp_changed.is_connected(_on_hp_changed):
+			player.hp_changed.connect(_on_hp_changed)
+	
+	if player.has_signal("mana_changed"):
+		if not player.mana_changed.is_connected(_on_mana_changed):
+			player.mana_changed.connect(_on_mana_changed)
+	
+	if player.has_signal("class_changed"):
+		if not player.class_changed.is_connected(_on_class_changed):
+			player.class_changed.connect(_on_class_changed)
 
-func set_front_panel_style(style: StyleBox):
-	"""Set the front panel style (frame in front of portrait)"""
-	if portrait_front_panel:
-		portrait_front_panel.add_theme_stylebox_override("panel", style)
+func _on_hp_changed(current: int, maximum: int):
+	if health_bar:
+		health_bar.max_value = maximum
+		health_bar.value = current
+
+func _on_mana_changed(current: int, maximum: int):
+	if mana_bar:
+		mana_bar.max_value = maximum
+		mana_bar.value = current
+
+func _on_class_changed(_new_class):
+	_update_stats_display()
 
 # ============================================================================
 # BUTTON HANDLERS
@@ -186,10 +208,6 @@ func _on_menu_button_pressed():
 	else:
 		print("  ⚠️ No player_menu reference set!")
 
-func _on_placeholder_button_pressed():
-	print("📱 Placeholder button pressed")
-	placeholder_button_pressed.emit()
-
 # ============================================================================
 # COMBAT STATE CALLBACKS
 # ============================================================================
@@ -201,18 +219,40 @@ func on_combat_started():
 
 func on_combat_ended(_player_won: bool):
 	"""Called when combat ends"""
-	# Refresh dice display after combat
-	if dice_panel and dice_panel.has_method("refresh"):
-		dice_panel.refresh()
+	# Refresh displays after combat
+	_update_stats_display()
+	if dice_grid and dice_grid.has_method("refresh"):
+		dice_grid.refresh()
 
 # ============================================================================
 # PUBLIC API
 # ============================================================================
 
 func get_dice_panel() -> Control:
-	return dice_panel
+	"""Return the dice grid for external access"""
+	return dice_grid
 
 func refresh_dice():
-	"""Refresh the dice panel display"""
-	if dice_panel and dice_panel.has_method("refresh"):
-		dice_panel.refresh()
+	"""Refresh the dice grid display"""
+	if dice_grid and dice_grid.has_method("refresh"):
+		dice_grid.refresh()
+	_update_dice_count()
+
+func refresh_stats():
+	"""Refresh the stats display"""
+	_update_stats_display()
+
+func set_portrait(texture: Texture2D):
+	"""Set the portrait texture"""
+	if portrait_texture:
+		portrait_texture.texture = texture
+
+func set_back_panel_style(style: StyleBox):
+	"""Set the back panel style (behind portrait)"""
+	if portrait_back_panel:
+		portrait_back_panel.add_theme_stylebox_override("panel", style)
+
+func set_front_panel_style(style: StyleBox):
+	"""Set the front panel style (frame in front of portrait)"""
+	if portrait_front_panel:
+		portrait_front_panel.add_theme_stylebox_override("panel", style)
