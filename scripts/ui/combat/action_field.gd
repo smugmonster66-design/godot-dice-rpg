@@ -258,7 +258,10 @@ func _create_placed_visual(die: DieResource) -> Control:
 			obj.draggable = false
 			obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			obj.set_display_scale(DIE_SCALE)
-			obj.position = (SLOT_SIZE - obj.base_size * DIE_SCALE) / 2
+			# Center the die in the slot
+			# pivot_offset is at center of die (62, 62), scaling happens around pivot
+			# To center: we want the pivot point to be at center of slot
+			obj.position = SLOT_SIZE / 2 - obj.pivot_offset
 			return obj
 	
 	# Fallback to old DieVisual if available
@@ -403,7 +406,6 @@ func _clear_placed_dice():
 	update_icon_state()
 
 func consume_dice():
-	"""Consume placed dice after action execution"""
 	_clear_placed_dice()
 	update_icon_state()
 

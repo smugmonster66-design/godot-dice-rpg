@@ -44,6 +44,7 @@ var _is_being_dragged: bool = false
 var _was_placed: bool = false
 var _original_position: Vector2 = Vector2.ZERO
 var _original_scale: Vector2 = Vector2.ONE
+var _manual_preview: Control = null  # For drag preview
 
 # ============================================================================
 # INITIALIZATION
@@ -54,6 +55,7 @@ func _ready():
 	custom_minimum_size = base_size
 	size = base_size
 	pivot_offset = base_size / 2
+	set_process(false)  # Only process during drag
 	
 	_discover_nodes()
 	
@@ -452,15 +454,19 @@ func animate_to_position(target_pos: Vector2, duration: float = 0.2) -> Tween:
 # ============================================================================
 
 func create_drag_preview() -> Control:
-	"""Create a visual copy for Godot's drag preview system with preview effects"""
+	"""Create a visual copy for drag preview with preview effects"""
 	var preview = duplicate() as DieObjectBase
 	preview.draggable = false
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.modulate = Color(1.0, 1.0, 1.0, 0.8)
 	
-	# Reset anchors so position works correctly for drag preview
+	# Reset layout for manual positioning
 	preview.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	preview.position = -base_size / 2
+	preview.offset_left = 0
+	preview.offset_top = 0
+	preview.offset_right = base_size.x
+	preview.offset_bottom = base_size.y
+	preview.size = base_size
 	
 	# Show preview effects and apply stored materials
 	_activate_preview_effects(preview)
@@ -524,9 +530,12 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	# Emit signal for parent to know
 	drag_requested.emit(self)
 	
-	# Create and set preview
-	var preview = create_drag_preview()
-	set_drag_preview(preview)
+	# Create manual preview (not using set_drag_preview to avoid can't-drop cursor)
+	_manual_preview = create_drag_preview()
+	_manual_preview.z_index = 100  # Always on top
+	get_tree().root.add_child(_manual_preview)
+	_update_manual_preview_position()
+	set_process(true)
 	
 	# Return drag data
 	return {
@@ -537,6 +546,14 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 		"source_position": global_position,
 		"slot_index": get_index()
 	}
+
+func _process(_delta: float):
+	if _manual_preview and _is_being_dragged:
+		_update_manual_preview_position()
+
+func _update_manual_preview_position():
+	if _manual_preview:
+		_manual_preview.global_position = get_global_mouse_position() - base_size / 2
 
 func _notification(what: int):
 	match what:
@@ -550,6 +567,11 @@ func _notification(what: int):
 			if _is_being_dragged:
 				end_drag_visual(_was_placed)
 				_is_being_dragged = false
+			# Clean up manual preview
+			if _manual_preview:
+				_manual_preview.queue_free()
+				_manual_preview = null
+			set_process(false)
 
 # ============================================================================
 # UTILITY
