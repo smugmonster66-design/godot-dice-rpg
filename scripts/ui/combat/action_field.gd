@@ -201,17 +201,69 @@ func _drop_data(_pos: Vector2, data: Variant):
 		return
 	
 	var die = data.get("die") as DieResource
-	var source_obj = data.get("die_object")
-	var source_visual = data.get("visual")
+	var source_obj = data.get("die_object") as Control
 	var source_pos = data.get("source_position", global_position) as Vector2
 	var source_idx = data.get("slot_index", -1) as int
 	
 	if source_obj and source_obj.has_method("mark_as_placed"):
 		source_obj.mark_as_placed()
-	elif source_visual and source_visual.has_method("mark_as_placed"):
-		source_visual.mark_as_placed()
 	
-	place_die_animated(die, source_pos, source_visual, source_idx)
+	# Use the existing visual if available, otherwise create new
+	if source_obj:
+		_place_existing_die(die, source_obj, source_pos, source_idx)
+	else:
+		place_die_animated(die, source_pos, null, source_idx)
+
+func _place_existing_die(die: DieResource, die_obj: Control, from_pos: Vector2, source_idx: int):
+	"""Reparent existing die visual into slot instead of creating new one"""
+	if placed_dice.size() >= die_slot_panels.size():
+		return
+	
+	placed_dice.append(die)
+	dice_source_info.append({
+		"visual": die_obj,
+		"position": from_pos,
+		"slot_index": source_idx
+	})
+	
+	var slot_idx = placed_dice.size() - 1
+	var slot = die_slot_panels[slot_idx]
+	
+	# Clear any existing children in slot
+	for child in slot.get_children():
+		child.queue_free()
+	
+	# Reparent the existing die object
+	var old_parent = die_obj.get_parent()
+	if old_parent:
+		old_parent.remove_child(die_obj)
+	slot.add_child(die_obj)
+	
+	# Configure for slot display
+	die_obj.visible = true
+	die_obj.draggable = false
+	die_obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	die_obj.custom_minimum_size = Vector2.ZERO
+	
+	# Animate to slot size and position
+	var target_scale = DIE_SCALE
+	var target_pos = SLOT_SIZE / 2 - die_obj.pivot_offset
+	
+	die_obj.scale = Vector2(1.0, 1.0)  # Start at full size
+	die_obj.position = Vector2.ZERO
+	
+	var tw = create_tween().set_parallel(true)
+	tw.tween_property(die_obj, "scale", Vector2(target_scale, target_scale), snap_duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(die_obj, "position", target_pos, snap_duration).set_ease(Tween.EASE_OUT)
+	
+	dice_visuals.append(die_obj)
+	
+	update_icon_state()
+	die_placed.emit(self, die)
+	
+	if is_ready_to_confirm():
+		action_ready.emit(self)
+		action_selected.emit(self)
 
 # ============================================================================
 # DIE PLACEMENT
@@ -234,11 +286,18 @@ func place_die_animated(die: DieResource, from_pos: Vector2, source_visual: Cont
 	for child in slot.get_children():
 		child.queue_free()
 	
-	var visual = _create_placed_visual(die)
+	# _create_placed_visual now handles add_child internally
+	var visual = _create_placed_visual(die, slot)
 	if visual:
-		slot.add_child(visual)
 		dice_visuals.append(visual)
 		_animate_placement(visual, slot, from_pos)
+	
+	update_icon_state()
+	die_placed.emit(self, die)
+	
+	if is_ready_to_confirm():
+		action_ready.emit(self)
+		action_selected.emit(self)
 	
 	update_icon_state()
 	die_placed.emit(self, die)
@@ -250,15 +309,18 @@ func place_die_animated(die: DieResource, from_pos: Vector2, source_visual: Cont
 func place_die(die: DieResource):
 	place_die_animated(die, global_position, null, -1)
 
-func _create_placed_visual(die: DieResource) -> Control:
+func _create_placed_visual(die: DieResource, slot: Panel) -> Control:
 	# Try to use new DieObject system
 	if die.has_method("instantiate_combat_visual"):
 		var obj = die.instantiate_combat_visual()
 		if obj:
 			obj.draggable = false
+			# Add to tree FIRST so _ready() runs
+			slot.add_child(obj)
+			# THEN set properties to override any _ready() settings
 			obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			obj.set_display_scale(DIE_SCALE)  # Also sets _skip_minimum_size
-			# Center the die in the slot
+			obj.custom_minimum_size = Vector2.ZERO
+			obj.set_display_scale(DIE_SCALE)
 			obj.position = SLOT_SIZE / 2 - obj.pivot_offset
 			return obj
 	
@@ -268,6 +330,7 @@ func _create_placed_visual(die: DieResource) -> Control:
 		var visual = die_visual_scene.instantiate()
 		if visual.has_method("set_die"):
 			visual.set_die(die)
+		slot.add_child(visual)
 		visual.can_drag = false
 		visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		visual.scale = Vector2(DIE_SCALE, DIE_SCALE)
@@ -279,6 +342,7 @@ func _create_placed_visual(die: DieResource) -> Control:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(lbl)
 	return lbl
 
 func _animate_placement(visual: Control, _slot: Panel, _from_pos: Vector2):

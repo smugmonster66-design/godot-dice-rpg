@@ -1,15 +1,13 @@
-[gd_scene load_steps=2 format=3 uid="uid://c0d1e0b1ect_base"]
+[gd_scene load_steps=2 format=3 uid="uid://dvrkmsp036gy1"]
 
-[ext_resource type="Script" path="res://scripts/ui/components/dice/die_object_base.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://47wpo2vpt2l0" path="res://scripts/ui/components/dice/die_object_base.gd" id="1_script"]
 
 [node name="DieObjectBase" type="Control"]
-custom_minimum_size = Vector2(124, 124)
 layout_mode = 3
 anchors_preset = 0
 offset_right = 124.0
 offset_bottom = 124.0
 pivot_offset = Vector2(62, 62)
-mouse_filter = 0
 script = ExtResource("1_script")
 
 [node name="FillTexture" type="TextureRect" parent="."]

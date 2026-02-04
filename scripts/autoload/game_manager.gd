@@ -43,6 +43,10 @@ func _ready():
 	randomize()
 	print("🎮 GameManager AutoLoad ready (waiting for scene)")
 	
+	var transparent = preload("res://assets/ui/1x1-00000000.png")
+	Input.set_custom_mouse_cursor(transparent, Input.CURSOR_FORBIDDEN)
+	
+	
 	# Wait for scene tree to be ready
 	await get_tree().process_frame
 	
